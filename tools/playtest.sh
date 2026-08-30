@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Ruckus — start a live playtest: the game server, the client, and the URLs to open.
 #
-#   ./tools/playtest.sh           start both, print the URLs
-#   ./tools/playtest.sh --open    …and open the game on this machine's browser
-#   ./tools/playtest.sh --lan     …and check the phone/LAN path is actually reachable
+#   ./tools/playtest.sh              start both, print the URLs
+#   ./tools/playtest.sh --open       …and open the game on this machine's browser
+#   ./tools/playtest.sh --lan        …and check the phone/LAN path is reachable
+#   ./tools/playtest.sh --bots 3     …and fill a room with bots so you can play alone
+#
+# A match needs two players (MIN_PLAYERS_TO_START), so --bots is what makes solo
+# playtesting possible at all. Bots are ordinary clients — see tools/bots.mjs.
 #
 # Runs in the FOREGROUND. Ctrl-C stops both processes; nothing is left holding a port.
 set -uo pipefail
@@ -15,6 +19,18 @@ bold=$'\e[1m'; dim=$'\e[2m'; grn=$'\e[32m'; ylw=$'\e[33m'; red=$'\e[31m'; cyn=$'
 
 SERVER_PORT="${SERVER_PORT:-3001}"
 CLIENT_PORT="${CLIENT_PORT:-5173}"
+
+# --bots N [ROOM]: how many, and which room to fill.
+BOT_COUNT=0
+BOT_ROOM="${BOT_ROOM:-PLAY}"
+for i in $(seq 1 $#); do
+  if [ "${!i}" = "--bots" ]; then
+    j=$((i + 1)); k=$((i + 2))
+    [ $j -le $# ] && BOT_COUNT="${!j}"
+    [ $k -le $# ] && case "${!k}" in --*) ;; *) BOT_ROOM="${!k}" ;; esac
+  fi
+done
+BOT_ROOM="$(printf '%s' "$BOT_ROOM" | tr '[:lower:]' '[:upper:]')"
 LOG_DIR="$ROOT/.playtest"
 mkdir -p "$LOG_DIR"
 
@@ -95,6 +111,7 @@ cleanup() {
   CLEANED=1
   echo
   echo "${dim}stopping…${off}"
+  [ -n "${BOTS_PID:-}" ] && kill "$BOTS_PID" 2>/dev/null
   [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null
   [ -n "${CLIENT_PID:-}" ] && kill "$CLIENT_PID" 2>/dev/null
   wait 2>/dev/null
@@ -182,6 +199,18 @@ if [ -n "$WIN_LAN_IP" ]; then
   fi
 fi
 
+# ── Bots ─────────────────────────────────────────────────────────────────────
+if [ "$BOT_COUNT" -gt 0 ] 2>/dev/null; then
+  printf "%s" "  starting ${BOT_COUNT} bot(s) in room ${BOT_ROOM}…"
+  node "$ROOT/tools/bots.mjs" --room "$BOT_ROOM" --count "$BOT_COUNT" \
+    --server "ws://localhost:${SERVER_PORT}" >"$LOG_DIR/bots.log" 2>&1 &
+  BOTS_PID=$!
+  sleep 1
+  if kill -0 "$BOTS_PID" 2>/dev/null; then echo " ${grn}in${off}"; else
+    echo " ${red}failed${off}"; sed 's/^/    /' "$LOG_DIR/bots.log" | tail -10
+  fi
+fi
+
 echo
 echo "${bold}Ruckus — playtest${off}"
 echo "${dim}──────────────────────────────────────────────────────────────${off}"
@@ -203,8 +232,16 @@ fi
   echo "     ${dim}Reaches WSL directly, so it needs no forwarding — the easiest remote path.${off}"
 }
 echo "${dim}──────────────────────────────────────────────────────────────${off}"
-echo "  Everyone types the ${bold}same 4-letter room code${off} to land in one lobby."
-echo "  ${dim}Any four letters works; the host (first to join) starts the match.${off}"
+if [ "$BOT_COUNT" -gt 0 ] 2>/dev/null; then
+  echo "  Join room ${bold}${BOT_ROOM}${off} — ${BOT_COUNT} bot(s) are already waiting there."
+  echo "  ${dim}The match starts on its own a few seconds after you join.${off}"
+  echo "  ${dim}(Bots joined first, so a bot is host — host goes by join order.)${off}"
+  echo "  ${dim}Bot log: .playtest/bots.log${off}"
+else
+  echo "  Everyone types the ${bold}same 4-letter room code${off} to land in one lobby."
+  echo "  ${dim}Any four letters works; the host (first to join) starts the match.${off}"
+  echo "  ${dim}Playing alone? A match needs two — add ${bold}--bots 3${off}${dim} to fill the room.${off}"
+fi
 echo "  ${dim}Logs: .playtest/server.log, .playtest/client.log${off}"
 echo "  ${dim}Ctrl-C stops both.${off}"
 echo

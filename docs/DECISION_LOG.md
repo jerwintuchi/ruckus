@@ -565,3 +565,42 @@ than it would have under the last one.
 **Also:** a player now carries **three** identity channels — colour, outline and face —
 so the eight dichromacy-safe colours no longer have to do the job alone. That is the
 limit RD-007 named and could not fix from the palette side.
+
+## RD-022 — Bots, because a match needs two and you are one (2026-08-31)
+
+**Decision.** `tools/bots.mjs` — bot players that connect as ordinary clients, with a
+real strategy per minigame. `tools/playtest.sh --bots N` fills a room so the game can be
+played alone.
+
+**Context.** Asked how to playtest solo, the honest answer was: you cannot.
+`MIN_PLAYERS_TO_START` is 2, so a lone player can join a room and then do nothing at
+all. There were also no bots — every bot written so far had been a throwaway harness
+inside a measurement script, deleted after use, driving a minigame's `tick()` directly
+with no server in sight.
+
+**A bot is just a client.** Same WebSocket, same `input` messages, and it can see only
+what a snapshot carries. No privileged access, no special-case server support, not one
+line of `src/server/` changed. That is the trust boundary (I1/I2) paying off, and it is
+also a useful check in its own right: if a bot can play from the snapshot alone, the
+wire carries enough for a human client to play too.
+
+**Strategies are tested, not admired.** Each is a pure function of what the wire
+carried, so `tools/bots.test.mjs` asserts they do the *right* thing rather than a legal
+one — the scramble bot takes the nearest pickup rather than the first in the list, the
+hot-potato bot flees when it is not holding and chases when it is, the sweepers bot
+ignores an unarmed bar and reads one sweeping the other way, the falling-floor bot stays
+put on solid ground and moves the moment it cracks. 17 tests. `vitest.config.ts` now
+includes `tools/**/*.test.mjs`.
+
+**Evidence they actually play.** A bots-only match ran Falling Floor for **30.3 s**
+against the ~2 s an idle lobby produces (RD-011's measurement), and Scramble for its
+full 45 s with a real 3/2/1/1 spread. Roughly fifteen times better than doing nothing,
+which is the difference between playing and wandering.
+
+**Two things the live runs corrected.** Bots join before you do, so a *bot* ends up host
+and you cannot press Start — host goes by join order. The host bot therefore waits for a
+player that is not one of us, then starts. The first version measured that wait from
+when the bots arrived, so it fired 0.1 s after a human joined and you never saw the
+lobby you had just walked into; it now counts from the human's arrival, and starts 3 s
+later. With no human at all it starts anyway on a longer grace, which is what makes
+bots-only runs possible.

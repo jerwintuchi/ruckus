@@ -10,7 +10,8 @@ and every texture is generated at startup.
 ## Playtest it
 
 ```bash
-pnpm playtest        # or: bash tools/playtest.sh --open --lan
+pnpm playtest:solo   # server + client + 3 bots, so you can play alone
+pnpm playtest        # server + client only, for playing with other people
 ```
 
 Starts the game server and the client together, checks the server is answering and
@@ -23,6 +24,33 @@ From Windows without opening a WSL terminal, run (or make a shortcut to)
 
 Everyone types the **same four letters** as a room code to land in one lobby; the first
 to join is the host and starts the match.
+
+### Playing alone, and bots
+
+A match needs two players, so **solo playtesting needs bots**. `pnpm playtest:solo`
+starts three in room `PLAY`; join it and the match begins a few seconds later.
+
+```bash
+pnpm bots --room ABCD --count 5              # add bots to a room already running
+pnpm bots --room ABCD --count 3 --skill 0.4  # make them worse
+bash tools/playtest.sh --bots 7 PARTY        # a full lobby, in a room you name
+```
+
+A bot is **just a client**: same WebSocket, same `input` messages, and it sees only what
+a snapshot carries — no privileged access and not one line of server code. Each minigame
+gets a real strategy (chase or flee the bomb, hold the rim and time a jump, run at the
+nearest pickup, stand on something solid), and those strategies are unit-tested in
+`tools/bots.test.mjs` rather than judged by watching.
+
+### Testing multiplayer
+
+Cheapest first:
+
+1. **Two browser tabs** on this machine — each tab is a separate player. Enough to test
+   joining, the lobby, and two-player rounds.
+2. **`--bots N`** — the fastest way to fill a lobby and see a round with eight bodies in it.
+3. **A phone and a laptop** — the real test, and the only one that answers "does this read
+   at arm's length". Needs `tools/lan-setup.ps1` once (see above).
 
 **For phones on the WiFi, once:** WSL2 here is behind NAT, so nothing on the network can
 reach a WSL port until Windows forwards it. Run `tools/lan-setup.ps1` from an

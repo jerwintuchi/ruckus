@@ -11,7 +11,9 @@
     "typecheck": "pnpm -r exec tsc --noEmit",
     "check": "python3 tools/context_budget.py --check && python3 tools/kit_check.py --check && python3 tools/spec_status.py --check && python3 tools/status_html.py --check",
     "playtest": "bash tools/playtest.sh",
-    "status": "python3 tools/spec_status.py && python3 tools/status_html.py"
+    "status": "python3 tools/spec_status.py && python3 tools/status_html.py",
+    "bots": "node tools/bots.mjs",
+    "playtest:solo": "bash tools/playtest.sh --bots 3"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
