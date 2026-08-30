@@ -1,0 +1,103 @@
+/**
+ * The wire protocol.
+ *
+ * Both halves are TypeScript and import this file directly, so the protocol is a
+ * shared *type*, not a contract two languages mirror by hand. Validators live here
+ * too: the server must validate every client message (I2), and keeping the validator
+ * beside the type is what stops them drifting apart.
+ */
+import type { ArenaDescriptor, MinigameSnapshot } from "./minigame.ts";
+
+export type MatchState = "LOBBY" | "ROUND_INTRO" | "ROUND_PLAY" | "ROUND_RESULT" | "MATCH_RESULT";
+
+export type ErrCode =
+  | "NO_ROOM" | "ROOM_FULL" | "NOT_HOST" | "TOO_FEW" | "BAD_MSG" | "BAD_CODE";
+
+/* Client to server. */
+
+export type ClientMsg =
+  | { t: "join"; code: string; name: string }
+  | { t: "start" }
+  | { t: "input"; ax: number; ay: number; btn: boolean }
+  | { t: "pong"; id: number };
+
+/* Server to client. */
+
+export interface PlayerView {
+  slot: number;
+  name: string;
+  colour: string;
+  score: number;
+  connected: boolean;
+}
+
+/** Quantized per-tick player state (P3). This is the hot path; keep it small. */
+export interface SnapPlayer {
+  slot: number;
+  x: number; // cm
+  z: number; // cm
+  y: number; // cm
+  a: number; // angle, 0..255
+  alive: boolean;
+}
+
+export type ServerMsg =
+  | { t: "welcome"; slot: number; code: string; host: number }
+  | { t: "room"; players: PlayerView[]; host: number; state: MatchState }
+  | {
+      t: "intro";
+      game: string;
+      displayName: string;
+      rule: string;
+      endsAt: number;
+      round: number;
+      of: number;
+    }
+  | { t: "roundStart"; game: string; arena: ArenaDescriptor; roster: number[]; endsAt: number }
+  | { t: "snap"; seq: number; players: SnapPlayer[]; extra: MinigameSnapshot }
+  | { t: "roundEnd"; scores: Record<number, number>; totals: Record<number, number> }
+  | { t: "matchEnd"; totals: Record<number, number>; winner: number }
+  | { t: "err"; code: ErrCode }
+  | { t: "ping"; id: number };
+
+/* Validation (I2). */
+
+const isObj = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const isStr = (v: unknown): v is string => typeof v === "string";
+
+/** Control characters, which would otherwise reach every other player's screen. */
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
+
+/** Names are shown to everyone in the room, so they are stripped and clamped here. */
+export function sanitizeName(raw: string): string {
+  return raw.replace(CONTROL_CHARS, "").trim().slice(0, 12) || "player";
+}
+
+/**
+ * Parse an untrusted client message.
+ *
+ * Returns null rather than throwing: a malformed message must be *dropped* and the
+ * round must continue (R10). Note that `input` is never rejected for being out of
+ * range — the axis is clamped downstream (I2, vec.clampUnit), because rejecting it
+ * would let a client stall a round that waits on movement.
+ */
+export function parseClientMsg(raw: unknown): ClientMsg | null {
+  if (!isObj(raw) || !isStr(raw.t)) return null;
+  switch (raw.t) {
+    case "join":
+      if (!isStr(raw.code) || !isStr(raw.name)) return null;
+      return { t: "join", code: raw.code.toUpperCase().slice(0, 8), name: sanitizeName(raw.name) };
+    case "start":
+      return { t: "start" };
+    case "input":
+      if (!isNum(raw.ax) || !isNum(raw.ay)) return null;
+      return { t: "input", ax: raw.ax, ay: raw.ay, btn: raw.btn === true };
+    case "pong":
+      if (!isNum(raw.id)) return null;
+      return { t: "pong", id: raw.id };
+    default:
+      return null;
+  }
+}

@@ -1,0 +1,6 @@
+packages:
+  - "src/*"
+
+# vitest bundles esbuild, whose postinstall places the platform binary.
+allowBuilds:
+  esbuild: true

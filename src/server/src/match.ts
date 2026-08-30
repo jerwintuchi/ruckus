@@ -1,0 +1,197 @@
+/**
+ * The match state machine (R4, P1, P2).
+ *
+ * LOBBY -> ROUND_INTRO -> ROUND_PLAY -> ROUND_RESULT -> ... -> MATCH_RESULT -> LOBBY
+ *
+ * P1: no transition is reachable from a client message. `requestStart` sets a flag;
+ * only `update()` reads it. That is the difference between a state machine and a pile
+ * of handlers, and it is what makes the whole thing testable without a socket.
+ *
+ * P2: ROUND_PLAY always leaves within maxDurationMs. The deadline is held HERE, by
+ * the shell, not by the minigame — a minigame that forgets its own timeout, or whose
+ * isOver() never fires because everyone disconnected, still ends (I8).
+ */
+import {
+  INTRO_MS,
+  MIN_PLAYERS_TO_START,
+  RESULT_MS,
+  ROUNDS_PER_MATCH,
+  TICK_DT,
+  type MatchState,
+  type Minigame,
+  type Rng,
+  type InputState,
+  IDLE_INPUT,
+  clampUnit,
+  makeRng,
+  seedFrom,
+  vec,
+} from "@ruckus/shared";
+import type { Room } from "./room.ts";
+import { Bag } from "./select.ts";
+
+export interface MatchEvents {
+  onIntro(game: Minigame<never>, round: number): void;
+  onRoundStart(game: Minigame<never>, state: unknown): void;
+  onSnapshot(extra: unknown): void;
+  onRoundEnd(scores: Record<number, number>): void;
+  onMatchEnd(winner: number): void;
+  onLobby(): void;
+}
+
+export class Match {
+  private phaseEndsAt = 0;
+  private elapsed = 0;
+  private startRequested = false;
+
+  private game: Minigame<never> | null = null;
+  private gameState: unknown = null;
+  private roundElapsed = 0;
+
+  private readonly bag: Bag<Minigame<never>>;
+  private readonly rng: Rng;
+
+  private readonly room: Room;
+  private readonly games: readonly Minigame<never>[];
+  private readonly events: MatchEvents;
+
+  constructor(
+    room: Room,
+    games: readonly Minigame<never>[],
+    events: MatchEvents,
+    seed = 1,
+  ) {
+    this.room = room;
+    this.games = games;
+    this.events = events;
+    this.rng = makeRng(seed);
+    this.bag = new Bag(games, this.rng);
+  }
+
+  get state(): MatchState {
+    return this.room.state;
+  }
+
+  /** P1: a client message can only ever set this flag. */
+  requestStart(slot: number): "ok" | "NOT_HOST" | "TOO_FEW" {
+    if (slot !== this.room.host) return "NOT_HOST";
+    if (this.room.connected.length < MIN_PLAYERS_TO_START) return "TOO_FEW";
+    if (this.room.state !== "LOBBY") return "ok";
+    this.startRequested = true;
+    return "ok";
+  }
+
+  /** One fixed step. Returns true if a snapshot should go out this tick. */
+  update(): boolean {
+    this.elapsed += TICK_DT * 1000;
+
+    switch (this.room.state) {
+      case "LOBBY":
+        if (this.startRequested) {
+          this.startRequested = false;
+          this.room.round = 0;
+          for (const p of this.room.players.values()) p.score = 0;
+          this.beginIntro();
+        }
+        return false;
+
+      case "ROUND_INTRO":
+        if (this.elapsed >= this.phaseEndsAt) this.beginPlay();
+        return false;
+
+      case "ROUND_PLAY":
+        return this.tickPlay();
+
+      case "ROUND_RESULT":
+        if (this.elapsed >= this.phaseEndsAt) {
+          if (this.room.round >= ROUNDS_PER_MATCH) this.beginMatchResult();
+          else this.beginIntro();
+        }
+        return false;
+
+      case "MATCH_RESULT":
+        if (this.elapsed >= this.phaseEndsAt) {
+          this.room.state = "LOBBY";
+          this.events.onLobby();
+        }
+        return false;
+    }
+  }
+
+  private beginIntro(): void {
+    this.room.round += 1;
+    this.game = this.bag.next();
+    this.room.state = "ROUND_INTRO";
+    this.phaseEndsAt = this.elapsed + INTRO_MS;
+    this.events.onIntro(this.game, this.room.round);
+  }
+
+  private beginPlay(): void {
+    const game = this.game!;
+    const players = this.room.connected.map((p) => {
+      p.runtime.alive = true;
+      p.runtime.connected = true;
+      return p.runtime;
+    });
+    const rng = makeRng(seedFrom(this.room.code, this.room.round));
+    this.gameState = game.init({ rng, players });
+    this.roundElapsed = 0;
+    this.room.state = "ROUND_PLAY";
+    // P2: the shell owns the deadline, not the minigame.
+    this.phaseEndsAt = this.elapsed + game.maxDurationMs;
+    this.events.onRoundStart(game, this.gameState);
+  }
+
+  private tickPlay(): boolean {
+    const game = this.game!;
+    const state = this.gameState as never;
+    this.roundElapsed += TICK_DT * 1000;
+
+    const players = this.room.connected.map((p) => p.runtime);
+
+    // R5: a round with nobody in it ends at once and scores nothing.
+    if (players.length === 0) {
+      this.endRound({});
+      return false;
+    }
+
+    const ctx = {
+      dt: TICK_DT,
+      elapsed: this.roundElapsed,
+      rng: makeRng(seedFrom(this.room.code, this.room.round)),
+      players,
+      input: (slot: number): InputState => {
+        const p = this.room.players.get(slot);
+        if (!p || !p.connected) return IDLE_INPUT; // I8
+        // I2: clamp here, at the only door into the simulation.
+        return { axis: clampUnit(vec(p.input.ax, p.input.ay)), btn: p.input.btn };
+      },
+    };
+
+    game.tick(state, ctx);
+
+    if (game.isOver(state, ctx) || this.elapsed >= this.phaseEndsAt) {
+      this.endRound(game.scores(state));
+      return false;
+    }
+    this.events.onSnapshot(game.snapshot(state));
+    return true;
+  }
+
+  private endRound(scores: Record<number, number>): void {
+    for (const [slot, pts] of Object.entries(scores)) {
+      const p = this.room.players.get(Number(slot));
+      if (p) p.score += pts;
+    }
+    this.room.state = "ROUND_RESULT";
+    this.phaseEndsAt = this.elapsed + RESULT_MS;
+    this.events.onRoundEnd(scores);
+  }
+
+  private beginMatchResult(): void {
+    const best = [...this.room.players.values()].sort((a, b) => b.score - a.score)[0];
+    this.room.state = "MATCH_RESULT";
+    this.phaseEndsAt = this.elapsed + RESULT_MS;
+    this.events.onMatchEnd(best?.slot ?? 0);
+  }
+}

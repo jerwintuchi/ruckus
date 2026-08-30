@@ -1,0 +1,19 @@
+{
+  "name": "@ruckus/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch src/main.ts",
+    "start": "node --experimental-strip-types src/main.ts",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ruckus/shared": "workspace:*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13"
+  }
+}

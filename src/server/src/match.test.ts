@@ -1,0 +1,220 @@
+import { describe, expect, it, vi } from "vitest";
+import {
+  INTRO_MS,
+  RESULT_MS,
+  ROUNDS_PER_MATCH,
+  TICK_DT,
+  TICK_HZ,
+  type ArenaDescriptor,
+  type MatchState,
+  type Minigame,
+} from "@ruckus/shared";
+import { Match, type MatchEvents } from "./match.ts";
+import { Room } from "./room.ts";
+
+const arena = (): ArenaDescriptor => ({
+  camera: { eye: [0, 10, 10], look: [0, 0, 0], fov: 45 },
+  solids: [],
+  statics: [],
+  sky: "#000",
+});
+
+/** A minigame that ends after `ticks`, or never if `ticks` is Infinity. */
+const stub = (id: string, ticks: number, maxMs = 2000): Minigame<{ n: number }> => ({
+  id,
+  displayName: id,
+  rule: "Stub.",
+  input: "stick",
+  maxDurationMs: maxMs,
+  init: () => ({ n: 0 }),
+  tick: (s) => {
+    s.n += 1;
+  },
+  isOver: (s) => s.n >= ticks,
+  scores: () => ({ 0: 3, 1: 1 }),
+  snapshot: (s) => ({ n: s.n }),
+  arena,
+});
+
+const events = (): MatchEvents & { log: string[] } => {
+  const log: string[] = [];
+  return {
+    log,
+    onIntro: () => log.push("intro"),
+    onRoundStart: () => log.push("start"),
+    onSnapshot: () => log.push("snap"),
+    onRoundEnd: () => log.push("end"),
+    onMatchEnd: () => log.push("match"),
+    onLobby: () => log.push("lobby"),
+  };
+};
+
+const setup = (games: Minigame<never>[], players = 2) => {
+  const room = new Room("ABCD");
+  for (let i = 0; i < players; i++) room.join(`p${i}`);
+  const ev = events();
+  const match = new Match(room, games, ev, 1);
+  return { room, ev, match };
+};
+
+const pump = (match: Match, ms: number): void => {
+  for (let i = 0; i < Math.round(ms / (TICK_DT * 1000)); i++) match.update();
+};
+
+describe("Match transitions (T8, R4, P1)", () => {
+  it("stays in LOBBY until the host starts", () => {
+    const { room, match } = setup([stub("a", 5) as Minigame<never>]);
+    pump(match, 5000);
+    expect(room.state).toBe("LOBBY");
+  });
+
+  it("no client message causes a transition directly (P1)", () => {
+    const { room, match } = setup([stub("a", 5) as Minigame<never>]);
+    expect(match.requestStart(0)).toBe("ok");
+    // The flag is set, but nothing has moved until update() runs.
+    expect(room.state).toBe("LOBBY");
+    match.update();
+    expect(room.state).toBe("ROUND_INTRO");
+  });
+
+  it("refuses a non-host start, and a start below the minimum", () => {
+    const { match } = setup([stub("a", 5) as Minigame<never>]);
+    expect(match.requestStart(1)).toBe("NOT_HOST");
+
+    const solo = setup([stub("a", 5) as Minigame<never>], 1);
+    expect(solo.match.requestStart(0)).toBe("TOO_FEW");
+  });
+
+  it("walks the full sequence for a whole match", () => {
+    const { room, ev, match } = setup([stub("a", 3) as Minigame<never>]);
+    match.requestStart(0);
+
+    const seen: MatchState[] = [];
+    for (let i = 0; i < TICK_HZ * 200; i++) {
+      match.update();
+      if (seen[seen.length - 1] !== room.state) seen.push(room.state);
+      if (ev.log.includes("lobby")) break;
+    }
+    expect(seen[0]).toBe("ROUND_INTRO");
+    expect(seen).toContain("ROUND_PLAY");
+    expect(seen).toContain("ROUND_RESULT");
+    expect(seen).toContain("MATCH_RESULT");
+    expect(seen[seen.length - 1]).toBe("LOBBY");
+    expect(ev.log.filter((e) => e === "intro")).toHaveLength(ROUNDS_PER_MATCH);
+  });
+
+  it("holds the intro for INTRO_MS before play begins", () => {
+    const { room, match } = setup([stub("a", 999) as Minigame<never>]);
+    match.requestStart(0);
+    match.update();
+    expect(room.state).toBe("ROUND_INTRO");
+    pump(match, INTRO_MS - 100);
+    expect(room.state).toBe("ROUND_INTRO");
+    pump(match, 200);
+    expect(room.state).toBe("ROUND_PLAY");
+  });
+});
+
+describe("Match round termination (T8, R5, P2, I8)", () => {
+  it("stops a round at maxDurationMs even when isOver never fires", () => {
+    const never = stub("never", Number.POSITIVE_INFINITY, 1000) as Minigame<never>;
+    const { room, match } = setup([never]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + 100);
+    expect(room.state).toBe("ROUND_PLAY");
+    pump(match, 1200);
+    expect(room.state).toBe("ROUND_RESULT");
+  });
+
+  it("ends immediately when nobody is connected (R5)", () => {
+    const { room, match } = setup([stub("a", 999, 60_000) as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + 100);
+    expect(room.state).toBe("ROUND_PLAY");
+
+    room.leave(0);
+    room.leave(1);
+    match.update();
+    expect(room.state).toBe("ROUND_RESULT");
+  });
+
+  it("applies round scores to the running totals", () => {
+    const { room, match } = setup([stub("a", 2) as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + 500);
+    expect(room.players.get(0)!.score).toBe(3);
+    expect(room.players.get(1)!.score).toBe(1);
+  });
+
+  it("resets scores when a new match starts", () => {
+    const { room, match } = setup([stub("a", 2) as Minigame<never>]);
+    room.players.get(0)!.score = 99;
+    match.requestStart(0);
+    match.update();
+    expect(room.players.get(0)!.score).toBe(0);
+  });
+});
+
+describe("Match input plumbing (T8, I2, I8)", () => {
+  it("clamps a wild axis at the door into the simulation", () => {
+    const seen: number[] = [];
+    const spy: Minigame<{ n: number }> = {
+      ...stub("spy", 999, 60_000),
+      tick: (s, ctx) => {
+        s.n += 1;
+        const a = ctx.input(0).axis;
+        seen.push(Math.hypot(a.x, a.z));
+      },
+    };
+    const { room, match } = setup([spy as Minigame<never>]);
+    room.players.get(0)!.input = { ax: 900, ay: -900, btn: false };
+    match.requestStart(0);
+    pump(match, INTRO_MS + 300);
+    expect(seen.length).toBeGreaterThan(0);
+    for (const m of seen) expect(m).toBeLessThanOrEqual(1 + 1e-9);
+  });
+
+  it("feeds a disconnected player idle input rather than their last one (I8)", () => {
+    const seen: boolean[] = [];
+    const spy: Minigame<{ n: number }> = {
+      ...stub("spy", 999, 60_000),
+      tick: (s, ctx) => {
+        s.n += 1;
+        const a = ctx.input(1).axis;
+        seen.push(a.x === 0 && a.z === 0);
+      },
+    };
+    const { room, match } = setup([spy as Minigame<never>]);
+    room.players.get(1)!.input = { ax: 1, ay: 0, btn: false };
+    match.requestStart(0);
+    pump(match, INTRO_MS + 100);
+    room.leave(1);
+    seen.length = 0;
+    pump(match, 200);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every(Boolean)).toBe(true);
+  });
+});
+
+describe("Match round selection (T8, T9, R4)", () => {
+  it("plays every registered minigame before repeating one", () => {
+    const games = ["a", "b", "c", "d", "e"].map((id) => stub(id, 2) as Minigame<never>);
+    const played: string[] = [];
+    const room = new Room("ABCD");
+    room.join("p0");
+    room.join("p1");
+    const ev: MatchEvents = {
+      onIntro: (g) => played.push(g.id),
+      onRoundStart: () => {},
+      onSnapshot: () => {},
+      onRoundEnd: () => {},
+      onMatchEnd: () => {},
+      onLobby: () => {},
+    };
+    const match = new Match(room, games, ev, 7);
+    match.requestStart(0);
+    for (let i = 0; i < TICK_HZ * 300 && played.length < ROUNDS_PER_MATCH; i++) match.update();
+    expect(played).toHaveLength(ROUNDS_PER_MATCH);
+    expect(new Set(played).size).toBe(ROUNDS_PER_MATCH);
+  });
+});
