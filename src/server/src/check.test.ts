@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -32,10 +32,30 @@ describe("repo guards (T19)", () => {
     }
   });
 
-  it("all three are green on the tree as committed", () => {
-    for (const tool of ["context_budget.py", "kit_check.py", "spec_status.py"]) {
+  it("the guards that do not depend on generated state are green", () => {
+    // Deliberately NOT spec_status.py. Its --check compares the committed report to a
+    // freshly derived one, so asserting it here couples every test run to whether the
+    // registry happens to have been regenerated yet — which made this suite fail
+    // intermittently the moment a new minigame's source landed. `pnpm check` runs it
+    // as its own step, in CI and before a commit, which is the right place for it.
+    for (const tool of ["context_budget.py", "kit_check.py"]) {
       const r = run(tool, "--check");
       expect(r.code, `${tool}: ${r.out}`).toBe(0);
+    }
+  });
+
+  it("spec_status --check detects staleness, which is the property that matters", () => {
+    // Test the mechanism rather than the tree's current state: derive the report,
+    // corrupt the committed copy, and require the guard to notice.
+    const report = join(ROOT, "docs", "technical", "spec-status.md");
+    const original = readFileSync(report, "utf8");
+    try {
+      writeFileSync(report, `${original}\n<!-- drift -->\n`);
+      const r = run("spec_status.py", "--check");
+      expect(r.code).toBe(1);
+      expect(r.out).toContain("STALE");
+    } finally {
+      writeFileSync(report, original);
     }
   });
 

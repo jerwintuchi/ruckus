@@ -348,14 +348,16 @@ describe("no safe spot, and walls (T6, R2, R5, P3)", () => {
       const dir = dirs[seed % dirs.length]!;
       const players = mkPlayers(1);
       const state = sweepers.init({ rng: makeRng(seed), players });
+      let escaped = 0;
       for (let i = 1; i <= 120; i++) {
         // Keep them alive so the walls, not the bars, are what is under test.
         state.alive.add(0);
         players[0]!.alive = true;
         step(state, players, i * 50, seed, () => ({ axis: dir, btn: i % 20 === 0 }));
-        expect(Math.abs(players[0]!.body.pos.x)).toBeLessThanOrEqual(HALF + 0.01);
-        expect(Math.abs(players[0]!.body.pos.z)).toBeLessThanOrEqual(HALF + 0.01);
+        const { x, z } = players[0]!.body.pos;
+        if (Math.abs(x) > HALF + 0.01 || Math.abs(z) > HALF + 0.01) escaped++;
       }
+      expect(escaped, `seed ${seed} escaped the arena`).toBe(0);
     }
   });
 

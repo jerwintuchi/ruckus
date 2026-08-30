@@ -297,13 +297,17 @@ describe("the walled arena (T7, R5)", () => {
       const dir = dirs[seed % dirs.length]!;
       const players = mkPlayers(1);
       const state = hotPotato.init({ rng: makeRng(seed), players });
+      // Collect and assert once. 200 seeds x 200 ticks x 2 matchers is 80k matcher
+      // invocations, which pushed this test to the 5s timeout under parallel load and
+      // made it fail intermittently — a slow assertion loop reads exactly like a bug.
+      let escaped = 0;
       for (let i = 1; i <= 200; i++) {
         // Mash the button too: the dash is the case most likely to punch through.
         step(state, players, i * 50, () => ({ axis: dir, btn: i % 40 < 2 }));
         const { x, z } = players[0]!.body.pos;
-        expect(Math.abs(x), `seed ${seed} x`).toBeLessThanOrEqual(HALF + 0.01);
-        expect(Math.abs(z), `seed ${seed} z`).toBeLessThanOrEqual(HALF + 0.01);
+        if (Math.abs(x) > HALF + 0.01 || Math.abs(z) > HALF + 0.01) escaped++;
       }
+      expect(escaped, `seed ${seed} escaped the arena`).toBe(0);
     }
   });
 

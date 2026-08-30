@@ -19,6 +19,7 @@ import {
   minThicknessFor,
   stepMovement,
   vec,
+  awardByRank,
 } from "@ruckus/shared";
 
 export const ARENA = 18;
@@ -247,31 +248,18 @@ export const hotPotato: Minigame<HotPotatoState> = {
     return s.alive.size <= 1;
   },
 
-  /** Placement scoring, identical in shape to falling-floor's (RD-006). */
+  /**
+   * Placement scoring, through the shared `awardByRank` (RD-015).
+   *
+   * The key is elimination time — later is better — with survivors taking Infinity so
+   * they rank above everyone who went out. Players eliminated on the same tick share
+   * an elimination time and therefore a rank, which is the tie behaviour the round
+   * wants and which used to be hand-rolled in three places.
+   */
   scores(s: HotPotatoState): Record<number, number> {
-    const survivors = s.roster.filter((slot) => s.alive.has(slot));
-    const fallen = [...s.placement].reverse();
-
-    const groups: number[][] = [];
-    if (survivors.length) groups.push(survivors);
-    for (const slot of fallen) {
-      const at = s.elimAt.get(slot)!;
-      const last = groups[groups.length - 1];
-      const lastAt = last && s.elimAt.has(last[0]!) ? s.elimAt.get(last[0]!) : undefined;
-      if (last && lastAt === at) last.push(slot);
-      else groups.push([slot]);
-    }
-
-    const points = [3, 2, 1];
-    const out: Record<number, number> = {};
-    let rank = 0;
-    for (const group of groups) {
-      const award = points[rank] ?? 0;
-      for (const slot of group) out[slot] = award;
-      rank += group.length;
-    }
-    for (const slot of s.roster) out[slot] ??= 0;
-    return out;
+    return awardByRank(s.roster, (slot) =>
+      s.elimAt.has(slot) ? s.elimAt.get(slot)! : Number.POSITIVE_INFINITY,
+    );
   },
 
   /**

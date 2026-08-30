@@ -18,6 +18,7 @@ import {
   stepMovement,
   vec,
   type Vec2,
+  awardByRank,
 } from "@ruckus/shared";
 
 export const GRID = 11;
@@ -196,45 +197,17 @@ export const fallingFloor: Minigame<FallingFloorState> = {
   },
 
   /**
-   * 3 / 2 / 1 for the last three standing (R3).
+   * Placement scoring, through the shared `awardByRank` (RD-015).
    *
-   * Finish order is: survivors first, then the eliminated by elimination time,
-   * latest first. Players who fell on the same tick are one group and all take the
-   * group's best rank, standard competition ranking — the next group is pushed down
-   * by the size of the tie.
-   *
-   * P4 was originally written as "the total never exceeds 6". Implementing it showed
-   * that is unsatisfiable alongside shared placements: two tied winners already take
-   * 3 + 3, and a third place would push the total to 7. The property that actually
-   * holds, and that the round needs, is the one asserted here and in the spec
-   * (RD-006): no player scores more than 3, and nobody eliminated strictly earlier
-   * outscores someone eliminated later.
+   * The key is elimination time — later is better — with survivors taking Infinity so
+   * they rank above everyone who went out. Players eliminated on the same tick share
+   * an elimination time and therefore a rank, which is the tie behaviour the round
+   * wants and which used to be hand-rolled here.
    */
   scores(s: FallingFloorState): Record<number, number> {
-    const survivors = s.roster.filter((slot) => !s.eliminated.has(slot));
-    const fallen = [...s.placement].reverse(); // latest elimination first
-
-    // Group by finish time; survivors are one group at the front.
-    const groups: number[][] = [];
-    if (survivors.length) groups.push(survivors);
-    for (const slot of fallen) {
-      const at = s.elimAt.get(slot)!;
-      const last = groups[groups.length - 1];
-      const lastAt = last && last.length && s.elimAt.has(last[0]!) ? s.elimAt.get(last[0]!) : undefined;
-      if (last && lastAt === at) last.push(slot);
-      else groups.push([slot]);
-    }
-
-    const points = [3, 2, 1];
-    const out: Record<number, number> = {};
-    let rank = 0;
-    for (const group of groups) {
-      const award = points[rank] ?? 0;
-      for (const slot of group) out[slot] = award;
-      rank += group.length;
-    }
-    for (const slot of s.roster) out[slot] ??= 0;
-    return out;
+    return awardByRank(s.roster, (slot) =>
+      s.elimAt.has(slot) ? s.elimAt.get(slot)! : Number.POSITIVE_INFINITY,
+    );
   },
 
   snapshot(s: FallingFloorState): MinigameSnapshot {

@@ -1,5 +1,6 @@
 export * from "./constants.ts";
 export * from "./colours.ts";
+export * from "./score.ts";
 export * from "./protocol.ts";
 export * from "./minigame.ts";
 export * from "./quant.ts";

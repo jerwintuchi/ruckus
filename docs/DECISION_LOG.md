@@ -336,3 +336,74 @@ players actually experience — how long a round lasts, and whether a skilled bo
 an idle one — and the second measurement is the one that mattered. **A bot that plays
 badly and a bot that plays well should score differently; if they do not, the skill you
 think you designed is not in the game.**
+
+## RD-015 — Round scoring moves to shared, keyed rather than placement-based (2026-08-30)
+
+**Decision.** `awardByRank(roster, keyOf)` lives in `src/shared/src/score.ts`. The three
+knockout minigames pass elimination time (survivors take `Infinity`); Scramble passes
+items collected. One implementation, four callers.
+
+**Context.** The same twenty lines — group tied players, award `[3, 2, 1]` by standard
+competition ranking, default the rest to zero — were copy-pasted into all three shipped
+minigames. Three copies is three chances to get tie semantics subtly different, in the
+one part of a round a player will definitely notice. It survived that long because the
+first three minigames all ranked the *same* quantity; Scramble ranks a different one,
+which is what forced the abstraction to take a key function rather than a placement
+array.
+
+**Consequences.** The refactor is behaviour-preserving — the three existing suites pass
+unchanged, which is the only acceptable outcome for a refactor and was the acceptance
+criterion in the spec.
+
+**One judgement it surfaced.** Competition ranking says five players who all collected
+nothing tie for second and take two points each. That is right for a knockout round
+(everyone has an elimination time) and clearly wrong for an accumulation round. Rather
+than special-casing zero inside the shared helper, the decision sits at the call site:
+Scramble ranks only its scorers and merges zeros for everyone else. The helper stays
+honest about what a tie is; the minigame decides whether it wants one.
+
+## RD-016 — A slow assertion loop reads exactly like a bug (2026-08-30)
+
+**Decision.** Property tests that sweep many seeds collect violations and assert **once**
+at the end, rather than calling `expect()` inside the hot loop.
+
+**Context.** The suite began failing roughly one run in six, always in a wall-collision
+property test, always reported as if a player had escaped the arena. It had not. The
+test made 200 seeds x 200 ticks x 2 matcher calls — 80,000 `expect()` invocations —
+which sat just under the 5 s timeout alone and tipped over it whenever the machine was
+busy running the other test files in parallel. The failure message named a real
+invariant and pointed at real game code, which is the worst possible way for a timeout
+to present itself.
+
+**Consequences.** Three wall-collision properties and, earlier, two RNG properties were
+rewritten to count failures and assert once. The suite has since run eight times
+consecutively clean. The same rewrite also makes a genuine failure *more* informative:
+"seed 43 escaped the arena" beats a stack trace from tick 118 of seed 43.
+
+**Also fixed in the same pass:** `check.test.ts` asserted that `spec_status.py --check`
+was green *at that moment*, which coupled every test run to whether the derived registry
+had been regenerated since the last source change. It failed the instant Scramble's
+files landed. The guard's real property is that it *detects* staleness, so the test now
+corrupts the committed report and requires the tool to notice. `pnpm check` remains the
+place that asserts the tree is actually current.
+
+## RD-017 — `/health` reports the build, because a stale server lies convincingly (2026-08-30)
+
+**Decision.** `/health` returns the registered minigame ids and the process start time,
+not just `{ok: true}`. A bind failure on the port now prints a plain explanation instead
+of an unhandled `EADDRINUSE` stack trace.
+
+**Context.** Scramble's smoke run showed the minigame never appearing across five
+rounds, and a minigame repeating inside what should have been a no-repeat bag. Both
+looked like real bugs in code that had just been written — the shuffled bag, the
+registry — and neither was. A server left running from an earlier smoke run still held
+port 3001, the new one had died on startup, and the test had been talking to the
+previous build all along. `{ok: true}` was perfectly true and completely useless.
+
+**Consequences.** A smoke run can now assert what it is connected to before drawing any
+conclusion, and the one here does exactly that as its first line. The cost was a
+confusing detour through two pieces of correct code; the fix is four lines.
+
+**The general shape of this.** A health check that cannot distinguish two versions of
+the service is not a health check, it is a liveness check. Anything used to decide
+"is my change working" has to report *which* change it is running.
