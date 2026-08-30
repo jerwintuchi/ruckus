@@ -29,10 +29,18 @@ export interface PlayerRuntime {
   facing: number;
 }
 
-/** Primitive descriptors — the closed set the Kit can build (kit-rules.md). */
+/**
+ * Primitive descriptors — the closed set the Kit can build (kit-rules.md).
+ *
+ * `rotY` is an optional rotation about the vertical axis, in radians. It exists
+ * because a rotating bar cannot be an axis-aligned box, and it is deliberately
+ * general: anything that points somewhere — a bar, a bridge, a conveyor, a sign —
+ * wants it. Omitting it leaves a prim unrotated, so nothing that existed before is
+ * affected.
+ */
 export type Prim =
-  | { k: "box"; pos: [number, number, number]; size: [number, number, number]; colour: string }
-  | { k: "cyl"; pos: [number, number, number]; r: number; h: number; colour: string }
+  | { k: "box"; pos: [number, number, number]; size: [number, number, number]; colour: string; rotY?: number }
+  | { k: "cyl"; pos: [number, number, number]; r: number; h: number; colour: string; rotY?: number }
   | { k: "sphere"; pos: [number, number, number]; r: number; colour: string }
   | { k: "plane"; pos: [number, number, number]; size: [number, number]; colour: string };
 

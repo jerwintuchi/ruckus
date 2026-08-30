@@ -218,3 +218,66 @@ describe("Match round selection (T8, T9, R4)", () => {
     expect(new Set(played).size).toBe(ROUNDS_PER_MATCH);
   });
 });
+
+describe("Match round RNG (RD-013)", () => {
+  it("advances one stream across ticks instead of reseeding every tick", () => {
+    // Regression guard. This was `makeRng(seed)` inside the per-tick ctx, so every
+    // tick saw the identical sequence and a minigame drawing during tick() got the
+    // same number forever. Two minigames never noticed because they only drew in
+    // init(); the third one did.
+    const draws: number[] = [];
+    const spy: Minigame<{ n: number }> = {
+      ...stub("rng-spy", 999, 60_000),
+      tick: (s, ctx) => {
+        s.n += 1;
+        draws.push(ctx.rng.next());
+      },
+    };
+    const { match } = setup([spy as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + 500);
+
+    expect(draws.length).toBeGreaterThan(5);
+    expect(new Set(draws).size).toBe(draws.length);
+  });
+
+  it("is still deterministic — the same room and round replay identically", () => {
+    const capture = (): number[] => {
+      const draws: number[] = [];
+      const spy: Minigame<{ n: number }> = {
+        ...stub("rng-spy", 999, 60_000),
+        tick: (s, ctx) => {
+          s.n += 1;
+          draws.push(ctx.rng.next());
+        },
+      };
+      const { match } = setup([spy as Minigame<never>]);
+      match.requestStart(0);
+      pump(match, INTRO_MS + 500);
+      return draws;
+    };
+    expect(capture()).toEqual(capture());
+  });
+
+  it("hands init and tick the same stream, so init's draws are not replayed", () => {
+    const initDraws: number[] = [];
+    const tickDraws: number[] = [];
+    const spy: Minigame<{ n: number }> = {
+      ...stub("rng-spy", 999, 60_000),
+      init: (ctx) => {
+        for (let i = 0; i < 3; i++) initDraws.push(ctx.rng.next());
+        return { n: 0 };
+      },
+      tick: (s, ctx) => {
+        s.n += 1;
+        tickDraws.push(ctx.rng.next());
+      },
+    };
+    const { match } = setup([spy as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + 300);
+
+    expect(initDraws).toHaveLength(3);
+    for (const d of tickDraws) expect(initDraws).not.toContain(d);
+  });
+});

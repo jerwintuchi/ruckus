@@ -47,6 +47,15 @@ export class Match {
   private game: Minigame<never> | null = null;
   private gameState: unknown = null;
   private roundElapsed = 0;
+  /**
+   * The round's RNG, created ONCE at beginPlay and advanced across every tick.
+   *
+   * This used to be `makeRng(seed)` constructed inside the per-tick ctx, which handed
+   * every tick the identical sequence — a minigame drawing during `tick()` got the
+   * same "random" number forever (RD-013). Determinism is unaffected: one seed, one
+   * stream, consumed in order.
+   */
+  private roundRng: Rng | null = null;
 
   private readonly bag: Bag<Minigame<never>>;
   private readonly rng: Rng;
@@ -133,8 +142,8 @@ export class Match {
       p.runtime.connected = true;
       return p.runtime;
     });
-    const rng = makeRng(seedFrom(this.room.code, this.room.round));
-    this.gameState = game.init({ rng, players });
+    this.roundRng = makeRng(seedFrom(this.room.code, this.room.round));
+    this.gameState = game.init({ rng: this.roundRng, players });
     this.roundElapsed = 0;
     this.room.state = "ROUND_PLAY";
     // P2: the shell owns the deadline, not the minigame.
@@ -158,7 +167,7 @@ export class Match {
     const ctx = {
       dt: TICK_DT,
       elapsed: this.roundElapsed,
-      rng: makeRng(seedFrom(this.room.code, this.room.round)),
+      rng: this.roundRng!,
       players,
       input: (slot: number): InputState => {
         const p = this.room.players.get(slot);

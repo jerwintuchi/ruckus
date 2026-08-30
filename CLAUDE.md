@@ -32,11 +32,10 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 Phase: **Growing the minigame roster.**
 
-Two minigames ship: `specs/minigame-falling-floor/` and `specs/minigame-hot-potato/`.
-The plugin contract holds — Hot Potato needed one line in the server registry and
-zero client code.
+Three minigames ship: `falling-floor`, `hot-potato`, `sweepers`. The plugin contract
+holds — the last two each needed one line in the server registry and no client code.
 
-Next: minigame #3, or close `specs/shell/` T16/T18 by setting up a DOM test env.
+Next: minigame #4, or close `specs/shell/` T16/T18 by setting up a DOM test env.
 
 ## Trust Boundary
 

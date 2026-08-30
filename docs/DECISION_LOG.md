@@ -248,3 +248,91 @@ in this table will otherwise file a bug.
 checked against. A design doc parameter written before any code exists is a guess, and
 the honest thing is to let the first measurement correct it rather than quietly
 building minigames that miss a target nobody rechecked.
+
+## RD-012 — The jump arc is measured, not derived (2026-08-30)
+
+**Decision.** Size Sweepers' bars against the arc the integrator actually flies, and
+export `jumpArc()` / `clearanceTicks()` from the minigame that simulate it. A module-
+load assertion refuses a `BAR_HEIGHT` the simulated jump cannot clear with margin.
+
+**Context.** The design computed the jump from the textbook formulas: airtime
+`2v/g` = 0.692 s, peak `v²/2g` = 1.558 m. The game runs semi-implicit Euler at 20 Hz,
+which undershoots badly — the real peak is **1.335 m**, 17% lower, over 12 ticks
+rather than 13.8. Sized against the analytic figure, the design was wrong about its own
+clearance window, and the margin over a 1.1 m bar is 0.235 m rather than the 0.46 m it
+assumed.
+
+**Consequences.** The clearance window is 6 of 12 airborne ticks — half the airtime,
+which is the ratio the minigame wants: jumping is not the skill, jumping *at the right
+moment* is. A bar low enough to be cleared for most of the airtime would make mashing
+the button a winning strategy.
+
+**The general lesson.** Continuous formulas describe a simulation nobody is running.
+Any tuning that depends on an arc, an impulse, a decay or a threshold should be
+measured against the actual integrator at the actual tick rate, and the measurement
+should live in a test so a change to `TICK_HZ`, `GRAVITY` or `JUMP_SPEED` reports what
+it broke.
+
+## RD-013 — `ctx.rng` was reseeded every tick (2026-08-30)
+
+**Decision.** `Match` creates the round's RNG **once** in `beginPlay` and advances that
+one stream through `init` and every `tick`. It previously constructed
+`makeRng(seedFrom(code, round))` inside the per-tick context object.
+
+**Context.** A fresh generator from the same seed on every tick hands every tick the
+**identical sequence**. Any minigame drawing randomness during `tick()` therefore got
+the same "random" number forever. Falling Floor and Hot Potato both draw only in
+`init()`, so it lay dormant through two minigames and a full test suite. Sweepers adds
+a bar mid-round with a seeded speed and direction, and produced five bars with three
+distinct speeds — which is how it surfaced.
+
+**Consequences.** Determinism is unchanged and arguably stronger: one seed, one stream,
+consumed in order, still replays identically — asserted by a new test. `ctx.rng` is now
+actually usable mid-round, which the contract always implied it was. Three regression
+tests guard it, including one that proves `init`'s draws are not replayed to `tick`.
+
+**Worth noting about the process.** The bug was in the shell, found by the third
+minigame, through a test that was checking something else entirely ("bars have
+differing speeds"). It is the second time a minigame has exposed a shell defect that
+two previous minigames walked past (RD-009 was the first). A third implementation of
+the same interface is worth more than a third review of it.
+
+## RD-014 — Sweepers: a slower bar is harder, not easier (2026-08-30)
+
+**Decision.** Final tuning: `BAR_HALF_WIDTH` 0.2, `BAR_HEIGHT` 1.1, speeds 0.5–0.9
+rad/s, one starting bar rising to four, and a 1.5 s arming window before any bar is
+lethal. The governing invariant — `passageSeconds(ω, r) < clearanceSeconds()` at the
+rim — is asserted at module load and in a test.
+
+**Context.** Three rounds of measurement, each correcting the previous one.
+
+1. **First tuning** (0.5–1.25 rad/s, 2 bars): rounds lasted **4 seconds**, and the
+   minimum was 0.1 s — players were spawning *inside* a bar. At the rim the tip moved
+   17.7 m/s against a player's 5.5, so the outer arena could not be outrun at all.
+2. **Slowed to 0.25–0.6**: rounds reached 13 s, but a bot that timed its jumps scored
+   **identically to a bot that did nothing**. The jumps were having no effect. The
+   reason is the invariant above: a bar sweeps past you in
+   `2·(half width + player radius) / (ω·r)` seconds and you can only be above it for
+   the clearance window of a jump. Slowing the bar makes it *linger*, and 8 of 10
+   sampled radius/speed pairs became literally unavoidable. **Slowing a hazard down
+   can make it strictly harder, and that is not obvious from reading the code.**
+3. **Restoring jumpability by lowering the bar to 0.9 m** worked, but left a
+   button-masher airborne 62% of the time instead of 46% — trading away the timing
+   skill the minigame is made of. The fix is a **narrower** bar, not a lower one.
+
+**Consequences.** The arena now has a deliberate gradient instead of one answer: at the
+rim a bar cannot be outrun and must be jumped, and can be; near the pivot it cannot be
+jumped at all, but it is crawling there and stepping aside is easy. Measured round
+length is ~9 s for idle players and **39 s (4p) to 50 s (8p)** for a bot that holds the
+rim and times its jumps — inside the 30–60 s band RD-011 set. Rounds scale with skill.
+
+Arming also removed two unfairnesses found in the same pass: spawning inside a bar, and
+a ramp-added bar materialising on top of someone. An unarmed bar is drawn dimmed, so
+the warning is visual rather than something learned by dying to it.
+
+**The general lesson.** None of this was visible in the code or in a passing test
+suite; all three tunings passed every correctness property. It took measuring the thing
+players actually experience — how long a round lasts, and whether a skilled bot beats
+an idle one — and the second measurement is the one that mattered. **A bot that plays
+badly and a bot that plays well should score differently; if they do not, the skill you
+think you designed is not in the game.**

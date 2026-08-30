@@ -171,11 +171,13 @@ export function buildPrim(p: Prim): Mesh {
     case "box": {
       const m = box(p.colour, ...p.size);
       m.position.set(...p.pos);
+      if (p.rotY) m.rotation.y = p.rotY;
       return m;
     }
     case "cyl": {
       const m = cylinder(p.colour, p.r, p.h);
       m.position.set(...p.pos);
+      if (p.rotY) m.rotation.y = p.rotY;
       return m;
     }
     case "sphere": {

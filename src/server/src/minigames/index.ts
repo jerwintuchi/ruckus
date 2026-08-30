@@ -8,10 +8,12 @@
 import type { Minigame } from "@ruckus/shared";
 import { fallingFloor } from "./falling-floor/index.ts";
 import { hotPotato } from "./hot-potato/index.ts";
+import { sweepers } from "./sweepers/index.ts";
 
 export const MINIGAMES: readonly Minigame<never>[] = [
   fallingFloor as Minigame<never>,
   hotPotato as Minigame<never>,
+  sweepers as Minigame<never>,
 ];
 
 export function byId(id: string): Minigame<never> | undefined {

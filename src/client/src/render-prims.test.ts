@@ -56,3 +56,27 @@ describe("generic prims channel (hot-potato T2, R8)", () => {
     expect(a.material).not.toBe(b.material);
   });
 });
+
+describe("rotY on prims (sweepers T2, R8)", () => {
+  it("rotates a box about the vertical axis", () => {
+    const m = buildPrim({ k: "box", pos: [0, 0, 0], size: [8, 1, 1], colour: "#fff", rotY: 1.2 });
+    expect(m.rotation.y).toBeCloseTo(1.2, 10);
+  });
+
+  it("rotates a cylinder too", () => {
+    const m = buildPrim({ k: "cyl", pos: [0, 0, 0], r: 1, h: 2, colour: "#fff", rotY: -0.4 });
+    expect(m.rotation.y).toBeCloseTo(-0.4, 10);
+  });
+
+  it("leaves a prim without rotY unrotated — nothing that existed before changes", () => {
+    const m = buildPrim({ k: "box", pos: [0, 0, 0], size: [1, 1, 1], colour: "#fff" });
+    expect(m.rotation.y).toBe(0);
+    const s = buildPrim({ k: "sphere", pos: [0, 0, 0], r: 1, colour: "#fff" });
+    expect(s.rotation.y).toBe(0);
+  });
+
+  it("still reuses the cached geometry — rotation lives in the transform", () => {
+    const m = buildPrim({ k: "box", pos: [0, 0, 0], size: [8, 1, 1], colour: "#fff", rotY: 2 });
+    expect(m.geometry).toBe(GEO.box);
+  });
+});

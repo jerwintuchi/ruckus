@@ -38,3 +38,24 @@ export function moveToward(from: Vec2, to: Vec2, maxDelta: number): Vec2 {
   if (l <= maxDelta || l === 0) return { x: to.x, z: to.z };
   return add(from, scale(d, maxDelta / l));
 }
+
+/**
+ * Distance from a point to a line segment.
+ *
+ * The standard primitive for anything that is a line rather than a box — a sweeping
+ * bar, a laser, a rope, a wall that is not axis-aligned. `resolveCircleAabb` cannot
+ * express those, and approximating a segment with a chain of boxes is both uglier and
+ * far more expensive.
+ *
+ * Degenerate segments (a == b) fall out correctly as plain point distance: the clamp
+ * pins `t` to 0 and the projection is never divided by a zero length.
+ */
+export function distPointSegment(p: Vec2, a: Vec2, b: Vec2): number {
+  const abx = b.x - a.x;
+  const abz = b.z - a.z;
+  const lenSq = abx * abx + abz * abz;
+  if (lenSq <= 1e-12) return dist(p, a);
+  let t = ((p.x - a.x) * abx + (p.z - a.z) * abz) / lenSq;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return Math.hypot(p.x - (a.x + abx * t), p.z - (a.z + abz * t));
+}
