@@ -15,7 +15,7 @@ These are disagreements between what a spec says and what the tree contains.
 
 ### `specs/visual-direction/` — 🟡 dormant
 
-- **MISSING** — open tasks name 8 file(s) not in the tree: src/client/src/kit/textures.ts, textures.test.ts, kit-rules.test.ts, face.test.ts
+- **MISSING** — open tasks name 3 file(s) not in the tree: paper.test.ts, src/client/src/kit/paper.ts, character.test.ts
 - **LIKELY-SHIPPED** — 1 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T4
 
 ## All specs
@@ -23,9 +23,9 @@ These are disagreements between what a spec says and what the tree contains.
 | spec | status | done | open | superseded | last touched | flags |
 |---|---|---:|---:|---:|---|---|
 | `shell` | 🟡 dormant | 18 | 1 | 0 | 2026-08-31 | MISSING |
-| `visual-direction` | 🟡 dormant | 5 | 11 | 3 | 2026-08-31 | MISSING, LIKELY-SHIPPED |
+| `visual-direction` | 🟡 dormant | 8 | 8 | 3 | 2026-08-31 | MISSING, LIKELY-SHIPPED |
 | `lobby-flow` | 🟢 active | 11 | 1 | 0 | 2026-08-31 | — |
-| `minigame-falling-floor` | ✅ done | 7 | 0 | 0 | 2026-08-30 | — |
-| `minigame-hot-potato` | ✅ done | 11 | 0 | 0 | 2026-08-30 | — |
-| `minigame-scramble` | ✅ done | 11 | 0 | 0 | 2026-08-30 | — |
-| `minigame-sweepers` | ✅ done | 10 | 0 | 0 | 2026-08-30 | — |
+| `minigame-falling-floor` | ✅ done | 7 | 0 | 0 | 2026-08-31 | — |
+| `minigame-hot-potato` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |
+| `minigame-scramble` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |
+| `minigame-sweepers` | ✅ done | 10 | 0 | 0 | 2026-08-31 | — |

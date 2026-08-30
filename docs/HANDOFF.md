@@ -1,42 +1,39 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `9aa9bf7`, work has happened since this was written: distrust it and read
+> `191940a`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-08-31 01:49 · branch `master` ·
-HEAD `9aa9bf7` — feat(lobby): rooms are created, not conjured · 15 uncommitted file(s)*
+*Written 2026-08-31 02:13 · branch `main` ·
+HEAD `191940a` — docs: de-identify the post-mortem before publishing · 9 uncommitted file(s)*
 
 ## What I was doing
 
-Built visual-direction Phase D (T13-T17): the paper UI kit, screens and a snapshot-driven HUD, in src/client/src/ui/. It subsumed lobby-flow T11, so lobby-flow is 11/12. 378 tests, client builds to 133KB gzipped.
+Built visual-direction Phase A: textures.ts (8 procedural paper generators into DataTextures) and face.ts (8 distinct generated faces), plus kit-rules.test.ts proving the Kit ban still bites with textures in play. 415 tests.
 
 ## What is half-finished
 
-Nothing broken. visual-direction is 5/16 with 3 superseded — Phases A (textures/faces), B (materials) and C (the slab character) are the 3D work and are untouched. T4 is PARTLY done: PAPER tokens exist and the UI uses them; the arena tokens are deliberately not retargeted yet.
+Nothing broken. visual-direction is 8/16 with 3 superseded: Phase B (outlines + materials, T8-T9) and Phase C (the slab character, T10-T12) are the remaining 3D work. T4's arena half is deliberately still open.
 
 ## The very next action
 
-visual-direction Phase A (T1 texture kit, T2 kit_check regression, T3 face generator) — the published artifact has working JS for two of the three. Then Phases B and C convert the world, and T4's arena half lands with them.
+Phase B (T8 native crisp rendering + the geometry outline strategy, T9 unlit characters and paper materials), then Phase C rebuilds the character as slabs. That is when T4's arena retarget lands too.
 
 ## Gotchas
 
-The UI is now a directory: src/client/src/ui/{kit,screens,hud}.ts. PAPER tokens sit ALONGSIDE the arena tokens on purpose — retargeting the arena now would put a bright paper sky over a dark Lambert-lit world. The HUD must never name a minigame; hud.test.ts greps the whole ui/ directory for every registered id. No box-shadow anywhere may have a blur radius, and kit.test.ts enforces it.
+kit_check scans TEST files too — kit-rules.test.ts assembles the forbidden loader identifier at runtime, because naming it in source makes the test violate the rule it tests. Do NOT exempt tests from the scan to make that convenient. Face eye-spacing is capped at 0.30: at 0.44 the outer brow landed at x=44 on a 40px face and was silently clipped. Textures are LinearFilter (paper is smooth) — the opposite of what the superseded PS1 spec wanted.
 
 ## Uncommitted when this was written
 
 - `ocs/DECISION_LOG.md`
 - `docs/technical/spec-status.md`
 - `docs/technical/status.html`
-- `specs/lobby-flow/tasks.md`
 - `specs/visual-direction/tasks.md`
-- `src/client/src/kit/palette.ts`
-- `src/client/src/main.ts`
-- `src/client/src/ui.ts`
-- `src/client/src/ui.test.ts -> src/client/src/ui/screens.test.ts`
-- `src/client/src/ui/hud.test.ts`
-- `src/client/src/ui/hud.ts`
-- `src/client/src/ui/index.ts`
+- `src/client/src/kit/face.test.ts`
+- `src/client/src/kit/face.ts`
+- `src/client/src/kit/kit-rules.test.ts`
+- `src/client/src/kit/textures.test.ts`
+- `src/client/src/kit/textures.ts`
 
 ---
 

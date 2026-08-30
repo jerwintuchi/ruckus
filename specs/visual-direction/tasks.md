@@ -9,7 +9,7 @@ legible, not tidied away.*
 
 ## Phase A — procedural paper
 
-- [ ] T1 [R1, R2, P2] — The paper texture kit in `src/client/src/kit/textures.ts`:
+- [x] T1 [R1, R2, P2] — The paper texture kit in `src/client/src/kit/textures.ts`:
   `stock`, `crease`, `deckle`, `flat`, `checker`, `stripe`, `dot`, `grid`
   Test: `textures.test.ts` — every generator returns a 64x64 `DataTexture` with
   `LinearFilter` and `RepeatWrapping`; generation is deterministic (byte-identical
@@ -17,12 +17,15 @@ legible, not tidied away.*
   signature; `FIBRE_CONTRAST` keeps `stock()` inside a narrow tonal band, so it reads
   as paper rather than as noise
 
-- [ ] T2 [R1] — Keep the Kit honest with the new capability
-  Test: `kit-rules.test.ts` — `kit_check.py --check` is green with textures in play;
-  a seeded `.png` and a seeded `TextureLoader` are each still rejected; `DataTexture`
-  is not mistaken for a loader
+- [x] T2 [R1] — Keep the Kit honest with the new capability
+  Test: `kit-rules.test.ts` — `kit_check.py --check` is green with textures genuinely
+  exercised; a seeded image file and a seeded loader are each still rejected;
+  `DataTexture` is not mistaken for a loader. The test assembles the forbidden
+  identifier at runtime, because `kit_check` scans the test file too and naming it in
+  source would make the test violate the rule it is testing — the guard stays strict
+  and the test works around it, rather than the reverse.
 
-- [ ] T3 [R8, P3] — The face generator in `src/client/src/kit/face.ts`
+- [x] T3 [R8, P3] — The face generator in `src/client/src/kit/face.ts`
   Test: `face.test.ts` — `faceFor(slot)` is deterministic; the 8 slots produce 8
   pairwise-distinct texel arrays; every parameter stays inside its declared range;
   all linework lands inside the texture bounds for every slot

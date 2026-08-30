@@ -711,3 +711,33 @@ files that actually exist (`kit.test.ts`, `screens.test.ts`) rather than the one
 spec guessed at (`ui-kit.test.ts`, `ui-motion.test.ts`); splitting one small
 stylesheet's tests across two files to match a guess would have been worse than
 correcting the guess.
+
+## RD-026 — Procedural paper, and a guard that had to be worked around rather than weakened (2026-08-31)
+
+**Decision.** `specs/visual-direction/` Phase A: `textures.ts` generates every surface
+into a `DataTexture`, and `face.ts` generates eight distinct faces from a slot seed.
+No file, no loader, `kit_check.py` still green.
+
+**Context.** This is the phase that had to make good on RD-021's claim — that paper is a
+kinder subject for procedural generation than the PS1 direction would have been. It
+held. A whole texture set is eight small functions, and the two that carry the look
+(`stock` for fibre, `deckle` for a torn edge) are the two that would have been most
+tedious to author and manage as files.
+
+**A bug the tests caught that review would not have.** Eye spacing ranged up to 0.44 of
+the face width, which put the outer brow at x=44 on a 40 px face. It was silently
+clipped, so wide-set faces came out with their eyebrows sliced off — invisible in code,
+and easy to miss on a 40 px texture. The range is now capped at 0.30 with the brow
+overhang removed, and a test asserts a clear margin on all four edges for every slot.
+
+**The guard flagged its own test, and that was correct.** `kit-rules.test.ts` writes a
+probe file containing a loader call to prove the ban still bites — but `kit_check.py`
+scans every `.ts` file, including that one, so naming the forbidden identifier in source
+made the test violate the rule it was testing. Two ways out: exempt test files from the
+loader scan, or assemble the string at runtime. **Exempting was the wrong trade** — it
+would have carved a permanent hole in the guard to make one test convenient. The test
+now builds the identifier from parts, and the guard stays maximally strict.
+
+**Still deliberately open:** T4's arena half. The `PAPER` tokens exist and the interface
+uses them, but the world's ground stays dark until Phases B and C convert it —
+retargeting now would put a bright paper sky over a Lambert-lit dungeon.
