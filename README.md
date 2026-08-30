@@ -7,17 +7,35 @@ Low-poly 3D with a **fixed camera**, an authoritative Node server, a TypeScript 
 Three.js client, and **no asset files at all**: every mesh is a primitive built in
 code.
 
-## Run it
+## Playtest it
 
 ```bash
-pnpm install
-pnpm dev:server      # ws://localhost:3001
-pnpm dev:client      # http://localhost:5173  (also on your LAN, for phones)
+pnpm playtest        # or: bash tools/playtest.sh --open --lan
 ```
 
-Open the client, enter any four letters as a room code, and share the URL — the
-code is in the query string. Open it on your phone on the same network; that is the
-target platform, not the laptop it was written on.
+Starts the game server and the client together, checks the server is answering and
+reports **which minigames it is serving**, then prints every URL that will reach it —
+this machine, other Windows apps, phones on the WiFi, and Tailscale. Ctrl-C stops both
+and releases the ports.
+
+From Windows without opening a WSL terminal, run (or make a shortcut to)
+`tools\playtest.bat`.
+
+Everyone types the **same four letters** as a room code to land in one lobby; the first
+to join is the host and starts the match.
+
+**For phones on the WiFi, once:** WSL2 here is behind NAT, so nothing on the network can
+reach a WSL port until Windows forwards it. Run `tools/lan-setup.ps1` from an
+**Administrator** PowerShell — it forwards **both** ports (the page is on 5173, but the
+client then dials `ws://<same host>:3001`, and forwarding only the first gives you a
+lobby that can never connect). Re-run it after a WSL restart, when the WSL IP changes.
+
+### Or run the halves yourself
+
+```bash
+pnpm dev:server      # ws://localhost:3001
+pnpm dev:client      # http://localhost:5173
+```
 
 ```bash
 pnpm test        # 143 tests

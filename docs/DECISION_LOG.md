@@ -407,3 +407,35 @@ confusing detour through two pieces of correct code; the fix is four lines.
 **The general shape of this.** A health check that cannot distinguish two versions of
 the service is not a health check, it is a liveness check. Anything used to decide
 "is my change working" has to report *which* change it is running.
+
+## RD-018 — A playtest script, and watching the service rather than the process (2026-08-30)
+
+**Decision.** `tools/playtest.sh` starts both halves, verifies the server is answering,
+reports which minigames it is serving, prints every URL that reaches it, and cleans up
+on Ctrl-C. `tools/playtest.bat` launches it from Windows; `tools/lan-setup.ps1` does the
+one-time port forwarding phones need.
+
+**Context.** Playtesting Ruckus means two processes and a browser on a phone, which is a
+different problem from the previous project's one server plus a desktop client. Three
+things were worth encoding rather than remembering:
+
+- **Both ports must reach the device.** The page loads from 5173, but the client then
+  dials `ws://<the host you loaded from>:3001`. Forwarding only the page's port gives a
+  lobby screen that can never connect — which reads as a broken game, not a missing
+  firewall rule.
+- **WSL2 here is behind NAT and this is Windows 10.** `networkingMode=mirrored` would
+  make the whole problem disappear, but it is Windows 11 only (this machine is build
+  19045), so a `netsh portproxy` plus a firewall rule is the answer. The WSL IP is
+  reassigned on every WSL restart, so the setup script deletes stale rules before adding
+  new ones — a rule pointing at yesterday's WSL IP fails silently, which is worse than
+  no rule at all.
+- **Tailscale reaches WSL directly**, needing no forwarding, so the script prints that
+  address too — the easiest path for anyone not in the room.
+
+**Consequences, and the bug this found in itself.** The first version watched the child
+PIDs to detect a crash. `pnpm dev:server` is a wrapper around node, and the wrapper stays
+alive after the server underneath it dies — so the script sat printing a friendly URL
+block while nothing was listening on 3001. During a playtest that reads as "the game is
+broken", not "the server crashed". It now polls `/health` and reports the log. Same
+lesson as RD-017 from the other direction: ask the service what it is doing rather than
+inferring it from a process table.

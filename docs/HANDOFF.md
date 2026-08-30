@@ -1,42 +1,37 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `286c692`, work has happened since this was written: distrust it and read
+> `e8bf4b9`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-08-30 20:59 · branch `master` ·
-HEAD `286c692` — feat(sweepers): minigame #3, and the shell bug two minigames walked past · 16 uncommitted file(s)*
+*Written 2026-08-30 23:49 · branch `master` ·
+HEAD `e8bf4b9` — feat(scramble): minigame #4, the first round nobody loses · 7 uncommitted file(s)*
 
 ## What I was doing
 
-Built minigame #4, Scramble (specs/minigame-scramble, 11/11) - the first NON-elimination round: fixed 45s clock, nobody knocked out, scored by pickups collected. That difference forced the shared scoring helper to take a key function rather than a placement array. 279 tests green, all four minigames rotating over the wire.
+Added the live playtest tooling: tools/playtest.sh (starts both servers, verifies /health and reports which minigames are served, prints every reachable URL, cleans up), tools/playtest.bat (Windows launcher), tools/lan-setup.ps1 (one-time port forwarding for phones). 279 tests still green.
 
 ## What is half-finished
 
-Nothing from scramble. Still open from the start: specs/shell T16 (render.ts) and T18 (ui.ts) are implemented and working but untested, needing a browser/DOM test env. The registry flags them MISSING, correctly.
+Nothing. Still open from the start: specs/shell T16 (render.ts) and T18 (ui.ts) are implemented and working but untested, needing a browser/DOM test env.
 
 ## The very next action
 
-Minigame #5 is now genuinely cheap (server-only, one registry line), or close T16/T18 with jsdom. All five of the originally-planned minigames now ship except a co-op round - 'Hold the Line' would be the first shared-score round and would test the scoring helper again.
+Playtest it with real people - every tuning figure in the DECISION_LOG so far comes from bots. Then minigame #5 (a co-op round, Hold the Line) or close T16/T18.
 
 ## Gotchas
 
-RD-016: never call expect() inside a many-seed property loop - 80k matcher calls hit the 5s timeout under parallel load and the failure READS LIKE A REAL BUG (it claimed players escaped the arena). Collect violations, assert once. RD-017: check /health before trusting any smoke run; a stale server on port 3001 answered ok and served the previous build for a whole confusing debugging detour. RD-015: awardByRank ranks only who you pass it - Scramble filters to actual scorers because competition ranking would otherwise tie five non-collectors for second.
+RD-018: pnpm dev:server and dev:client are WRAPPERS - the wrapper stays alive when node dies (so watch /health, not the PID) and killing the wrapper leaves vite holding 5173 (so cleanup reclaims ports by PID from ss). For phones: run tools/lan-setup.ps1 as Administrator ONCE, and again after any WSL restart because the WSL IP is reassigned. BOTH 5173 and 3001 must be forwarded - the page is on 5173 but the client dials ws://<same-host>:3001, and forwarding only one gives a lobby that never connects.
 
 ## Uncommitted when this was written
 
-- `LAUDE.md`
+- `gitignore`
+- `README.md`
 - `docs/DECISION_LOG.md`
-- `docs/technical/spec-status.md`
-- `src/server/src/check.test.ts`
-- `src/server/src/main.ts`
-- `src/server/src/minigames/falling-floor/index.ts`
-- `src/server/src/minigames/hot-potato/hot-potato.test.ts`
-- `src/server/src/minigames/hot-potato/index.ts`
-- `src/server/src/minigames/index.ts`
-- `src/server/src/minigames/sweepers/index.ts`
-- `src/server/src/minigames/sweepers/sweepers.test.ts`
-- `src/shared/src/index.ts`
+- `package.json`
+- `tools/lan-setup.ps1`
+- `tools/playtest.bat`
+- `tools/playtest.sh`
 
 ---
 
