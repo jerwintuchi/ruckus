@@ -1,38 +1,42 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `7c6215e`, work has happened since this was written: distrust it and read
+> `89d986d`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-08-31 00:50 · branch `master` ·
-HEAD `7c6215e` — docs(visual-direction): paper, not PS1 — and an honest basis for the asset rule · 8 uncommitted file(s)*
+*Written 2026-08-31 00:57 · branch `master` ·
+HEAD `89d986d` — feat(tools): bots, because a match needs two players and you are one · 12 uncommitted file(s)*
 
 ## What I was doing
 
-Built bot players (tools/bots.mjs) with a real strategy per minigame, wired --bots N into playtest.sh, and added 17 strategy tests. Solo playtesting now works: pnpm playtest:solo. 296 tests green.
+Fixed a real gap found in playtest: the lobby never displayed the room code (RD-023). Added the code display, a copy-invite-link button with an insecure-context fallback, and a wait-note naming the host. Wrote ui.test.ts (14 tests) which finally lets shell T18 be ticked honestly — 18/19.
 
 ## What is half-finished
 
-Nothing. specs/visual-direction is still 0/16 (spec and reference only); specs/shell T16/T18 remain open and still need a DOM test env.
+Nothing. shell T16 (render.ts) is the last open shell task and genuinely needs WebGL. specs/visual-direction is still 0/16.
 
 ## The very next action
 
-Actually play it — pnpm playtest:solo, join room PLAY. Every tuning number in the log so far came from bots driving tick() offline; this is the first time the game can be played by a person. Then Phase A of specs/visual-direction.
+Play it: pnpm playtest:solo, join room PLAY. Then either shell T16 or Phase A of specs/visual-direction.
 
 ## Gotchas
 
-Bots join BEFORE you, so a bot is host and you cannot press Start — host goes by join order. The host bot waits for a non-bot name then starts 3s later; bots-only rooms start on a 12s grace. A bot is an ordinary client with no server support, and it only sees what a snapshot carries — if you add a minigame and its bot cannot play it, the snapshot is probably missing something a human client would need too. vitest.config.ts now includes tools/**/*.test.mjs.
+RD-023's lesson: every UI test here asserted STATE (is host, is button enabled) and none asserted what is RENDERED, which is why an empty lobby went unnoticed through four minigames. navigator.clipboard needs a secure context and a phone on a LAN over http is not one — the fallback path is the one that usually runs, so do not delete it. The DOM stub in ui.test.ts was enough; jsdom was never needed, which is why T18 sat open for days for no reason.
 
 ## Uncommitted when this was written
 
-- `EADME.md`
-- `docs/DECISION_LOG.md`
+- `ocs/DECISION_LOG.md`
+- `docs/technical/spec-status.md`
 - `docs/technical/status.html`
-- `package.json`
+- `specs/shell/tasks.md`
+- `src/client/src/main.ts`
+- `src/client/src/ui.ts`
 - `tools/playtest.sh`
-- `vitest.config.ts`
-- `tools/bots.mjs`
-- `tools/bots.test.mjs`
+- `src/client/src/ui.test.ts`
+- `"tools/playtest - Shortcut (2).lnk"`
+- `"tools/playtest - Shortcut (3).lnk"`
+- `"tools/playtest - Shortcut (4).lnk"`
+- `"tools/playtest - Shortcut.lnk"`
 
 ---
 

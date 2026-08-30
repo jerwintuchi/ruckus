@@ -17,6 +17,8 @@ export class Ui {
   private readonly lobby: HTMLElement;
   private readonly banner: HTMLElement;
   private readonly scoreboard: HTMLElement;
+  /** The room code, kept so the lobby can show it and the copy button can share it. */
+  private code = "";
 
   constructor(container: HTMLElement, private readonly handlers: UiHandlers) {
     this.root = container;
@@ -32,6 +34,38 @@ export class Ui {
       if (code.length === 4) this.handlers.onJoin(code, name);
     });
     this.q("#startBtn").addEventListener("click", () => this.handlers.onStart());
+
+    // The invite flow is "send them this link", so make that one tap rather than a
+    // trip to the address bar.
+    this.q("#shareBtn").addEventListener("click", () => void this.share());
+  }
+
+  /** Told by main.ts once the server confirms which room we actually landed in. */
+  setCode(code: string): void {
+    this.code = code;
+    this.q("#roomCode").textContent = code;
+  }
+
+  private async share(): Promise<void> {
+    const btn = this.q("#shareBtn");
+    const link = `${location.origin}${location.pathname}?room=${this.code}`;
+    const done = (msg: string): void => {
+      btn.textContent = msg;
+      setTimeout(() => (btn.textContent = "copy invite link"), 1800);
+    };
+    try {
+      await navigator.clipboard.writeText(link);
+      done("copied");
+    } catch {
+      // Clipboard access needs a secure context, which a LAN address over plain http
+      // is not — so on a phone this is the path that actually runs. Select the link
+      // instead so it can be copied by hand rather than failing silently.
+      const box = this.q("#linkBox") as HTMLInputElement;
+      box.style.display = "block";
+      box.value = link;
+      box.select();
+      done("select and copy");
+    }
   }
 
   private q(sel: string): HTMLElement {
@@ -53,9 +87,15 @@ export class Ui {
     this.renderScores(players);
 
     const btn = this.q("#startBtn") as HTMLButtonElement;
-    btn.style.display = mySlot === host ? "block" : "none";
+    const isHost = mySlot === host;
+    btn.style.display = isHost ? "block" : "none";
     btn.disabled = players.filter((p) => p.connected).length < 2;
     btn.textContent = btn.disabled ? "waiting for one more" : "start";
+
+    // Someone has to know why nothing is happening. Without this, a non-host stares at
+    // a lobby with no button and no explanation.
+    const hostName = players.find((p) => p.slot === host)?.name ?? "the host";
+    this.q("#waitNote").textContent = isHost ? "" : `waiting for ${hostName} to start`;
   }
 
   private renderScores(players: PlayerView[]): void {
@@ -134,8 +174,15 @@ const TEMPLATE = `
 </div>
 <div id="lobby" class="overlay" style="display:none">
   <div class="card">
+    <div class="codeblock">
+      <div class="codelabel">room code</div>
+      <div id="roomCode" class="code">----</div>
+      <button id="shareBtn" class="ghost">copy invite link</button>
+      <input id="linkBox" class="linkbox" readonly style="display:none">
+    </div>
     <div id="scoreboard"></div>
     <button id="startBtn">start</button>
+    <div id="waitNote" class="dim"></div>
   </div>
 </div>`;
 
@@ -164,6 +211,15 @@ button:disabled{background:#2c3242;color:${PALETTE.textDim};cursor:default}
 .rule{font-size:19px;color:${PALETTE.text};max-width:80vw}
 .dim{color:${PALETTE.textDim};font-size:14px}
 .err{color:${PALETTE.hazard};font-size:14px;min-height:18px}
+.codeblock{display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:4px 0 12px;border-bottom:1px solid #2c3242;margin-bottom:4px}
+.codelabel{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:${PALETTE.textDim}}
+.code{font-size:44px;font-weight:700;letter-spacing:.22em;line-height:1;
+  font-variant-numeric:tabular-nums;text-indent:.22em;color:${PALETTE.text}}
+button.ghost{background:transparent;border:1px solid #2c3242;color:${PALETTE.textDim};
+  font-size:13px;padding:7px 14px;font-weight:500;min-height:36px}
+button.ghost:hover{color:${PALETTE.text}}
+.linkbox{font-size:12px;width:100%;text-align:center}
 #hud{position:fixed;inset:auto 0 0 0;padding:10px 14px;z-index:5;
   display:flex;justify-content:space-between;color:${PALETTE.textDim};font-size:13px}
 `;

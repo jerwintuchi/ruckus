@@ -11,19 +11,19 @@ These are disagreements between what a spec says and what the tree contains.
 
 ### `specs/visual-direction/` — 🟢 active
 
-- **MISSING** — open tasks name 14 file(s) not in the tree: src/client/src/kit/textures.ts, textures.test.ts, kit-rules.test.ts, face.test.ts
+- **MISSING** — open tasks name 13 file(s) not in the tree: src/client/src/kit/textures.ts, textures.test.ts, kit-rules.test.ts, face.test.ts
 - **LIKELY-SHIPPED** — 1 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T4
 
 ### `specs/shell/` — 🟡 dormant
 
-- **MISSING** — open tasks name 2 file(s) not in the tree: render.test.ts, ui.test.ts
+- **MISSING** — open tasks name 1 file(s) not in the tree: render.test.ts
 
 ## All specs
 
 | spec | status | done | open | superseded | last touched | flags |
 |---|---|---:|---:|---:|---|---|
 | `visual-direction` | 🟢 active | 0 | 16 | 3 | 2026-08-31 | MISSING, LIKELY-SHIPPED |
-| `shell` | 🟡 dormant | 17 | 2 | 0 | 2026-08-30 | MISSING |
+| `shell` | 🟡 dormant | 18 | 1 | 0 | 2026-08-31 | MISSING |
 | `minigame-falling-floor` | ✅ done | 7 | 0 | 0 | 2026-08-30 | — |
 | `minigame-hot-potato` | ✅ done | 11 | 0 | 0 | 2026-08-30 | — |
 | `minigame-scramble` | ✅ done | 11 | 0 | 0 | 2026-08-30 | — |

@@ -604,3 +604,32 @@ when the bots arrived, so it fired 0.1 s after a human joined and you never saw 
 lobby you had just walked into; it now counts from the human's arrival, and starts 3 s
 later. With no human at all it starts anyway on a longer grace, which is what makes
 bots-only runs possible.
+
+## RD-023 — The room code was never on screen (2026-08-31)
+
+**Decision.** The lobby shows the room code, large, with a copy-invite-link button and
+a selectable fallback. A non-host is told, by name, who they are waiting for.
+
+**Context.** Reported directly after a playtest run: "can't see the room code anywhere."
+That was not confusion — the code genuinely existed in only two places, the join input
+you typed it into and the URL query string. Once you were in the lobby it was **nowhere
+on screen**, which in a party game removes the single piece of information you most need
+to read aloud across a room.
+
+It survived four minigames and a full shell build because every test of the lobby was
+about state (who is host, when is the start button live) and none was about what a
+player can actually *see*. The spec did not ask for it either: shell R1 covers joining,
+and nothing covered the lobby's own display.
+
+**Consequences.** `ui.test.ts` now exists, and with it shell **T18 is honestly ticked**
+— 18 of 19, with only the WebGL-dependent T16 left. The DOM stub it uses turned out to
+be enough; jsdom was never needed, which is why T18 sat open for three days.
+
+**One thing worth keeping.** `navigator.clipboard` requires a secure context, and a
+phone joining a LAN address over plain http is not one — which is precisely the case
+this feature exists for. The copy button therefore falls back to a selectable link box
+rather than failing silently. The path most likely to run is the fallback path.
+
+**The general lesson.** Every UI test in this project asserted *state*, and state tests
+cannot see an empty screen. A test that asks "is this information rendered" is a
+different test from "is this flag set", and the first one is the one a player notices.

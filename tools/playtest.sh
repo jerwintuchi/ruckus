@@ -239,7 +239,8 @@ if [ "$BOT_COUNT" -gt 0 ] 2>/dev/null; then
   echo "  ${dim}Bot log: .playtest/bots.log${off}"
 else
   echo "  Everyone types the ${bold}same 4-letter room code${off} to land in one lobby."
-  echo "  ${dim}Any four letters works; the host (first to join) starts the match.${off}"
+  echo "  ${dim}You invent it — nothing is pre-assigned. Try ${bold}${BOT_ROOM}${off}${dim}; any four letters work.${off}"
+  echo "  ${dim}The lobby shows the code once you are in, so you can read it out.${off}"
   echo "  ${dim}Playing alone? A match needs two — add ${bold}--bots 3${off}${dim} to fill the room.${off}"
 fi
 echo "  ${dim}Logs: .playtest/server.log, .playtest/client.log${off}"
@@ -294,6 +295,12 @@ while :; do
   [ "$server_down" -ge 2 ] || [ "$client_down" -ge 2 ] && break
 done
 
+# A shutdown can reach the children a moment before it reaches this script — a signal
+# delivered to the whole process group, for instance. Give the trap a beat to run
+# before calling a deliberate stop a crash.
+if [ "$STOPPING" != "1" ]; then
+  sleep 1
+fi
 [ "$STOPPING" = "1" ] && exit 0
 
 echo

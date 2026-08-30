@@ -82,11 +82,12 @@ Chain: R# → design → T# → named test → implementation → tick in the sa
   Test: `input.test.ts` — touch vector clamps to the unit disc; keyboard diagonals
   normalize; both produce the identical `InputState` shape
 
-- [ ] T18 — Lobby / intro / result screens in `src/client/src/ui.ts`
+- [x] T18 — Lobby / intro / result screens in `src/client/src/ui.ts`
   Test: `ui.test.ts` — the intro screen renders the minigame `rule` verbatim; the
-  result table orders by score descending with ties stable
-  **OPEN: implementation exists, test does not** — needs a DOM environment (jsdom),
-  same reason as T16.
+  result table orders by score descending; a player name is escaped rather than
+  injected; **the room code is on screen** (RD-023) and the invite link copies, with a
+  selectable fallback for the insecure-context case a phone on a LAN actually hits.
+  A hand-rolled DOM stub turned out to be enough — no jsdom needed after all.
 
 ## Phase D — close
 

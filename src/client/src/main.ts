@@ -56,8 +56,10 @@ function onMessage(msg: ServerMsg): void {
     case "welcome":
       mySlot = msg.slot;
       host = msg.host;
-      // Put the code in the URL so "send them this link" is the whole invite flow.
+      // Put the code in the URL so "send them this link" is the whole invite flow,
+      // and on screen so it can be read aloud across a room.
       history.replaceState(null, "", `?room=${msg.code}`);
+      ui.setCode(msg.code);
       break;
 
     case "room":
