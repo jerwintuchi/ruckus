@@ -73,6 +73,24 @@ a spec changes the report that describes it. Regenerate and include the report *
 the same commit**; `--check` then stays green until the spec is genuinely touched
 again. If CI reports it stale immediately after a commit, this is why.
 
+## The status page is a second view, and it drifts separately
+
+`tools/status_html.py` renders the same derived data — plus the minigame roster, the
+guards and the decision log — as a page a human actually looks at:
+
+```bash
+python3 tools/status_html.py           # write docs/technical/status.html
+python3 tools/status_html.py --check   # exit 1 if the committed page is stale
+```
+
+**Then RE-PUBLISH it.** The file and the published artifact are separate things:
+regenerating the HTML does not update the artifact, and only the Artifact tool can.
+That gap is how the previous project's published registry sat two weeks and fifteen
+specs behind while every `--check` in the repo stayed green. The two views a human is
+most likely to actually look at were the two that nothing guarded.
+
+Artifact URL: <https://claude.ai/code/artifact/a72093c9-3080-4524-9a01-1da111d2a4fb>
+
 ## Before ending a session
 
 ```bash

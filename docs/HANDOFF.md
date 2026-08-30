@@ -1,15 +1,15 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `e8bf4b9`, work has happened since this was written: distrust it and read
+> `a22272b`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-08-30 23:49 · branch `master` ·
-HEAD `e8bf4b9` — feat(scramble): minigame #4, the first round nobody loses · 7 uncommitted file(s)*
+*Written 2026-08-30 23:58 · branch `master` ·
+HEAD `a22272b` — feat(tools): playtest scripts, so the game can be played by actual people · 6 uncommitted file(s)*
 
 ## What I was doing
 
-Added the live playtest tooling: tools/playtest.sh (starts both servers, verifies /health and reports which minigames are served, prints every reachable URL, cleans up), tools/playtest.bat (Windows launcher), tools/lan-setup.ps1 (one-time port forwarding for phones). 279 tests still green.
+Added tools/status_html.py — a generated project status page, published as an artifact, wired into pnpm check so it cannot silently drift. Everything on it is derived: spec state from spec_status --json, the minigame roster parsed from the minigames' own source, decisions from the log, deps from the manifests, test count from the test files.
 
 ## What is half-finished
 
@@ -17,21 +17,20 @@ Nothing. Still open from the start: specs/shell T16 (render.ts) and T18 (ui.ts) 
 
 ## The very next action
 
-Playtest it with real people - every tuning figure in the DECISION_LOG so far comes from bots. Then minigame #5 (a co-op round, Hold the Line) or close T16/T18.
+Playtest with real people (pnpm playtest) - every tuning figure in the log is from bots. Then minigame #5 (co-op, Hold the Line) or close T16/T18.
 
 ## Gotchas
 
-RD-018: pnpm dev:server and dev:client are WRAPPERS - the wrapper stays alive when node dies (so watch /health, not the PID) and killing the wrapper leaves vite holding 5173 (so cleanup reclaims ports by PID from ss). For phones: run tools/lan-setup.ps1 as Administrator ONCE, and again after any WSL restart because the WSL IP is reassigned. BOTH 5173 and 3001 must be forwarded - the page is on 5173 but the client dials ws://<same-host>:3001, and forwarding only one gives a lobby that never connects.
+The status page has TWO views that drift independently: the file and the published artifact. pnpm check guards the file; only the Artifact tool updates the artifact, so REPUBLISH after regenerating (artifact URL is in .claude/rules/spec-workflow.md and README). This is the exact failure that put the previous project's published registry two weeks behind while every check stayed green.
 
 ## Uncommitted when this was written
 
-- `gitignore`
+- `claude/rules/spec-workflow.md`
 - `README.md`
 - `docs/DECISION_LOG.md`
 - `package.json`
-- `tools/lan-setup.ps1`
-- `tools/playtest.bat`
-- `tools/playtest.sh`
+- `docs/technical/status.html`
+- `tools/status_html.py`
 
 ---
 

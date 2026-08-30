@@ -439,3 +439,33 @@ block while nothing was listening on 3001. During a playtest that reads as "the 
 broken", not "the server crashed". It now polls `/health` and reports the log. Same
 lesson as RD-017 from the other direction: ask the service what it is doing rather than
 inferring it from a process table.
+
+## RD-019 — A status page, generated and guarded like everything else (2026-08-30)
+
+**Decision.** `tools/status_html.py` renders `docs/technical/status.html` from derived
+data only — spec state from `spec_status.py --json`, the minigame roster and its rules
+parsed from the minigames' own source, decisions from the append-only log, dependencies
+from the workspace manifests, the test count from the test files. It is published as an
+artifact and `--check`ed by `pnpm check`.
+
+**Context.** The author asked for something to monitor the project with. The obvious
+version is a hand-written overview, which is the thing this repo has spent nineteen
+decisions avoiding: a document that asserts state is a document that is quietly wrong a
+week later (RD-003). So the page asserts nothing. It also parses the minigame roster
+from the minigames themselves rather than a list, so a page claiming a minigame that no
+longer exists is not expressible.
+
+**Consequences.** Two views now drift independently: the file, and the published
+artifact. Regenerating the HTML does not update the artifact — only the Artifact tool
+can. The previous project's published registry sat **two weeks and fifteen specs**
+behind for exactly this reason while every `--check` in the repo stayed green, so the
+generator prints the reminder on every run and the workflow rule says it in the same
+breath as regenerating.
+
+**A small confirmation that the guard works.** Adding the page to `pnpm check` made
+`pnpm check` fail immediately — editing the workflow rule had changed the eager-token
+count the page displays. That is the guard doing its job on its first run.
+
+**On the design.** The page uses the game's own eight player colours — the set chosen by
+search against colour-blindness simulation in RD-007 — rather than an invented palette,
+so the dashboard and the thing it describes read as the same project.

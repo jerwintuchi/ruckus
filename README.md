@@ -81,4 +81,17 @@ The reasoning behind every one of those is in `docs/DECISION_LOG.md` (append-onl
 
 ## Status
 
-`docs/technical/spec-status.md` — generated, never hand-written.
+Both views are generated from the tree, never hand-written:
+
+- **[Status page](https://claude.ai/code/artifact/a72093c9-3080-4524-9a01-1da111d2a4fb)** —
+  guards, minigames, spec progress and every decision, at a glance.
+- `docs/technical/spec-status.md` — the machine-readable registry the page is built from.
+
+```bash
+pnpm status    # regenerate both
+pnpm check     # fail if either has drifted
+```
+
+Regenerating the page does **not** update the published artifact — republish it. That
+gap is how the previous project's published registry sat two weeks behind while every
+check in the repo stayed green.
