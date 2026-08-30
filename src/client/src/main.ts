@@ -3,8 +3,9 @@
  * one render loop. It holds no game state: everything drawn comes from a snapshot
  * (I1, I6), and everything sent is an intention.
  */
-import type { PlayerView, ServerMsg } from "@ruckus/shared";
+import type { PlayerView, Prim, ServerMsg } from "@ruckus/shared";
 import { InputController } from "./input.ts";
+import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
 import { Renderer } from "./render.ts";
 import { Ui, UI_CSS } from "./ui.ts";
@@ -32,6 +33,7 @@ let players: PlayerView[] = [];
 let colours = new Map<number, string>();
 let playing = false;
 let bannerUntil = 0;
+let handler: ClientMinigame | undefined;
 
 const net = new Net(serverUrl(), onMessage);
 const ui = new Ui(overlay, {
@@ -77,19 +79,19 @@ function onMessage(msg: ServerMsg): void {
     case "roundStart":
       renderer.setArena(msg.arena);
       renderer.clearPlayers();
+      renderer.setPrims([]);
+      // Looked up, never branched on: main.ts knows no minigame by name (RD-009).
+      handler = clientMinigame(msg.game);
+      handler?.onRoundStart?.(renderer);
       playing = true;
       ui.hideBanner();
       break;
 
     case "snap": {
-      const extra = msg.extra as
-        | { full?: number[]; grid?: number; tile?: number; changed?: [number, number][] }
-        | undefined;
-      if (extra?.full && extra.grid && extra.tile) {
-        renderer.setTiles(extra.full, extra.grid, extra.tile);
-      } else if (extra?.changed) {
-        for (const [i, state] of extra.changed) renderer.setTile(i, state);
-      }
+      const extra = (msg.extra ?? {}) as Record<string, unknown>;
+      handler?.onSnapshot(renderer, extra);
+      // The generic path every minigame gets for free.
+      renderer.setPrims(extra.prims as Prim[] | undefined);
       break;
     }
 
@@ -135,7 +137,7 @@ function frame(now: number): void {
   if (playing) {
     const lerped = net.buffer.sample(now);
     renderer.syncPlayers(lerped, colours, now / 1000);
-    renderer.shudderTiles(now / 1000);
+    handler?.onFrame?.(renderer, now / 1000);
   }
   renderer.render();
 }

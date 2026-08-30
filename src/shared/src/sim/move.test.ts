@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { makeBody, resolveCircleAabb, stepMovement, type Solid } from "./move.ts";
 import { dist, len, vec } from "./vec.ts";
 import { makeRng } from "./rng.ts";
-import { MAX_SPEED, MIN_SOLID_THICKNESS, PLAYER_RADIUS, TICK_DT, TICK_HZ } from "../constants.ts";
+import {
+  MAX_SPEED,
+  MIN_SOLID_THICKNESS,
+  PLAYER_RADIUS,
+  TICK_DT,
+  TICK_HZ,
+  minThicknessFor,
+} from "../constants.ts";
 
 const flat = () => 0;
 const nowhere = () => null;
@@ -125,6 +132,71 @@ describe("stepMovement (T3, R9)", () => {
       }
       expect(a.pos).toEqual(b.pos);
       expect(a.vel).toEqual(b.vel);
+    }
+  });
+});
+
+describe("stepMovement speedMul (hot-potato T1, R4)", () => {
+  const runFor = (ticks: number, mul: number): number => {
+    const b = makeBody(vec(0, 0));
+    for (let i = 0; i < ticks; i++) {
+      stepMovement(b, { axis: vec(1, 0), jump: false }, TICK_DT, [], flat, 0, mul);
+    }
+    return b.pos.x;
+  };
+
+  it("a multiplier of 1 is identical to omitting the argument", () => {
+    const explicit = makeBody(vec(0, 0));
+    const implicit = makeBody(vec(0, 0));
+    for (let i = 0; i < 50; i++) {
+      stepMovement(explicit, { axis: vec(1, 0), jump: false }, TICK_DT, [], flat, 0, 1);
+      stepMovement(implicit, { axis: vec(1, 0), jump: false }, TICK_DT, [], flat);
+    }
+    expect(explicit.pos).toEqual(implicit.pos);
+    expect(explicit.vel).toEqual(implicit.vel);
+  });
+
+  it("doubles the terminal speed when doubled", () => {
+    const b = makeBody(vec(0, 0));
+    for (let i = 0; i < 200; i++) {
+      stepMovement(b, { axis: vec(1, 0), jump: false }, TICK_DT, [], flat, 0, 2);
+    }
+    expect(len(b.vel)).toBeCloseTo(MAX_SPEED * 2, 4);
+  });
+
+  it("pins the player at zero", () => {
+    const b = makeBody(vec(0, 0));
+    for (let i = 0; i < 60; i++) {
+      stepMovement(b, { axis: vec(1, 0), jump: false }, TICK_DT, [], flat, 0, 0);
+    }
+    expect(b.pos.x).toBeCloseTo(0, 6);
+  });
+
+  it("covers more ground over a fixed window than the base speed", () => {
+    expect(runFor(20, 2.1)).toBeGreaterThan(runFor(20, 1) * 1.5);
+  });
+
+  it("minThicknessFor grows the requirement with the multiplier", () => {
+    // At base speed the global floor is enough; a dash needs a thicker wall, which
+    // is exactly the thing a single global constant would have hidden.
+    expect(minThicknessFor(1)).toBe(MIN_SOLID_THICKNESS);
+    expect(minThicknessFor(2.1)).toBeGreaterThan(MIN_SOLID_THICKNESS);
+    expect(minThicknessFor(2.1)).toBeCloseTo((MAX_SPEED * 2.1) / TICK_HZ, 10);
+  });
+
+  it("still cannot tunnel a wall built to minThicknessFor its multiplier", () => {
+    // A dash is the case most likely to break the guard, so it is the case tested.
+    const MUL = 2.1;
+    const thickness = minThicknessFor(MUL);
+    const wall = box(2, -10, 2 + thickness, 10);
+    const r = makeRng(31);
+    for (let trial = 0; trial < 200; trial++) {
+      const b = makeBody(vec(r.range(-2, 1), r.range(-1, 1)));
+      b.vel = vec(MAX_SPEED * MUL, 0);
+      for (let i = 0; i < 60; i++) {
+        stepMovement(b, { axis: vec(1, 0), jump: false }, TICK_DT, [wall], flat, 0, MUL);
+        expect(b.pos.x).toBeLessThan(2 + thickness + PLAYER_RADIUS + 1e-6);
+      }
     }
   });
 });

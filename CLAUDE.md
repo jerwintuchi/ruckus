@@ -30,12 +30,13 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 <!-- Max 20 lines. Pointer + next actions only. No history. -->
 
-Phase: **Shell + first minigame.**
+Phase: **Growing the minigame roster.**
 
-Active spec: `specs/shell/` — lobby, room codes, match state machine, the minigame
-plugin contract, snapshot transport.
+Two minigames ship: `specs/minigame-falling-floor/` and `specs/minigame-hot-potato/`.
+The plugin contract holds — Hot Potato needed one line in the server registry and
+zero client code.
 
-Next: `specs/minigame-falling-floor/` — the first minigame, proving the contract.
+Next: minigame #3, or close `specs/shell/` T16/T18 by setting up a DOM test env.
 
 ## Trust Boundary
 

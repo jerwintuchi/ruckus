@@ -171,3 +171,80 @@ nothing about whether the game was playable, because "the round terminates" and 
 round is worth playing" are different properties and only the first is cheap to
 assert. The smoke run that caught it takes thirty seconds. Run one before believing a
 minigame is done — the checklist in `.claude/rules/minigame-contract.md` now says so.
+
+## RD-009 — The shell had leaked; a generic prims channel fixes it (2026-08-30)
+
+**Decision.** Add two generalisations to the client: a **generic `prims` channel**
+(any minigame's `snapshot()` may include `prims: Prim[]`, drawn by the renderer with
+no minigame-specific code) and a **client minigame registry**
+(`src/client/src/minigames/index.ts`) mapping id → optional handler. Falling Floor's
+tile decoding moved into that registry; `src/client/src/main.ts` now names no
+minigame at all, and a test asserts it.
+
+**Context.** Found while building minigame #2. `main.ts` decoded Falling Floor's
+`extra.full` / `extra.changed` tile protocol inline — minigame-specific code sitting
+in the shell entrypoint, in direct contradiction of the contract that says adding a
+minigame touches exactly one shell file. With one minigame it was invisible. Hot
+Potato needed a dynamic visual (the bomb) and the lazy path was to add a second
+`if` beside the first, which is how a shell accretes a branch per minigame.
+
+**Consequences.** Hot Potato needed **zero** client code — its bomb is one `Prim` on
+the generic channel. That is the property that makes minigame #3 cheap, and it is the
+main thing building a second minigame was supposed to find out. Falling Floor keeps
+its delta encoding, because 121 tiles as prims every tick would be a hundred times the
+bytes for the same picture; the registry is where a minigame earns that exception,
+rather than the entrypoint.
+
+## RD-010 — Hot Potato's pass lock is one gate, not two (2026-08-30)
+
+**Decision.** Replace P1's symmetric pass lock with a single gate. The design said
+the lock was symmetric — for `PASS_LOCK_MS` the new holder cannot pass, *and* the
+previous holder cannot receive.
+
+**Context.** Implementing it produced a condition that can never be true: the first
+half already blocks **every** pass for the whole window, so the receive-check is only
+ever evaluated at a moment when nobody may receive. The compiler cannot see that, and
+the test suite passed with the dead branch in place. It surfaced only when a property
+test failure sent me back to read the passing logic line by line.
+
+**Consequences.** One gate, and `lastHolder` is gone from the state entirely. Boundary
+ping-pong (A→B, then B→A exactly `PASS_LOCK_MS` later) is allowed and harmless: the
+fuse keeps running underneath, so two players glued together still lose one of
+themselves on schedule.
+
+**Also worth recording:** the property test that led here was itself wrong. It counted
+*explosion reassignments* — the bomb being handed to the nearest survivor — as passes,
+and flagged them as lock violations. Two bugs, one in the spec and one in the test,
+and neither was in the behaviour the test was aimed at. A property test that fails is
+worth reading twice before believing it.
+
+## RD-011 — Round length: the vision doc's number was guessed, the code's is measured (2026-08-30)
+
+**Decision.** Change vision pillar 4's stated round length from "sixty to ninety
+seconds" to "roughly thirty to sixty seconds at a full lobby". The pillar itself —
+rounds are short and losing is cheap — is unchanged; only the number moves, to match
+what the two shipped minigames actually do.
+
+**Context.** Measured directly, with idle players so the numbers are the floor:
+
+| minigame | 2p | 4p | 6p | 8p |
+|---|---|---|---|---|
+| Hot Potato | 9 s | 24 s | 35 s | 43 s |
+| Falling Floor | 2 s | 2 s | 2 s | 2 s |
+
+Hot Potato's duration is fully determined by the fuse ladder when nobody passes
+(9+8+7+6+5+4+4 = 43 s at eight players), so it is *exactly* reproducible — min equals
+max across forty seeds, which is a nice incidental confirmation of the determinism
+property. Neither minigame reaches sixty seconds, and forcing them to would mean
+padding: a longer fuse ladder is dead time, not tension.
+
+Falling Floor's flat 2 s is an artefact of the measurement, not a defect: idle players
+stand still, crack the tile beneath them in 1.1 s and drop 0.5 s later, so the whole
+lobby eliminates itself almost at once. Players who move last far longer, and the ring
+shrink does not even begin until 25 s. Recorded because a future reader finding "2 s"
+in this table will otherwise file a bug.
+
+**Consequences.** The number in `docs/vision.md` is now something a minigame can be
+checked against. A design doc parameter written before any code exists is a guess, and
+the honest thing is to let the first measurement correct it rather than quietly
+building minigames that miss a target nobody rechecked.

@@ -72,6 +72,12 @@ export function resolveCircleAabb(pos: Vec2, radius: number, s: Solid): Vec2 {
  * `groundHeight` returns the standable height under a position, or `null` where
  * there is no ground — which is how Falling Floor eliminates people without the
  * minigame needing its own physics (P3).
+ *
+ * `speedMul` scales the terminal speed for this step. It exists so a minigame can
+ * express a dash, a boost or a slow without reaching into the integrator or keeping
+ * a private copy of it — Hot Potato's dash is the first user. Callers that pass a
+ * multiplier above 1 must check the tunnelling guard against the MULTIPLIED speed,
+ * not the base one; `MIN_SOLID_THICKNESS` is the budget.
  */
 export function stepMovement(
   body: Body,
@@ -80,12 +86,15 @@ export function stepMovement(
   solids: readonly Solid[],
   groundHeight: (p: Vec2) => number | null,
   jumpSpeed = 0,
+  speedMul = 1,
 ): void {
   const axis = clampUnit(input.axis); // I2: clamp, never reject
-  const wish = scale(axis, MAX_SPEED);
+  const wish = scale(axis, MAX_SPEED * speedMul);
 
   // Accelerate toward the wish velocity; friction only when there is no input.
-  const rate = len(axis) > 0.001 ? ACCEL : FRICTION;
+  // Acceleration scales with the multiplier too, or a dash would take longer to reach
+  // its own top speed than the dash lasts.
+  const rate = (len(axis) > 0.001 ? ACCEL : FRICTION) * Math.max(1, speedMul);
   body.vel = moveToward(body.vel, wish, rate * dt);
 
   body.pos = add(body.pos, scale(body.vel, dt));

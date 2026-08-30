@@ -30,11 +30,26 @@ export const GRAVITY = 26.0;
 export const JUMP_SPEED = 9.0;
 
 /**
- * The thinnest solid any arena may use. P7: a body at MAX_SPEED covers
- * MAX_SPEED/TICK_HZ = 0.4 m in one tick, which must stay under this or a swept body
- * could tunnel. Asserted in move.test.ts so a future arena cannot silently break it.
+ * The thinnest solid an arena may use **at base speed**. A body at MAX_SPEED covers
+ * MAX_SPEED/TICK_HZ in one tick, which must stay under this or collision resolution
+ * can be stepped straight over. Asserted in move.test.ts.
  */
 export const MIN_SOLID_THICKNESS = 0.5;
+
+/**
+ * The thinnest solid that is safe for a given speed multiplier.
+ *
+ * A minigame that boosts a player (Hot Potato's dash) makes its own arena unsafe at
+ * the global minimum: at `speedMul` 2.1 a dashing body covers 0.58 m per tick, over
+ * the 0.5 m floor, and can cross a minimum-thickness wall between two resolutions.
+ * The guard therefore belongs to the minigame that changes the speed, not to a single
+ * global number that the next boost would silently invalidate.
+ *
+ * Every minigame with a `speedMul` above 1 must assert its walls clear this.
+ */
+export function minThicknessFor(speedMul: number): number {
+  return Math.max(MIN_SOLID_THICKNESS, (MAX_SPEED * speedMul) / TICK_HZ);
+}
 
 /** Rounds per match, and the fixed intro dwell that shows the one-sentence rule (R4). */
 export const ROUNDS_PER_MATCH = 5;

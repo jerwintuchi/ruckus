@@ -19,8 +19,10 @@ reacting at the same time.
    mid-match and play the next round without instruction.
 3. **Everyone watches everything.** A fixed camera, the whole arena on screen, no
    occlusion. Being eliminated is still fun because you can see what happens next.
-4. **Rounds are short and losing is cheap.** Sixty to ninety seconds. A bad round
-   costs a round, never the match.
+4. **Rounds are short and losing is cheap.** Roughly thirty to sixty seconds at a
+   full lobby. A bad round costs a round, never the match. *(The original figure was
+   sixty to ninety, written before anything existed; measurement moved it — RD-011.
+   The pillar is unchanged, only the number.)*
 5. **Chaos beats balance.** Perfect fairness is not the goal; a story worth
    retelling afterwards is.
 

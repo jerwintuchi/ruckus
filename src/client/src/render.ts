@@ -27,6 +27,7 @@ export class Renderer {
   private readonly gl: WebGLRenderer;
   private readonly statics = new Group();
   private readonly dynamics = new Group();
+  private readonly prims = new Group();
   private readonly characters = new Map<number, Character>();
   private tileMeshes: Mesh[] = [];
   private tileStates: number[] = [];
@@ -40,7 +41,7 @@ export class Renderer {
     this.scene.background = new Color(PALETTE.sky);
 
     this.camera = new PerspectiveCamera(45, 1, 0.1, 200);
-    this.scene.add(this.statics, this.dynamics);
+    this.scene.add(this.statics, this.dynamics, this.prims);
 
     const key = new DirectionalLight(0xffffff, 2.1);
     key.position.set(6, 14, 8);
@@ -115,6 +116,21 @@ export class Renderer {
     }
   }
 
+  /**
+   * Draw a minigame's dynamic primitives (hot-potato T2).
+   *
+   * Any minigame may put `prims` in its snapshot and have them drawn without a line
+   * of client code — the generic path that keeps minigame N+1 cheap. Meshes are
+   * rebuilt each frame rather than diffed: the counts here are single digits, and a
+   * diff would be more code than it saves. Geometries and materials still come from
+   * the Kit's caches, so nothing is allocated but the Mesh wrappers.
+   */
+  setPrims(prims: readonly Prim[] | undefined): void {
+    this.prims.clear();
+    if (!prims?.length) return;
+    for (const p of prims) this.prims.add(buildPrim(p));
+  }
+
   syncPlayers(players: LerpedPlayer[], colours: Map<number, string>, t: number): void {
     const seen = new Set<number>();
     for (const p of players) {
@@ -145,7 +161,12 @@ export class Renderer {
   }
 }
 
-function buildPrim(p: Prim) {
+/**
+ * One `Prim` descriptor to one Mesh. Exported so it can be tested without a WebGL
+ * context: this mapping is the part of the generic prims channel that can actually
+ * be wrong, and it should not need a browser to assert.
+ */
+export function buildPrim(p: Prim): Mesh {
   switch (p.k) {
     case "box": {
       const m = box(p.colour, ...p.size);
