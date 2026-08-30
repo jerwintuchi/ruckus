@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Guard the eager context budget — the tokens paid on every turn of every session.
 
-Why this exists (RD-002): Testament's CLAUDE.md reached 74 KB / ~18,700 tokens, of
+Why this exists (RD-002): in an earlier project CLAUDE.md reached 74 KB / ~18,700 tokens, of
 which ~15,400 was hand-written prose about *completed* work. That block was the most
 expensive thing in the context and the least trustworthy — the file itself ended up
 telling readers to prefer the generated registry instead. Nothing watched it, because
@@ -29,7 +29,7 @@ CAP_ROOT = 6 * 1024
 CAP_TOTAL = 24 * 1024
 
 # The Active Work block is a pointer, not a history. Enforced separately because it
-# is the specific thing that grew unbounded in Testament.
+# is the specific thing that grew unbounded before.
 CAP_ACTIVE_WORK_LINES = 20
 
 RE_IMPORT = re.compile(r"^@([A-Za-z0-9_./\-]+)\s*$", re.M)

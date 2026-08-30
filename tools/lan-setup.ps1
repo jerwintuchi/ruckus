@@ -1,10 +1,13 @@
 # Ruckus — one-time LAN setup, so phones on the WiFi can reach the playtest.
 #
-#   Right-click -> Run with PowerShell (as Administrator), or from an elevated prompt:
-#     & '\\wsl.localhost\Ubuntu-24.04\home\jerwin\projects\Ruckus\tools\lan-setup.ps1'
+#   Right-click -> Run with PowerShell (as Administrator), or from an elevated prompt,
+#   using this file's own path:
+#     & '\\wsl.localhost\<distro>\<path-to-repo>\tools\lan-setup.ps1'
 #
 #   Undo everything:
 #     & '...\tools\lan-setup.ps1' -Remove
+#
+#   -Distro defaults to Ubuntu-24.04; pass your own if it differs.
 #
 # WHY THIS IS NEEDED
 #   WSL2 runs behind NAT with its own 172.x address. Windows can reach it; nothing else

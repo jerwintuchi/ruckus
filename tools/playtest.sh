@@ -258,7 +258,7 @@ elif [ -n "$WIN_LAN_IP" ]; then
   echo "  ${bold}Phones on the WiFi${off}    ${ylw}not reachable yet${off}"
   echo "     ${dim}WSL2 is in NAT mode, so ${WIN_LAN_IP} does not forward to WSL until you say so.${off}"
   echo "     ${dim}One-time, from an ${bold}Administrator${off}${dim} PowerShell:${off}"
-  echo "       ${ylw}& '\\\\wsl.localhost\\Ubuntu-24.04\\home\\jerwin\\projects\\Ruckus\\tools\\lan-setup.ps1'${off}"
+  echo "       ${ylw}& '$(wslpath -w "$ROOT/tools/lan-setup.ps1" 2>/dev/null || echo "$ROOT/tools/lan-setup.ps1")'${off}"
   echo "     ${dim}Re-run it after a WSL restart — the WSL IP is reassigned each time.${off}"
 fi
 [ -n "$TAILSCALE_IP" ] && {

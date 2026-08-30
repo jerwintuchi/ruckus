@@ -5,26 +5,29 @@ context that forced it, and the consequences that follow.
 
 ---
 
-## RD-001 — Ruckus exists because Testament stalled on art and scope (2026-08-30)
+## RD-001 — Ruckus is shaped against a specific way projects stall (2026-08-30)
 
-**Decision.** Put Testament on hiatus and build Ruckus: an 8-player browser party
-game made of short minigames.
+**Decision.** Build Ruckus as an 8-player browser party game made of short minigames,
+with two failure modes designed out structurally rather than left to discipline.
 
-**Context.** Testament accumulated 57 specs. The largest cluster by far was
-decoration of two rooms — six `board-*` specs, seven `quartermaster-*` specs, four
-`title-*` specs — while Phase 5, *combat*, the game's actual verb, was still listed
-as "opening". Two things caused this. First, the art loop had no terminating
-condition: every surface was bespoke and verified by capture and by eye, never by
-test, so "better" was always available and "done" never arrived. Second, no spec was
-independently shippable — each was a slice of one interdependent design, so finishing
-one produced nothing playable.
+**Context.** This follows a larger project that stalled, and the post-mortem is the
+reason this one is shaped the way it is. Two causes, neither of them motivational.
 
-**Consequences.** Ruckus is shaped to make both failures structurally unavailable.
-A minigame is a *whole* feature: one spec, playable the night it ships, with a scope
-ceiling built in. The Kit is closed and geometry is code (RD-005), so there is no
-asset to polish. Kept from Testament: the R#/T#/test spec chain, the derived spec
-registry (RD-003), the append-only decision log, the authoritative-server trust
-boundary. Testament is paused, not abandoned; its `docs/` and `specs/` stand.
+First, **the art loop had no terminating condition.** Every surface was bespoke and
+verified by capture and by eye, never by test, so "better" was always available and
+"done" never arrived. Months went into decorating menus while the game's central verb
+was still unimplemented.
+
+Second, **no spec was independently shippable.** Each was a slice of one interdependent
+design, so finishing one produced nothing playable and nothing could ever be marked
+done.
+
+**Consequences.** Ruckus makes both failures unavailable rather than discouraged. A
+minigame is a *whole* feature: one spec, playable the night it ships, with a scope
+ceiling built in. The Kit is closed and geometry is code (RD-005), so there is no asset
+to polish. Kept from the earlier work because it was genuinely good: the R#/T#/test
+spec chain, the derived spec registry (RD-003), the append-only decision log, and the
+authoritative-server trust boundary.
 
 ## RD-002 — The eager context is capped and mechanically guarded (2026-08-30)
 
@@ -34,7 +37,7 @@ boundary. Testament is paused, not abandoned; its `docs/` and `specs/` stand.
 separate `docs/HANDOFF.md` — **overwritten, never appended**, capped at 4 KB — holds
 where the last session stopped.
 
-**Context.** Testament's `CLAUDE.md` reached 74 KB / ~18,700 tokens, paid on every
+**Context.** In the earlier project, `CLAUDE.md` reached 74 KB / ~18,700 tokens, paid on every
 turn of every session. About 15,400 of those tokens were the `## Active Work` block:
 hand-written prose about work that had *already shipped*. The file itself ended up
 warning readers that this block "has been wrong before" and telling them to prefer
@@ -46,15 +49,15 @@ file that is never truncated is a changelog.
 **Consequences.** Three homes, each with a different discipline: **derived** status
 (`spec-status.md`), **append-only** history (this file), **overwritten** handoff
 (`HANDOFF.md`). CLAUDE.md holds only what is true for all work. The guard is a hook
-rather than a convention because Testament's `--check` tooling covered every
+rather than a convention because that project's `--check` tooling covered every
 *generated* artifact and left the *authored* one — the expensive one — unwatched.
 
 ## RD-003 — Status is derived, never asserted (2026-08-30)
 
-**Decision.** Port `tools/spec_status.py` from Testament essentially intact. No
+**Decision.** Port `tools/spec_status.py` from the earlier project essentially intact. No
 document may assert what has shipped; the registry derives it from the tree.
 
-**Context.** It was the highest-value tool in Testament. It caught two opposite
+**Context.** It was the highest-value tool there. It caught two opposite
 failures that are both invisible from inside a single session: a spec carrying open
 boxes for work that had shipped, and a root-context summary claiming an entire
 economy was built when none of its identifiers existed in the source.
@@ -416,7 +419,7 @@ on Ctrl-C. `tools/playtest.bat` launches it from Windows; `tools/lan-setup.ps1` 
 one-time port forwarding phones need.
 
 **Context.** Playtesting Ruckus means two processes and a browser on a phone, which is a
-different problem from the previous project's one server plus a desktop client. Three
+different problem from an earlier project's one server plus a desktop client. Three
 things were worth encoding rather than remembering:
 
 - **Both ports must reach the device.** The page loads from 5173, but the client then
@@ -481,7 +484,7 @@ the Kit ban stands unchanged.**
 **Context.** The author asked for "simple shapes with image textures", PS1/PS2 era with
 a modern twist, and a Nintendo-type UI. The texture half collides directly with RD-001:
 `kit_check.py` fails on any `.png` and on `TextureLoader`, and that ban is the
-*structural* reason this project has not repeated the art loop that stalled Testament.
+*structural* reason this project has not repeated the art loop described in RD-001.
 
 The collision turned out to be smaller than it looked. Of the seven things that make
 the PS1 read — low internal resolution, dithering, flat shading, hard edges, fog, texel

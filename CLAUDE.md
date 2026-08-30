@@ -21,7 +21,7 @@ have homes below, and every one of them is derived or bounded:
 | Why a decision was made | `docs/DECISION_LOG.md` (append-only, `RD-###`) | prose in this file |
 | Where the last session stopped | `docs/HANDOFF.md` (**overwritten**, capped) | prose in this file |
 
-Testament's CLAUDE.md reached 18,700 tokens because completed-work prose accreted
+An earlier project's CLAUDE.md reached 18,700 tokens because completed-work prose accreted
 in it, and the file itself ended up warning that the prose was unreliable. **Status
 is derived, never asserted.** If you catch yourself writing "Completed: ..." here,
 it belongs in the DECISION_LOG and the registry will report it for free.

@@ -38,15 +38,15 @@ reacting at the same time.
 
 ## Why this shape
 
-Ruckus follows a hiatus on Testament, and its structure is a direct response to
-what stalled there (`docs/DECISION_LOG.md`, RD-001):
+Ruckus's structure is a direct response to how a previous project stalled
+(`docs/DECISION_LOG.md`, RD-001):
 
 - **A minigame is a whole feature.** It ships alone, is playable the night it is
-  finished, and has a scope ceiling built in. Testament's specs were all slices of
-  one interdependent thing, so none of them could ever be *done*.
+  finished, and has a scope ceiling built in. Before, every spec was a slice of one
+  interdependent thing, so none of them could ever be *done*.
 - **The art cannot become the work.** Geometry is code and the Kit is closed, so
-  there is no asset to polish for a week. Testament lost months to decorating two
-  rooms while combat did not exist yet.
+  there is no asset to polish for a week. Months once went into decorating menus
+  while the central verb of the game did not exist yet.
 - **Status is derived.** Nothing about what is shipped is asserted by hand.
 
 ## The measure of a new minigame
