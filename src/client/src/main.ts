@@ -4,6 +4,7 @@
  * (I1, I6), and everything sent is an intention.
  */
 import type { PlayerView, Prim, ServerMsg } from "@ruckus/shared";
+import { initialState, reduce, type FlowEvent } from "./flow.ts";
 import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
@@ -36,11 +37,29 @@ let bannerUntil = 0;
 let handler: ClientMinigame | undefined;
 
 const net = new Net(serverUrl(), onMessage);
+
+// flow.ts owns which screen is showing; the Ui only draws whatever it is handed.
+let flow = initialState();
+const dispatch = (event: FlowEvent): void => {
+  flow = reduce(flow, event);
+  ui.render(flow);
+};
+
 const ui = new Ui(overlay, {
-  onJoin: (code, name) => net.connect(code, name),
+  onCreate: (name) => {
+    dispatch({ t: "setName", name });
+    dispatch({ t: "wantCreate" });
+    net.connect({ t: "create", name });
+  },
+  onJoin: (code, name) => {
+    dispatch({ t: "setName", name });
+    dispatch({ t: "setCode", code });
+    if (flow.code.length === 4) net.connect({ t: "join", code: flow.code, name });
+  },
   onStart: () => net.send({ t: "start" }),
+  onEvent: dispatch,
 });
-ui.showJoin();
+ui.render(flow);
 
 function serverUrl(): string {
   const override = new URLSearchParams(location.search).get("server");
@@ -56,17 +75,17 @@ function onMessage(msg: ServerMsg): void {
     case "welcome":
       mySlot = msg.slot;
       host = msg.host;
+      dispatch({ t: "welcome", slot: msg.slot, code: msg.code, host: msg.host });
       // Put the code in the URL so "send them this link" is the whole invite flow,
       // and on screen so it can be read aloud across a room.
       history.replaceState(null, "", `?room=${msg.code}`);
-      ui.setCode(msg.code);
       break;
 
     case "room":
       players = msg.players;
       host = msg.host;
       colours = new Map(players.map((p) => [p.slot, p.colour]));
-      ui.showLobby(players, host, mySlot, msg.state);
+      dispatch({ t: "room", players: msg.players, host: msg.host, state: msg.state });
       if (msg.state === "LOBBY") {
         playing = false;
         renderer.clearPlayers();
@@ -110,7 +129,7 @@ function onMessage(msg: ServerMsg): void {
       break;
 
     case "err":
-      ui.setError(msg.code);
+      dispatch({ t: "err", code: msg.code });
       break;
 
     case "ping":
@@ -145,9 +164,6 @@ function frame(now: number): void {
 }
 requestAnimationFrame(frame);
 
-// Prefill the code from the URL, so a shared link needs only a name.
+// A shared link opens straight on the join screen with its code filled and locked.
 const fromUrl = new URLSearchParams(location.search).get("room");
-if (fromUrl) {
-  const el = document.querySelector("#code") as HTMLInputElement | null;
-  if (el) el.value = fromUrl.toUpperCase();
-}
+if (fromUrl) dispatch({ t: "deepLink", code: fromUrl });

@@ -633,3 +633,42 @@ rather than failing silently. The path most likely to run is the fallback path.
 **The general lesson.** Every UI test in this project asserted *state*, and state tests
 cannot see an empty screen. A test that asks "is this information rendered" is a
 different test from "is this flag set", and the first one is the one a player notices.
+
+## RD-024 — Rooms are created, not conjured (2026-08-31)
+
+**Decision.** `specs/lobby-flow/`. A `create` message mints a server-side code and joins
+you to it; `join` now **only joins an existing room** and returns `NO_ROOM` otherwise.
+Retired codes are held back for `CODE_COOLDOWN_MS`. The client gets a real state machine
+in `src/client/src/flow.ts`, pure and DOM-free.
+
+**Context.** Raised after a real playtest, and three separate defects were underneath it:
+
+- **`join` created rooms.** A typo silently made an empty room you then sat alone in
+  with nothing on screen saying so — and two unrelated groups who both typed `PLAY`
+  were dropped into the *same match*. That is the collision the author was worried
+  about, and it was real.
+- **The code minter was dead code.** `newRoomCode()` already avoided collisions and
+  `/room` already served it. Nothing had ever called either.
+- **There was no create-vs-join distinction at all**, so there was nothing for a menu
+  to offer.
+
+**Consequences.** Nobody picks a code any more, which is what makes collisions
+impossible rather than unlikely. That has a knock-on the tooling had to absorb: `--room`
+is gone from `playtest.sh` because it can no longer be honoured, bots now have their
+first member **create** a room and report its code, and the script reads that code back
+to build its links. The playtest exercises the real flow instead of a shortcut around it.
+
+**The client had no state machine, only side effects.** Which screen was showing used to
+be whichever `style.display` had last been written — untestable and unreadable.
+`flow.ts` is now a pure `reduce`, asserted total over 500 random event sequences, and
+`ui.render(state)` only draws what it is handed.
+
+**A bug the tests caught that review would not have.** `normalizeCode` stripped input to
+`[^A-Z]` — but `CODE_ALPHABET` is letters **and digits 2-9**, so it silently ate the
+digit out of every code containing one. A quarter of all codes became three characters
+and then failed validation for a reason nobody could see. The same wrong assumption had
+already been copied into the error text ("four letters") and into `playtest.sh`.
+
+**Deferred, deliberately:** a QR code in the lobby. It is a genuinely good affordance for
+people in the same room, and it is generatable in code without breaking the Kit — but it
+is scope, and it is recorded here rather than smuggled in.

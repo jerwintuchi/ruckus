@@ -3,17 +3,22 @@
  * game's UI is four screens of text and a button, and building it in WebGL would
  * cost legibility and accessibility for nothing.
  */
-import type { MatchState, PlayerView } from "@ruckus/shared";
+import type { PlayerView } from "@ruckus/shared";
+import type { FlowEvent, FlowState } from "./flow.ts";
+import { startState } from "./flow.ts";
 import { PALETTE } from "./kit/palette.ts";
 
 export interface UiHandlers {
+  onCreate(name: string): void;
   onJoin(code: string, name: string): void;
   onStart(): void;
+  onEvent(event: FlowEvent): void;
 }
 
 export class Ui {
   private readonly root: HTMLElement;
-  private readonly join: HTMLElement;
+  private readonly menu: HTMLElement;
+  private readonly joining: HTMLElement;
   private readonly lobby: HTMLElement;
   private readonly banner: HTMLElement;
   private readonly scoreboard: HTMLElement;
@@ -23,27 +28,70 @@ export class Ui {
   constructor(container: HTMLElement, private readonly handlers: UiHandlers) {
     this.root = container;
     this.root.innerHTML = TEMPLATE;
-    this.join = this.q("#join");
+    this.menu = this.q("#menu");
+    this.joining = this.q("#joining");
     this.lobby = this.q("#lobby");
     this.banner = this.q("#banner");
     this.scoreboard = this.q("#scoreboard");
 
+    const name = (): string =>
+      (this.q("#name") as HTMLInputElement).value.trim() || "player";
+
+    this.q("#createBtn").addEventListener("click", () => this.handlers.onCreate(name()));
+    this.q("#joinNav").addEventListener("click", () => this.handlers.onEvent({ t: "wantJoin" }));
+    this.q("#backBtn").addEventListener("click", () => this.handlers.onEvent({ t: "back" }));
     this.q("#joinBtn").addEventListener("click", () => {
-      const code = (this.q("#code") as HTMLInputElement).value.trim().toUpperCase();
-      const name = (this.q("#name") as HTMLInputElement).value.trim() || "player";
-      if (code.length === 4) this.handlers.onJoin(code, name);
+      const code = (this.q("#code") as HTMLInputElement).value;
+      this.handlers.onJoin(code, name());
+    });
+    (this.q("#code") as HTMLInputElement).addEventListener("input", (e) => {
+      this.handlers.onEvent({ t: "setCode", code: (e.target as HTMLInputElement).value });
     });
     this.q("#startBtn").addEventListener("click", () => this.handlers.onStart());
-
-    // The invite flow is "send them this link", so make that one tap rather than a
-    // trip to the address bar.
     this.q("#shareBtn").addEventListener("click", () => void this.share());
   }
 
-  /** Told by main.ts once the server confirms which room we actually landed in. */
-  setCode(code: string): void {
-    this.code = code;
-    this.q("#roomCode").textContent = code;
+  private q(sel: string): HTMLElement {
+    const el = this.root.querySelector(sel);
+    if (!el) throw new Error(`missing ${sel}`);
+    return el as HTMLElement;
+  }
+
+  /**
+   * One render, driven entirely by the flow state.
+   *
+   * Screens used to be whichever `style.display` had last been written, which is a
+   * state machine nobody can test. Now `flow.ts` owns the state and this only draws it.
+   */
+  render(state: FlowState): void {
+    const show = (el: HTMLElement, on: boolean): void => {
+      el.style.display = on ? "flex" : "none";
+    };
+    show(this.menu, state.screen === "MENU" || state.screen === "CREATING");
+    show(this.joining, state.screen === "JOINING");
+    show(this.lobby, state.screen === "LOBBY");
+
+    this.q("#error").textContent = state.error ?? "";
+
+    const codeInput = this.q("#code") as HTMLInputElement;
+    if (codeInput.value !== state.code) codeInput.value = state.code;
+    // A code from a shared link is not editable: half-editing an invite is worse than
+    // not being able to edit it at all.
+    codeInput.readOnly = state.codeLocked;
+    (this.q("#joinBtn") as HTMLButtonElement).disabled = state.code.length !== 4;
+
+    if (state.screen === "LOBBY") {
+      this.code = state.code;
+      this.q("#roomCode").textContent = state.code;
+      this.renderScores(state.players);
+
+      const s = startState(state);
+      const btn = this.q("#startBtn") as HTMLButtonElement;
+      btn.style.display = state.mySlot === state.host ? "block" : "none";
+      btn.disabled = !s.canStart;
+      btn.textContent = s.label;
+      this.q("#waitNote").textContent = s.note;
+    }
   }
 
   private async share(): Promise<void> {
@@ -58,8 +106,8 @@ export class Ui {
       done("copied");
     } catch {
       // Clipboard access needs a secure context, which a LAN address over plain http
-      // is not — so on a phone this is the path that actually runs. Select the link
-      // instead so it can be copied by hand rather than failing silently.
+      // is not — so on a phone this is the path that actually runs. Offer the link
+      // selectable instead of failing silently.
       const box = this.q("#linkBox") as HTMLInputElement;
       box.style.display = "block";
       box.value = link;
@@ -68,36 +116,12 @@ export class Ui {
     }
   }
 
-  private q(sel: string): HTMLElement {
-    const el = this.root.querySelector(sel);
-    if (!el) throw new Error(`missing ${sel}`);
-    return el as HTMLElement;
-  }
-
-  showJoin(): void {
-    this.join.style.display = "flex";
-    this.lobby.style.display = "none";
-  }
-
-  /** The lobby is also the between-rounds scoreboard; it is the same information. */
-  showLobby(players: PlayerView[], host: number, mySlot: number, state: MatchState): void {
-    this.join.style.display = "none";
-    const inMatch = state !== "LOBBY";
-    this.lobby.style.display = inMatch ? "none" : "flex";
-    this.renderScores(players);
-
-    const btn = this.q("#startBtn") as HTMLButtonElement;
-    const isHost = mySlot === host;
-    btn.style.display = isHost ? "block" : "none";
-    btn.disabled = players.filter((p) => p.connected).length < 2;
-    btn.textContent = btn.disabled ? "waiting for one more" : "start";
-
-    // Someone has to know why nothing is happening. Without this, a non-host stares at
-    // a lobby with no button and no explanation.
-    const hostName = players.find((p) => p.slot === host)?.name ?? "the host";
-    this.q("#waitNote").textContent = isHost ? "" : `waiting for ${hostName} to start`;
-  }
-
+  /**
+   * One row per player: their colour, their name, their score.
+   *
+   * A disconnected player is dimmed rather than removed (R5) — a room that silently
+   * reshuffles underneath everyone is worse than one that shows a gap.
+   */
   private renderScores(players: PlayerView[]): void {
     const sorted = [...players].sort((a, b) => b.score - a.score || a.slot - b.slot);
     this.scoreboard.innerHTML = sorted
@@ -151,7 +175,7 @@ const ERRORS: Record<string, string> = {
   ROOM_FULL: "that room is full",
   NOT_HOST: "only the host can start",
   TOO_FEW: "you need at least two players",
-  BAD_CODE: "a code is four letters",
+  BAD_CODE: "a code is four characters",
   BAD_MSG: "something went wrong",
 };
 
@@ -163,15 +187,28 @@ function escapeHtml(s: string): string {
 
 const TEMPLATE = `
 <div id="banner" class="overlay" style="display:none"></div>
-<div id="join" class="overlay">
+
+<div id="menu" class="overlay">
   <div class="card">
     <h1>ruckus</h1>
+    <p class="tagline">8 players. 5 rounds. 10 minutes.</p>
     <input id="name" placeholder="your name" maxlength="12" autocomplete="off">
-    <input id="code" placeholder="room code" maxlength="4" autocapitalize="characters" autocomplete="off">
-    <button id="joinBtn">join</button>
+    <button id="createBtn">create a room</button>
+    <button id="joinNav" class="ghost">join with a code</button>
     <div id="error" class="err"></div>
   </div>
 </div>
+
+<div id="joining" class="overlay" style="display:none">
+  <div class="card">
+    <h2>join a room</h2>
+    <input id="code" placeholder="code" maxlength="4" autocapitalize="characters"
+           autocomplete="off" spellcheck="false" class="codeinput">
+    <button id="joinBtn">join</button>
+    <button id="backBtn" class="ghost">back</button>
+  </div>
+</div>
+
 <div id="lobby" class="overlay" style="display:none">
   <div class="card">
     <div class="codeblock">
@@ -210,7 +247,12 @@ button:disabled{background:#2c3242;color:${PALETTE.textDim};cursor:default}
 .big{font-size:30px;font-weight:700}
 .rule{font-size:19px;color:${PALETTE.text};max-width:80vw}
 .dim{color:${PALETTE.textDim};font-size:14px}
-.err{color:${PALETTE.hazard};font-size:14px;min-height:18px}
+.err{color:${PALETTE.hazard};font-size:14px;min-height:18px;max-width:26ch}
+.tagline{color:${PALETTE.textDim};font-size:13.5px;margin:-4px 0 6px}
+h2{margin:0 0 2px;font-size:20px;font-weight:600}
+.codeinput{font-size:30px;text-align:center;letter-spacing:.26em;text-indent:.26em;
+  font-weight:700;text-transform:uppercase}
+.codeinput:read-only{opacity:.75}
 .codeblock{display:flex;flex-direction:column;align-items:center;gap:6px;
   padding:4px 0 12px;border-bottom:1px solid #2c3242;margin-bottom:4px}
 .codelabel{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:${PALETTE.textDim}}

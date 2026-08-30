@@ -36,8 +36,8 @@ Four minigames ship: `falling-floor`, `hot-potato`, `sweepers`, `scramble`. The 
 contract holds — the last three each needed one line in the server registry and no
 client code. `scramble` is the first non-elimination round.
 
-Next: `specs/visual-direction/` (17 tasks) — PS1-era world, party UI, procedural
-textures. Or minigame #5, or close `specs/shell/` T16/T18 with a DOM test env.
+Next: `specs/lobby-flow/` T11 (theme the menu/lobby) and T12 (play it for real), then
+`specs/visual-direction/` — paper world, party UI, procedural textures.
 
 ## Trust Boundary
 

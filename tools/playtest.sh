@@ -5,7 +5,7 @@
 #   ./tools/playtest.sh --open          …and open the game on this machine's browser
 #   ./tools/playtest.sh --lan           …and check the phone/LAN path is reachable
 #   ./tools/playtest.sh --bots 3        …and fill a room with bots so you can play alone
-#   ./tools/playtest.sh --room GAME     …using a room code you choose (4 letters)
+#   ./tools/playtest.sh --room GAME     …using a room code you choose (4 chars)
 #
 # Every URL it prints carries `?room=CODE`, so the code is already filled in when the
 # page opens and the link is the whole invite — you never have to read four letters
@@ -45,11 +45,11 @@ done
 # Room codes are four letters, upper case, from the unambiguous alphabet the server
 # mints from (no I, O, 0, 1 — they are read aloud).
 ROOM_IN="$ROOM"
-ROOM="$(printf '%s' "$ROOM" | tr '[:lower:]' '[:upper:]' | tr -cd 'A-Z' | cut -c1-4)"
+ROOM="$(printf '%s' "$ROOM" | tr '[:lower:]' '[:upper:]' | tr -cd 'A-Z2-9' | cut -c1-4)"
 [ ${#ROOM} -eq 4 ] || ROOM="PLAY"
 # Say so rather than silently handing back a different room than the one asked for.
 if [ "$(printf '%s' "$ROOM_IN" | tr '[:lower:]' '[:upper:]')" != "$ROOM" ]; then
-  echo "  ${dim}room \"${ROOM_IN}\" → ${bold}${ROOM}${off}${dim} (codes are four letters, A–Z)${off}"
+  echo "  ${dim}room \"${ROOM_IN}\" → ${bold}${ROOM}${off}${dim} (codes are four characters)${off}"
 fi
 LOG_DIR="$ROOT/.playtest"
 mkdir -p "$LOG_DIR"
@@ -221,12 +221,19 @@ fi
 
 # ── Bots ─────────────────────────────────────────────────────────────────────
 if [ "$BOT_COUNT" -gt 0 ] 2>/dev/null; then
-  printf "%s" "  starting ${BOT_COUNT} bot(s) in room ${ROOM}…"
-  node "$ROOT/tools/bots.mjs" --room "$ROOM" --count "$BOT_COUNT" \
+  printf "%s" "  starting ${BOT_COUNT} bot(s)…"
+  node "$ROOT/tools/bots.mjs" --count "$BOT_COUNT" \
     --server "ws://localhost:${SERVER_PORT}" >"$LOG_DIR/bots.log" 2>&1 &
   BOTS_PID=$!
-  sleep 1
-  if kill -0 "$BOTS_PID" 2>/dev/null; then echo " ${grn}in${off}"; else
+  # The first bot creates the room and reports its code; wait for it so the URLs below
+  # can point straight at it.
+  for _ in $(seq 1 40); do
+    ROOM="$(grep -o 'ROOM=[A-Z0-9]\{4\}' "$LOG_DIR/bots.log" 2>/dev/null | head -1 | cut -d= -f2)"
+    [ -n "$ROOM" ] && break
+    kill -0 "$BOTS_PID" 2>/dev/null || break
+    sleep 0.25
+  done
+  if [ -n "$ROOM" ]; then echo " ${grn}in ${ROOM}${off}"; else
     echo " ${red}failed${off}"; sed 's/^/    /' "$LOG_DIR/bots.log" | tail -10
   fi
 fi
@@ -234,8 +241,12 @@ fi
 echo
 echo "${bold}Ruckus — playtest${off}"
 echo "${dim}──────────────────────────────────────────────────────────────${off}"
-Q="?room=${ROOM}"
-echo "  ${bold}Room code${off}             ${bold}${ylw}${ROOM}${off}   ${dim}— already filled in by every link below${off}"
+if [ -n "$ROOM" ]; then
+  Q="?room=${ROOM}"
+  echo "  ${bold}Room code${off}             ${bold}${ylw}${ROOM}${off}   ${dim}— minted by the server, filled in by every link below${off}"
+else
+  Q=""
+fi
 echo
 echo "  ${bold}This machine${off}          ${cyn}http://localhost:${CLIENT_PORT}/${Q}${off}"
 [ -n "$WSL_IP" ] && \
@@ -255,17 +266,16 @@ fi
   echo "     ${dim}Reaches WSL directly, so it needs no forwarding — the easiest remote path.${off}"
 }
 echo "${dim}──────────────────────────────────────────────────────────────${off}"
-if [ "$BOT_COUNT" -gt 0 ] 2>/dev/null; then
+if [ -n "$ROOM" ]; then
   echo "  Open a link, type a name, join. ${BOT_COUNT} bot(s) are already in ${bold}${ROOM}${off}."
   echo "  ${dim}The match starts a few seconds after you arrive — a bot is host, since${off}"
   echo "  ${dim}host goes by join order and the bots got there first.${off}"
   echo "  ${dim}Bot log: .playtest/bots.log${off}"
 else
-  echo "  Send anyone the same link and you all land in ${bold}${ROOM}${off} together."
-  echo "  ${dim}First to join is host and presses Start. The lobby shows the code too,${off}"
-  echo "  ${dim}so it can still be read out to someone typing it by hand.${off}"
-  echo "  ${dim}Playing alone? A match needs two — add ${bold}--bots 3${off}${dim} to fill the room.${off}"
-  echo "  ${dim}Want a different room? ${bold}--room GAME${off}${dim} (four letters, A–Z)${off}"
+  echo "  Open a link, then press ${bold}create a room${off} — the server mints your code."
+  echo "  ${dim}Share the link the lobby offers; everyone else lands straight in with you.${off}"
+  echo "  ${dim}Nobody picks a code, so two groups can never collide on the same one.${off}"
+  echo "  ${dim}Playing alone? A match needs two — add ${bold}--bots 3${off}${dim} to fill a room.${off}"
 fi
 echo "  ${dim}Logs: .playtest/server.log, .playtest/client.log${off}"
 echo "  ${dim}Ctrl-C stops both.${off}"

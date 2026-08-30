@@ -15,6 +15,15 @@ export const MIN_PLAYERS_TO_START = 2;
 export const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const CODE_LENGTH = 4;
 
+/**
+ * How long a closed room's code is held back before it can be minted again.
+ *
+ * Without this, a link shared ten minutes ago can drop someone into a room full of
+ * strangers who happen to have been handed the same four letters. There are about a
+ * million codes, so reserving a handful for a minute and a half costs nothing.
+ */
+export const CODE_COOLDOWN_MS = 90_000;
+
 /** Movement. Metres and seconds throughout; the sim is 2.5D (X/Z plane + scalar y). */
 /**
  * Tuned by playing it, not by taste (RD-008): at 8.0 m/s on the original 14.4 m

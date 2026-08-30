@@ -8,6 +8,7 @@
  */
 import { WebSocketServer, type WebSocket } from "ws";
 import {
+  CODE_COOLDOWN_MS,
   MAX_CATCHUP_STEPS,
   TICK_MS,
   makeRng,
@@ -33,6 +34,8 @@ export class GameServer {
   private readonly rooms = new Map<string, { room: Room; match: Match }>();
   private readonly conns = new Map<WebSocket, Conn>();
   private readonly rng = makeRng(Date.now() >>> 0);
+  /** code -> the time it was retired, so it is not reissued straight away (P1). */
+  private readonly retired = new Map<string, number>();
   private readonly loop = new FixedLoop();
   private last = Date.now();
   private timer: NodeJS.Timeout | null = null;
@@ -57,10 +60,14 @@ export class GameServer {
     this.timer = null;
   }
 
-  /** Created on demand — there is no room list and no lobby browser by design. */
-  private ensureRoom(code: string): { room: Room; match: Match } {
-    const existing = this.rooms.get(code);
-    if (existing) return existing;
+  /**
+   * Make a room. Only ever called from `create` — **never from `join`** (lobby-flow R3).
+   *
+   * It used to be called from the join path, which meant a typo silently produced an
+   * empty room you then sat alone in, and two unrelated groups who both typed `PLAY`
+   * were dropped into a match together. Creating is now its own intention.
+   */
+  private makeRoom(code: string): { room: Room; match: Match } {
     const room = new Room(code);
     const entry = {
       room,
@@ -70,10 +77,36 @@ export class GameServer {
     return entry;
   }
 
-  newRoomCode(): string {
-    let code = makeCode(this.rng);
-    while (this.rooms.has(code)) code = makeCode(this.rng);
-    return code;
+  /**
+   * A code that is neither live nor recently retired (P1).
+   *
+   * P2: bounded. After enough collisions it drops the cooldown rather than spinning —
+   * a busy server should degrade, not hang. With ~1M codes that branch is unreachable
+   * in practice, which is exactly why it needs to be written down rather than trusted.
+   */
+  newRoomCode(now = Date.now()): string {
+    this.sweepRetired(now);
+    for (let i = 0; i < 200; i++) {
+      const code = makeCode(this.rng);
+      if (!this.rooms.has(code) && !this.retired.has(code)) return code;
+    }
+    for (let i = 0; i < 200; i++) {
+      const code = makeCode(this.rng);
+      if (!this.rooms.has(code)) return code;
+    }
+    throw new Error("no free room code");
+  }
+
+  private sweepRetired(now: number): void {
+    for (const [code, at] of this.retired) {
+      if (now - at >= CODE_COOLDOWN_MS) this.retired.delete(code);
+    }
+  }
+
+  /** Called when a room empties, so its code is not handed straight back out. */
+  private retireRoom(code: string, now = Date.now()): void {
+    this.rooms.delete(code);
+    this.retired.set(code, now);
   }
 
   private makeEvents(room: Room) {
@@ -125,7 +158,7 @@ export class GameServer {
       for (const [code, entry] of this.rooms) {
         entry.match.update();
         // I7: a room nobody is in is not worth a tick or a megabyte.
-        if (entry.room.isEmpty() && entry.room.state === "LOBBY") this.rooms.delete(code);
+        if (entry.room.isEmpty() && entry.room.state === "LOBBY") this.retireRoom(code);
       }
     }
   }
@@ -171,10 +204,25 @@ export class GameServer {
 
   private handle(conn: Conn, msg: ReturnType<typeof parseClientMsg> & object): void {
     switch (msg.t) {
+      case "create": {
+        const code = this.newRoomCode();
+        const entry = this.makeRoom(code);
+        const res = entry.room.join(msg.name);
+        if (!res.ok) return this.err(conn.ws, res.code);
+        conn.room = entry.room;
+        conn.slot = res.player.slot;
+        this.send(conn.ws, { t: "welcome", slot: res.player.slot, code, host: entry.room.host });
+        this.broadcastRoom(entry.room);
+        return;
+      }
+
       case "join": {
-        const code = msg.code.slice(0, 4);
+        const code = msg.code;
         if (code.length !== 4) return this.err(conn.ws, "BAD_CODE");
-        const entry = this.ensureRoom(code);
+        // R3: joining never creates. An unknown code is an error a player can act on,
+        // not a new empty room they are quietly left alone in.
+        const entry = this.rooms.get(code);
+        if (!entry) return this.err(conn.ws, "NO_ROOM");
         const res = entry.room.join(msg.name);
         if (!res.ok) return this.err(conn.ws, res.code);
         conn.room = entry.room;

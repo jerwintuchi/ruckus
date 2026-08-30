@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseClientMsg, sanitizeName } from "./protocol.ts";
+import { CODE_ALPHABET } from "./constants.ts";
+import { normalizeCode, parseClientMsg, sanitizeName } from "./protocol.ts";
 
 describe("parseClientMsg (T6, R10, I2)", () => {
   it("accepts each well-formed client tag", () => {
@@ -77,5 +78,54 @@ describe("sanitizeName (T6)", () => {
     expect(sanitizeName("")).toBe("player");
     expect(sanitizeName("   ")).toBe("player");
     expect(sanitizeName("\u0000\u0001")).toBe("player");
+  });
+});
+
+describe("normalizeCode (lobby-flow T4, R3)", () => {
+  it("accepts a code however it was typed or pasted", () => {
+    for (const typed of ["qcn4", " QCN4 ", "q-c-n-4", "QcN4", "QCN4!!"]) {
+      expect(normalizeCode(typed), typed).toBe("QCN4");
+    }
+  });
+
+  it("keeps digits - the alphabet is letters AND 2-9", () => {
+    // An earlier version stripped to [^A-Z] and silently ate the digit out of every
+    // code containing one, which is a quarter of them.
+    expect(normalizeCode("A2B3")).toBe("A2B3");
+    expect(normalizeCode("2345")).toBe("2345");
+    for (const ch of CODE_ALPHABET) expect(normalizeCode(ch.repeat(4))).toHaveLength(4);
+  });
+
+  it("clamps to four, so a pasted paragraph cannot become a code", () => {
+    expect(normalizeCode("ABCDEFGH")).toBe("ABCD");
+    expect(normalizeCode("a very long sentence")).toHaveLength(4);
+  });
+
+  it("returns something short rather than guessing, so validation can reject it", () => {
+    expect(normalizeCode("ab")).toBe("AB");
+    expect(normalizeCode("")).toBe("");
+    expect(normalizeCode("!!!!")).toBe("");
+  });
+});
+
+describe("create (lobby-flow T1, R1)", () => {
+  it("parses with a name", () => {
+    expect(parseClientMsg({ t: "create", name: "jerwin" })).toEqual({ t: "create", name: "jerwin" });
+  });
+
+  it("is rejected without one, and never throws", () => {
+    expect(parseClientMsg({ t: "create" })).toBeNull();
+    expect(parseClientMsg({ t: "create", name: 7 })).toBeNull();
+  });
+
+  it("sanitises the name like every other path", () => {
+    expect(parseClientMsg({ t: "create", name: "  averylongname  " })).toEqual({
+      t: "create", name: "averylongnam",
+    });
+  });
+
+  it("carries no code - the client never invents one (R1)", () => {
+    const m = parseClientMsg({ t: "create", name: "x", code: "ZZZZ" }) as Record<string, unknown>;
+    expect(m.code).toBeUndefined();
   });
 });

@@ -2,9 +2,13 @@
 /**
  * Bot players, so you can playtest alone.
  *
- *   node tools/bots.mjs --room ABCD --count 3
- *   node tools/bots.mjs --room ABCD --count 7 --skill 0.4      (make them worse)
- *   node tools/bots.mjs --room ABCD --count 1 --server ws://192.168.1.9:3001
+ *   node tools/bots.mjs --count 3               (bot-1 creates a room, the rest join)
+ *   node tools/bots.mjs --room ABCD --count 3   (join a room that already exists)
+ *   node tools/bots.mjs --count 7 --skill 0.4   (make them worse)
+ *
+ * With no --room, the first bot CREATES a room and prints its code; the others join
+ * it. Nobody picks a code any more — the server mints them (lobby-flow R1) — so this
+ * is the only way to get a room without a human making one first.
  *
  * A bot is **just a client**. It connects over the same WebSocket, sends the same
  * `input` messages, and sees only what a snapshot carries — no privileged access, no
@@ -31,11 +35,13 @@ const SERVER = arg("server", "ws://localhost:3001");
 const SKILL = Math.max(0, Math.min(1, Number(arg("skill", "0.85"))));
 const AUTOSTART = !flag("no-autostart");
 
-if (IS_CLI && (!ROOM || ROOM.length !== 4)) {
-  console.error("usage: node tools/bots.mjs --room ABCD [--count 3] [--skill 0.85]");
-  console.error("       a room code is four letters — the same one you typed in the browser");
-  process.exit(1);
-}
+const CREATE = ROOM.length !== 4;   // no usable --room means bot-1 makes the room
+
+/**
+ * The room every bot ends up in. Module scope on purpose: the Bot class reads it from
+ * its message handler, and a `let` inside the CLI block is invisible from out here.
+ */
+let sharedRoom = ROOM;
 
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -182,7 +188,12 @@ class Bot {
   connect() {
     const ws = new WebSocket(SERVER);
     this.ws = ws;
-    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code: ROOM, name: this.name }));
+    ws.onopen = () => {
+      // The first bot creates the room when no code was supplied; the rest join the
+      // code it reports back. A client cannot invent a code any more (lobby-flow R1).
+      if (CREATE && this.index === 0) ws.send(JSON.stringify({ t: "create", name: this.name }));
+      else ws.send(JSON.stringify({ t: "join", code: sharedRoom, name: this.name }));
+    };
     ws.onerror = () => {};
     ws.onclose = () => console.log(`  ${this.name} disconnected`);
     ws.onmessage = (ev) => {
@@ -198,6 +209,11 @@ class Bot {
       case "welcome":
         this.slot = m.slot;
         this.host = m.host;
+        if (this.index === 0 && CREATE) {
+          sharedRoom = m.code;
+          // playtest.sh reads this line to build the URLs it prints.
+          console.log(`  ROOM=${m.code}`);
+        }
         console.log(`  ${this.name} joined room ${m.code} as slot ${m.slot}`);
         break;
       case "room":
@@ -290,13 +306,17 @@ class Bot {
 }
 
 if (IS_CLI) {
-console.log(`\n  ${COUNT} bot${COUNT > 1 ? "s" : ""} joining room ${ROOM} at ${SERVER}`);
-console.log(`  skill ${SKILL}  ·  autostart ${AUTOSTART ? "on (after 8s, only if a bot is host)" : "off"}\n`);
+console.log(`\n  ${COUNT} bot${COUNT > 1 ? "s" : ""} at ${SERVER} — ${CREATE ? "creating a room" : `joining ${ROOM}`}`);
+console.log(`  skill ${SKILL}  ·  autostart ${AUTOSTART ? "on" : "off"}\n`);
 
 const bots = [];
-for (let i = 0; i < COUNT; i++) {
-  // Stagger the joins so slot order is stable and the log is readable.
-  setTimeout(() => bots.push(new Bot(i)), i * 220);
+sharedRoom = ROOM;
+
+bots.push(new Bot(0));
+for (let i = 1; i < COUNT; i++) {
+  // Wait for a room to exist before the rest try to join it, and stagger so slot
+  // order is stable and the log is readable.
+  setTimeout(() => bots.push(new Bot(i)), 700 + i * 220);
 }
 
 for (const sig of ["SIGINT", "SIGTERM"]) {

@@ -140,10 +140,11 @@ export class Net {
     private readonly onMsg: NetHandler,
   ) {}
 
-  connect(code: string, name: string): void {
+  /** `hello` is the first thing sent once open — `create` or `join` (lobby-flow R1). */
+  connect(hello: { t: "create"; name: string } | { t: "join"; code: string; name: string }): void {
     const ws = new WebSocket(this.url);
     this.ws = ws;
-    ws.onopen = () => this.send({ t: "join", code, name });
+    ws.onopen = () => this.send(hello);
     ws.onmessage = (ev) => {
       let msg: ServerMsg;
       try {
@@ -154,6 +155,7 @@ export class Net {
       if (msg.t === "snap") this.buffer.push(msg.players, msg.extra, performance.now());
       this.onMsg(msg);
     };
+    ws.onclose = () => this.onMsg({ t: "err", code: "BAD_MSG" });
   }
 
   send(msg: unknown): void {

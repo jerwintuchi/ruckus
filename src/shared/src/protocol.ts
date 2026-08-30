@@ -16,6 +16,7 @@ export type ErrCode =
 /* Client to server. */
 
 export type ClientMsg =
+  | { t: "create"; name: string }
   | { t: "join"; code: string; name: string }
   | { t: "start" }
   | { t: "input"; ax: number; ay: number; btn: boolean }
@@ -70,6 +71,21 @@ const isStr = (v: unknown): v is string => typeof v === "string";
 /** Control characters, which would otherwise reach every other player's screen. */
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
 
+/**
+ * Normalise a room code as typed, pasted or shared.
+ *
+ * People paste codes with spaces, dashes and mixed case around them. Rejecting those
+ * teaches nothing and costs a retype, so clean first and judge after.
+ *
+ * Codes are drawn from CODE_ALPHABET, which is letters **and digits** (2-9). An
+ * earlier version stripped to `[^A-Z]` and silently ate the digit out of every code
+ * containing one — a quarter of all codes, turning them into three characters that
+ * then failed validation for a reason nobody could see.
+ */
+export function normalizeCode(raw: string): string {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+}
+
 /** Names are shown to everyone in the room, so they are stripped and clamped here. */
 export function sanitizeName(raw: string): string {
   return raw.replace(CONTROL_CHARS, "").trim().slice(0, 12) || "player";
@@ -86,9 +102,12 @@ export function sanitizeName(raw: string): string {
 export function parseClientMsg(raw: unknown): ClientMsg | null {
   if (!isObj(raw) || !isStr(raw.t)) return null;
   switch (raw.t) {
+    case "create":
+      if (!isStr(raw.name)) return null;
+      return { t: "create", name: sanitizeName(raw.name) };
     case "join":
       if (!isStr(raw.code) || !isStr(raw.name)) return null;
-      return { t: "join", code: raw.code.toUpperCase().slice(0, 8), name: sanitizeName(raw.name) };
+      return { t: "join", code: normalizeCode(raw.code), name: sanitizeName(raw.name) };
     case "start":
       return { t: "start" };
     case "input":
