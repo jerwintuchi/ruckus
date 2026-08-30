@@ -16,14 +16,19 @@ pnpm playtest        # server + client only, for playing with other people
 
 Starts the game server and the client together, checks the server is answering and
 reports **which minigames it is serving**, then prints every URL that will reach it —
-this machine, other Windows apps, phones on the WiFi, and Tailscale. Ctrl-C stops both
-and releases the ports.
+this machine, other Windows apps, phones on the WiFi, and Tailscale.
+
+**Every URL carries `?room=CODE`**, so the code is already filled in when the page
+opens and the link is the whole invite — nobody has to read four letters aloud and hope
+everyone typed them the same. Pick the room with `--room GAME`. Ctrl-C stops both and
+releases the ports.
 
 From Windows without opening a WSL terminal, run (or make a shortcut to)
 `tools\playtest.bat`.
 
-Everyone types the **same four letters** as a room code to land in one lobby; the first
-to join is the host and starts the match.
+Send anyone the same link and you land in one lobby together; the first to join is the
+host and presses Start. The lobby also shows the code, so it can still be read out to
+someone typing it by hand.
 
 ### Playing alone, and bots
 

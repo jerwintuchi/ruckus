@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # Ruckus — start a live playtest: the game server, the client, and the URLs to open.
 #
-#   ./tools/playtest.sh              start both, print the URLs
-#   ./tools/playtest.sh --open       …and open the game on this machine's browser
-#   ./tools/playtest.sh --lan        …and check the phone/LAN path is reachable
-#   ./tools/playtest.sh --bots 3     …and fill a room with bots so you can play alone
+#   ./tools/playtest.sh                 start both, print the URLs
+#   ./tools/playtest.sh --open          …and open the game on this machine's browser
+#   ./tools/playtest.sh --lan           …and check the phone/LAN path is reachable
+#   ./tools/playtest.sh --bots 3        …and fill a room with bots so you can play alone
+#   ./tools/playtest.sh --room GAME     …using a room code you choose (4 letters)
+#
+# Every URL it prints carries `?room=CODE`, so the code is already filled in when the
+# page opens and the link is the whole invite — you never have to read four letters
+# out and hope everyone typed them the same.
 #
 # A match needs two players (MIN_PLAYERS_TO_START), so --bots is what makes solo
 # playtesting possible at all. Bots are ordinary clients — see tools/bots.mjs.
@@ -20,17 +25,32 @@ bold=$'\e[1m'; dim=$'\e[2m'; grn=$'\e[32m'; ylw=$'\e[33m'; red=$'\e[31m'; cyn=$'
 SERVER_PORT="${SERVER_PORT:-3001}"
 CLIENT_PORT="${CLIENT_PORT:-5173}"
 
-# --bots N [ROOM]: how many, and which room to fill.
+# --bots N [ROOM] : how many bots, and optionally the room they fill
+# --room CODE     : the room every printed URL points at
 BOT_COUNT=0
-BOT_ROOM="${BOT_ROOM:-PLAY}"
+ROOM="${ROOM:-PLAY}"
 for i in $(seq 1 $#); do
-  if [ "${!i}" = "--bots" ]; then
-    j=$((i + 1)); k=$((i + 2))
-    [ $j -le $# ] && BOT_COUNT="${!j}"
-    [ $k -le $# ] && case "${!k}" in --*) ;; *) BOT_ROOM="${!k}" ;; esac
-  fi
+  case "${!i}" in
+    --bots)
+      j=$((i + 1)); k=$((i + 2))
+      [ $j -le $# ] && BOT_COUNT="${!j}"
+      [ $k -le $# ] && case "${!k}" in --*) ;; *) ROOM="${!k}" ;; esac
+      ;;
+    --room)
+      j=$((i + 1))
+      [ $j -le $# ] && ROOM="${!j}"
+      ;;
+  esac
 done
-BOT_ROOM="$(printf '%s' "$BOT_ROOM" | tr '[:lower:]' '[:upper:]')"
+# Room codes are four letters, upper case, from the unambiguous alphabet the server
+# mints from (no I, O, 0, 1 — they are read aloud).
+ROOM_IN="$ROOM"
+ROOM="$(printf '%s' "$ROOM" | tr '[:lower:]' '[:upper:]' | tr -cd 'A-Z' | cut -c1-4)"
+[ ${#ROOM} -eq 4 ] || ROOM="PLAY"
+# Say so rather than silently handing back a different room than the one asked for.
+if [ "$(printf '%s' "$ROOM_IN" | tr '[:lower:]' '[:upper:]')" != "$ROOM" ]; then
+  echo "  ${dim}room \"${ROOM_IN}\" → ${bold}${ROOM}${off}${dim} (codes are four letters, A–Z)${off}"
+fi
 LOG_DIR="$ROOT/.playtest"
 mkdir -p "$LOG_DIR"
 
@@ -201,8 +221,8 @@ fi
 
 # ── Bots ─────────────────────────────────────────────────────────────────────
 if [ "$BOT_COUNT" -gt 0 ] 2>/dev/null; then
-  printf "%s" "  starting ${BOT_COUNT} bot(s) in room ${BOT_ROOM}…"
-  node "$ROOT/tools/bots.mjs" --room "$BOT_ROOM" --count "$BOT_COUNT" \
+  printf "%s" "  starting ${BOT_COUNT} bot(s) in room ${ROOM}…"
+  node "$ROOT/tools/bots.mjs" --room "$ROOM" --count "$BOT_COUNT" \
     --server "ws://localhost:${SERVER_PORT}" >"$LOG_DIR/bots.log" 2>&1 &
   BOTS_PID=$!
   sleep 1
@@ -214,12 +234,15 @@ fi
 echo
 echo "${bold}Ruckus — playtest${off}"
 echo "${dim}──────────────────────────────────────────────────────────────${off}"
-echo "  ${bold}This machine${off}          ${cyn}http://localhost:${CLIENT_PORT}${off}"
+Q="?room=${ROOM}"
+echo "  ${bold}Room code${off}             ${bold}${ylw}${ROOM}${off}   ${dim}— already filled in by every link below${off}"
+echo
+echo "  ${bold}This machine${off}          ${cyn}http://localhost:${CLIENT_PORT}/${Q}${off}"
 [ -n "$WSL_IP" ] && \
-echo "  ${dim}From Windows apps     http://${WSL_IP}:${CLIENT_PORT}${off}"
+echo "  ${dim}From Windows apps     http://${WSL_IP}:${CLIENT_PORT}/${Q}${off}"
 
 if [ "$PROXIED" = "1" ]; then
-  echo "  ${bold}Phones on the WiFi${off}    ${cyn}http://${WIN_LAN_IP}:${CLIENT_PORT}${off} ${grn}(forwarded)${off}"
+  echo "  ${bold}Phones on the WiFi${off}    ${cyn}http://${WIN_LAN_IP}:${CLIENT_PORT}/${Q}${off} ${grn}(forwarded)${off}"
 elif [ -n "$WIN_LAN_IP" ]; then
   echo "  ${bold}Phones on the WiFi${off}    ${ylw}not reachable yet${off}"
   echo "     ${dim}WSL2 is in NAT mode, so ${WIN_LAN_IP} does not forward to WSL until you say so.${off}"
@@ -228,20 +251,21 @@ elif [ -n "$WIN_LAN_IP" ]; then
   echo "     ${dim}Re-run it after a WSL restart — the WSL IP is reassigned each time.${off}"
 fi
 [ -n "$TAILSCALE_IP" ] && {
-  echo "  ${bold}Anywhere via Tailscale${off} ${cyn}http://${TAILSCALE_IP}:${CLIENT_PORT}${off}"
+  echo "  ${bold}Anywhere via Tailscale${off} ${cyn}http://${TAILSCALE_IP}:${CLIENT_PORT}/${Q}${off}"
   echo "     ${dim}Reaches WSL directly, so it needs no forwarding — the easiest remote path.${off}"
 }
 echo "${dim}──────────────────────────────────────────────────────────────${off}"
 if [ "$BOT_COUNT" -gt 0 ] 2>/dev/null; then
-  echo "  Join room ${bold}${BOT_ROOM}${off} — ${BOT_COUNT} bot(s) are already waiting there."
-  echo "  ${dim}The match starts on its own a few seconds after you join.${off}"
-  echo "  ${dim}(Bots joined first, so a bot is host — host goes by join order.)${off}"
+  echo "  Open a link, type a name, join. ${BOT_COUNT} bot(s) are already in ${bold}${ROOM}${off}."
+  echo "  ${dim}The match starts a few seconds after you arrive — a bot is host, since${off}"
+  echo "  ${dim}host goes by join order and the bots got there first.${off}"
   echo "  ${dim}Bot log: .playtest/bots.log${off}"
 else
-  echo "  Everyone types the ${bold}same 4-letter room code${off} to land in one lobby."
-  echo "  ${dim}You invent it — nothing is pre-assigned. Try ${bold}${BOT_ROOM}${off}${dim}; any four letters work.${off}"
-  echo "  ${dim}The lobby shows the code once you are in, so you can read it out.${off}"
+  echo "  Send anyone the same link and you all land in ${bold}${ROOM}${off} together."
+  echo "  ${dim}First to join is host and presses Start. The lobby shows the code too,${off}"
+  echo "  ${dim}so it can still be read out to someone typing it by hand.${off}"
   echo "  ${dim}Playing alone? A match needs two — add ${bold}--bots 3${off}${dim} to fill the room.${off}"
+  echo "  ${dim}Want a different room? ${bold}--room GAME${off}${dim} (four letters, A–Z)${off}"
 fi
 echo "  ${dim}Logs: .playtest/server.log, .playtest/client.log${off}"
 echo "  ${dim}Ctrl-C stops both.${off}"
@@ -262,7 +286,7 @@ fi
 if [ "${1:-}" = "--open" ] || [ "${2:-}" = "--open" ]; then
   # explorer.exe is the reliable way to hand a URL to the Windows default browser from
   # WSL. It exits non-zero even on success, which is why the status is discarded.
-  explorer.exe "http://localhost:${CLIENT_PORT}" >/dev/null 2>&1 || true
+  explorer.exe "http://localhost:${CLIENT_PORT}/?room=${ROOM}" >/dev/null 2>&1 || true
 fi
 
 # Watch the SERVICE, not the process.
