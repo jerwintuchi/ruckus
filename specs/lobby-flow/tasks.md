@@ -56,10 +56,11 @@ inventing a second one.
 
 ## Phase D — the theme
 
-- [ ] T11 — Apply `specs/visual-direction/` R10–R12 to these screens: flat fill, heavy
+- [x] T11 — Apply `specs/visual-direction/` R10–R12 to these screens: flat fill, heavy
   ink outline, hard offset shadow, overshoot entrances, the game's own player colours
-  Test: `ui-kit.test.ts` (visual-direction T13) covers the primitives; here, assert the
-  menu, join and lobby screens are built from them rather than from ad-hoc styles
+  Test: `kit.test.ts` (visual-direction T13) covers the primitives; `screens.test.ts`
+  covers the screens built from them. Done by doing visual-direction Phase D first,
+  which subsumed this rather than inventing a second visual system to throw away.
 
 ## Phase E — close
 

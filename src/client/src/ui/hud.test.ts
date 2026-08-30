@@ -1,0 +1,87 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { myCount, renderHud, roundLabel } from "./hud.ts";
+import { MINIGAMES } from "../../../server/src/minigames/index.ts";
+
+describe("the HUD draws known keys (visual-direction T16, R12)", () => {
+  it("draws a fuse bar when a snapshot carries one", () => {
+    const html = renderHud({ fuse: 4500, fuseLength: 9000 });
+    expect(html).toContain("4.5s");
+    expect(html).toContain("--pct:50.0%");
+  });
+
+  it("marks a fuse urgent only when it is nearly out", () => {
+    expect(renderHud({ fuse: 1200, fuseLength: 9000 })).toContain("urgent");
+    expect(renderHud({ fuse: 8000, fuseLength: 9000 })).not.toContain("urgent");
+  });
+
+  it("clamps a fuse bar rather than overflowing its track", () => {
+    expect(renderHud({ fuse: 99_000, fuseLength: 9000 })).toContain("--pct:100.0%");
+    expect(renderHud({ fuse: -500, fuseLength: 9000 })).toContain("--pct:0.0%");
+  });
+
+  it("draws a countdown when a snapshot carries one", () => {
+    expect(renderHud({ remaining: 12_400 })).toContain("13s left");
+  });
+
+  it("draws a tally when a snapshot carries counts", () => {
+    expect(renderHud({ counts: { 0: 3, 1: 5 } })).toContain("8 collected");
+  });
+
+  it("draws several gauges at once, in a stable order", () => {
+    const html = renderHud({ remaining: 3000, fuse: 1000, fuseLength: 4000, counts: { 0: 1 } });
+    expect(html.indexOf("1.0s")).toBeLessThan(html.indexOf("s left"));
+    expect(html.indexOf("s left")).toBeLessThan(html.indexOf("collected"));
+  });
+});
+
+describe("the HUD ignores what it does not know (R12)", () => {
+  it("draws nothing for an empty or absent snapshot", () => {
+    expect(renderHud(undefined)).toBe("");
+    expect(renderHud({})).toBe("");
+  });
+
+  it("ignores unknown keys without throwing", () => {
+    expect(() => renderHud({ bars: [1, 2], prims: [], holder: 3, wat: null })).not.toThrow();
+    expect(renderHud({ bars: [1, 2], holder: 3 })).toBe("");
+  });
+
+  it("survives malformed values for keys it does know", () => {
+    for (const bad of [{ fuse: "x" }, { fuse: NaN, fuseLength: 1 }, { remaining: null },
+                       { counts: [1, 2] }, { counts: "no" }, { fuseLength: 0, fuse: 5 }]) {
+      expect(() => renderHud(bad as Record<string, unknown>), JSON.stringify(bad)).not.toThrow();
+    }
+  });
+
+  it("reads a player's own tally, and null when there is none", () => {
+    expect(myCount({ counts: { 2: 7 } }, 2)).toBe(7);
+    expect(myCount({ counts: { 2: 7 } }, 3)).toBeNull();
+    expect(myCount({}, 0)).toBeNull();
+    expect(myCount(undefined, 0)).toBeNull();
+  });
+
+  it("escapes a minigame name rather than letting it inject markup", () => {
+    expect(roundLabel("<img src=x>", 1, 5)).not.toContain("<img");
+  });
+});
+
+/**
+ * The architectural guard (RD-009). A UI that names a minigame is a UI that grows a
+ * branch per minigame, and adding one stops being a server-only job.
+ */
+describe("no minigame is named anywhere in the UI (R12, RD-009)", () => {
+  const UI_DIR = join(import.meta.dirname);
+
+  it("holds across every file in src/client/src/ui/", () => {
+    const offences: string[] = [];
+    for (const file of readdirSync(UI_DIR)) {
+      if (!file.endsWith(".ts") || file.endsWith(".test.ts")) continue;
+      const src = readFileSync(join(UI_DIR, file), "utf8");
+      for (const m of MINIGAMES) {
+        if (src.includes(m.id)) offences.push(`${file} mentions "${m.id}"`);
+      }
+    }
+    expect(offences).toEqual([]);
+  });
+});

@@ -27,7 +27,11 @@ legible, not tidied away.*
   pairwise-distinct texel arrays; every parameter stays inside its declared range;
   all linework lands inside the texture bounds for every slot
 
-- [ ] T4 [R3] — Move the palette to paper stock in `src/client/src/kit/palette.ts`
+- [ ] T4 [R3] — Move the **arena** palette to paper stock in `src/client/src/kit/palette.ts`
+  **Partly done:** the `PAPER` tokens exist and the interface uses them (T13). What
+  remains is retargeting the *arena* tokens, which is deliberately held until Phases B
+  and C convert the world — swapping the world's ground out now would leave the game
+  half-converted with a bright sky over a dark Lambert-lit arena.
   Test: `palette.test.ts` — the 8 player colours are **unchanged** (RD-007's dichromacy
   search still holds); arena tokens are the new warm stock; every token is well-formed;
   `INK` contrasts at least 7:1 against every paper ground it outlines
@@ -76,30 +80,32 @@ legible, not tidied away.*
 
 ## Phase D — the interface
 
-- [ ] T13 [R10, R11] — Panel, button and card primitives in `src/client/src/ui/kit.ts`
-  Test: `ui-kit.test.ts` — outline and hard offset shadow present (no blur radius);
+- [x] T13 [R10, R11] — Panel, button and card primitives in `src/client/src/ui/kit.ts`
+  Test: `kit.test.ts` — outline and hard offset shadow present (no blur radius);
   every interactive target is at least 44 px on its shortest side; accents resolve to
   the game's own player colours; the panel construction matches a character slab's,
   which is what makes the two read as one thing
 
-- [ ] T14 [R10] — Motion, and its reduced-motion path
-  Test: `ui-motion.test.ts` — entrances overshoot and settle; under
+- [x] T14 [R10] — Motion, and its reduced-motion path
+  Test: `kit.test.ts` (the motion lives in the same stylesheet as the primitives, and
+  splitting one small file's tests across two would be worse) — entrances overshoot
+  and settle; under
   `prefers-reduced-motion` every animation is removed and **every piece of information
   is still rendered**
 
-- [ ] T15 [R12] — Screens: join, lobby, intro, result, match result
-  Test: `ui.test.ts` — the intro renders the minigame's `rule` verbatim; the lobby
+- [x] T15 [R12] — Screens: menu, join, lobby, intro, result, match result
+  Test: `screens.test.ts` — the intro renders the minigame's `rule` verbatim; the lobby
   shows the room code and each player's colour, face and name; results order by points
   descending with ties stable
 
-- [ ] T16 [R12] — A snapshot-driven HUD in `src/client/src/ui/hud.ts`
+- [x] T16 [R12] — A snapshot-driven HUD in `src/client/src/ui/hud.ts`
   Test: `hud.test.ts` — known snapshot keys (`fuse`, `remaining`, `counts`) render
   their widget; unknown keys are ignored without throwing; **no minigame id appears
   anywhere in the UI source** (RD-009)
 
-- [ ] T17 [R11] — Landscape phone layout
-  Test: `ui.test.ts` — the interface fits a 360 px-tall viewport; nothing interactive
-  sits in either bottom corner where a thumb rests
+- [x] T17 [R11] — Landscape phone layout
+  Test: `kit.test.ts` — a short-viewport media query tightens the layout without
+  dropping the 44 px tap floor; the HUD is pinned to the top, out of both thumb corners
 
 ## Phase E — close
 

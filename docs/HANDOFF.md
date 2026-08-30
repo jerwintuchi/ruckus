@@ -1,42 +1,42 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `36c0399`, work has happened since this was written: distrust it and read
+> `9aa9bf7`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-08-31 01:42 · branch `master` ·
-HEAD `36c0399` — feat(playtest): the link is the invite — every URL carries the room code · 18 uncommitted file(s)*
+*Written 2026-08-31 01:49 · branch `master` ·
+HEAD `9aa9bf7` — feat(lobby): rooms are created, not conjured · 15 uncommitted file(s)*
 
 ## What I was doing
 
-Wrote and mostly built specs/lobby-flow (10/12): a create message that mints a server-side code, join that no longer creates rooms, a code cooldown, and a pure client state machine in flow.ts. 352 tests.
+Built visual-direction Phase D (T13-T17): the paper UI kit, screens and a snapshot-driven HUD, in src/client/src/ui/. It subsumed lobby-flow T11, so lobby-flow is 11/12. 378 tests, client builds to 133KB gzipped.
 
 ## What is half-finished
 
-lobby-flow T11 (apply the paper theme to menu/join/lobby) and T12 (play it for real) are open. specs/visual-direction is still 0/16 — T11 depends on its T13 panel primitives, so doing visual-direction Phase D first would make T11 nearly free.
+Nothing broken. visual-direction is 5/16 with 3 superseded — Phases A (textures/faces), B (materials) and C (the slab character) are the 3D work and are untouched. T4 is PARTLY done: PAPER tokens exist and the UI uses them; the arena tokens are deliberately not retargeted yet.
 
 ## The very next action
 
-Either lobby-flow T11+T12, or visual-direction Phase D (T13-T17) which subsumes most of T11. Then play it: pnpm playtest:solo.
+visual-direction Phase A (T1 texture kit, T2 kit_check regression, T3 face generator) — the published artifact has working JS for two of the three. Then Phases B and C convert the world, and T4's arena half lands with them.
 
 ## Gotchas
 
-join NO LONGER creates rooms — that was the ghost-room bug. Nobody picks a code now, so --room is gone from playtest.sh; bots create a room and report ROOM=XXXX which the script greps. CODE_ALPHABET is letters AND digits 2-9: normalizeCode stripping to [^A-Z] ate the digit out of a quarter of all codes. flow.ts is pure and DOM-free — keep it that way, ui.render(state) only draws.
+The UI is now a directory: src/client/src/ui/{kit,screens,hud}.ts. PAPER tokens sit ALONGSIDE the arena tokens on purpose — retargeting the arena now would put a bright paper sky over a dark Lambert-lit world. The HUD must never name a minigame; hud.test.ts greps the whole ui/ directory for every registered id. No box-shadow anywhere may have a blur radius, and kit.test.ts enforces it.
 
 ## Uncommitted when this was written
 
-- `LAUDE.md`
-- `docs/DECISION_LOG.md`
+- `ocs/DECISION_LOG.md`
 - `docs/technical/spec-status.md`
 - `docs/technical/status.html`
+- `specs/lobby-flow/tasks.md`
+- `specs/visual-direction/tasks.md`
+- `src/client/src/kit/palette.ts`
 - `src/client/src/main.ts`
-- `src/client/src/net.ts`
-- `src/client/src/ui.test.ts`
 - `src/client/src/ui.ts`
-- `src/server/src/net.ts`
-- `src/shared/src/constants.ts`
-- `src/shared/src/protocol.test.ts`
-- `src/shared/src/protocol.ts`
+- `src/client/src/ui.test.ts -> src/client/src/ui/screens.test.ts`
+- `src/client/src/ui/hud.test.ts`
+- `src/client/src/ui/hud.ts`
+- `src/client/src/ui/index.ts`
 
 ---
 

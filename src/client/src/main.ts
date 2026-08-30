@@ -9,7 +9,14 @@ import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
 import { Renderer } from "./render.ts";
-import { Ui, UI_CSS } from "./ui.ts";
+import { FONT_LINK, UI_CSS, Ui } from "./ui/index.ts";
+
+// The two typefaces are a runtime CDN dependency, not an asset file, with a declared
+// fallback in the stylesheet for a cold load on a bad connection (RD-021).
+const font = document.createElement("link");
+font.rel = "stylesheet";
+font.href = FONT_LINK;
+document.head.append(font);
 
 const style = document.createElement("style");
 style.textContent = UI_CSS;
@@ -21,10 +28,6 @@ document.body.append(canvas);
 const overlay = document.createElement("div");
 document.body.append(overlay);
 
-const hud = document.createElement("div");
-hud.id = "hud";
-document.body.append(hud);
-
 const renderer = new Renderer(canvas);
 const input = new InputController(document.body);
 
@@ -34,6 +37,8 @@ let players: PlayerView[] = [];
 let colours = new Map<number, string>();
 let playing = false;
 let bannerUntil = 0;
+let roundLabelInfo: { name: string; round: number; of: number } | null = null;
+let lastExtra: Record<string, unknown> | undefined;
 let handler: ClientMinigame | undefined;
 
 const net = new Net(serverUrl(), onMessage);
@@ -94,6 +99,7 @@ function onMessage(msg: ServerMsg): void {
 
     case "intro":
       ui.showIntro(msg.displayName, msg.rule, msg.round, msg.of);
+      roundLabelInfo = { name: msg.displayName, round: msg.round, of: msg.of };
       bannerUntil = performance.now() + 4000;
       break;
 
@@ -110,6 +116,7 @@ function onMessage(msg: ServerMsg): void {
 
     case "snap": {
       const extra = (msg.extra ?? {}) as Record<string, unknown>;
+      lastExtra = extra;
       handler?.onSnapshot(renderer, extra);
       // The generic path every minigame gets for free.
       renderer.setPrims(extra.prims as Prim[] | undefined);
@@ -118,6 +125,7 @@ function onMessage(msg: ServerMsg): void {
 
     case "roundEnd":
       playing = false;
+      ui.clearHud();
       ui.showRoundEnd(msg.scores, players);
       bannerUntil = performance.now() + 4000;
       break;
@@ -156,6 +164,8 @@ function frame(now: number): void {
   }
 
   if (playing) {
+    // The HUD reads the snapshot and nothing else — no minigame is named here (RD-009).
+    ui.renderHud(lastExtra, roundLabelInfo ?? undefined);
     const lerped = net.buffer.sample(now);
     renderer.syncPlayers(lerped, colours, now / 1000);
     handler?.onFrame?.(renderer, now / 1000);

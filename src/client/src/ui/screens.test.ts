@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { ERROR_TEXT, initialState, type FlowState } from "./flow.ts";
+import { ERROR_TEXT, initialState, type FlowState } from "../flow.ts";
 import type { PlayerView } from "@ruckus/shared";
-import { Ui } from "./ui.ts";
+import { Ui } from "./screens.ts";
 
 /**
  * A tiny DOM stub. Enough to prove the room code actually reaches the screen, which

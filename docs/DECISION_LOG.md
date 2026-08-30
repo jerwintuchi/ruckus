@@ -672,3 +672,39 @@ already been copied into the error text ("four letters") and into `playtest.sh`.
 **Deferred, deliberately:** a QR code in the lobby. It is a genuinely good affordance for
 people in the same room, and it is generatable in code without breaking the Kit — but it
 is scope, and it is recorded here rather than smuggled in.
+
+## RD-025 — The interface goes first (2026-08-31)
+
+**Decision.** Build `specs/visual-direction/` Phase D (T13–T17) before Phases A–C, and
+let it subsume `specs/lobby-flow/` T11. `src/client/src/ui/` is now a directory:
+`kit.ts` (tokens, stylesheet, primitives), `screens.ts` (the screens), `hud.ts` (the
+in-round HUD).
+
+**Context.** The lobby flow needed a theme, and theming it against a visual system that
+did not exist yet would have meant inventing a second one and throwing it away. The
+interface can go first because it is a separate surface from the 3D world — which is
+the same split the direction is built on (RD-021): retro world, crisp interface.
+
+**A panel is a character slab at interface scale.** Flat fill, a heavy ink outline, a
+hard offset shadow with **zero blur**. That shared construction is what will make the
+menus and the world read as one thing once the world follows, and a test asserts no
+blurred shadow exists anywhere — a blur is what makes a panel read as a web modal
+instead of a printed card.
+
+**The palette moved in half, on purpose.** `PAPER` tokens were added *alongside* the
+arena tokens rather than replacing them. Retargeting the world's ground now would leave
+a bright paper sky over a dark Lambert-lit arena until Phases B and C land. T4 is marked
+partly done and says exactly what remains, rather than being ticked on a technicality.
+
+**The HUD names no minigame.** It renders known snapshot keys — `fuse`, `remaining`,
+`counts` — and ignores the rest, so a minigame that wants a gauge puts the data on the
+wire and nothing in the UI changes. A test greps every file in `src/client/src/ui/` for
+every registered minigame id, the same guard `main.ts` has had since RD-009.
+
+**Two small things worth keeping.** A `box-shadow` written without its trailing
+semicolon made a test regex swallow the following rule and report a shadow that did not
+exist — the CSS was fine and the assertion was not. And the tasks now name the test
+files that actually exist (`kit.test.ts`, `screens.test.ts`) rather than the ones the
+spec guessed at (`ui-kit.test.ts`, `ui-motion.test.ts`); splitting one small
+stylesheet's tests across two files to match a guess would have been worse than
+correcting the guess.

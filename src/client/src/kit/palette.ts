@@ -9,6 +9,30 @@
 // One definition, in shared: the server assigns, the client draws (RD-007).
 export { PLAYER_COLOURS } from "@ruckus/shared";
 
+/**
+ * Paper stock (RD-021).
+ *
+ * Added alongside the existing arena tokens rather than replacing them: the 3D world
+ * is still Lambert-lit and dark until visual-direction Phases B and C land, and
+ * swapping its ground out from under it now would leave the game half-converted. The
+ * interface can go first because it is a separate surface.
+ */
+export const PAPER = {
+  /** Every outline and every drawn line. A printed black, warm, never pure. */
+  ink: "#1b1a17",
+  /** Panel faces — warm stock. */
+  card: "#fdf8ee",
+  /** The ground a card sits on. */
+  ground: "#cfe4f2",
+  /** One shade down, for a second plane. */
+  cardDim: "#efe4cd",
+  /** Text on stock. */
+  text: "#1b1a17",
+  textDim: "#6e6754",
+  /** The one bright accent that is not a player's colour. */
+  highlight: "#ffd23f",
+} as const;
+
 export const PALETTE = {
   sky: "#0e1014",
   floor: "#3b4152",
