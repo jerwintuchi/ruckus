@@ -3,96 +3,112 @@
 Render layer only. No minigame's geometry, collision or scoring changes; if a task
 finds itself editing `src/server/`, it has gone wrong.
 
-## Phase A — procedural textures
+*Rewritten 2026-08-31 (RD-021). The retro-pass tasks are marked superseded in place
+rather than deleted — the PS1 direction was a real decision and its reversal should be
+legible, not tidied away.*
 
-- [ ] T1 [R1, R2, P1] — The texture kit in `src/client/src/kit/textures.ts`
+## Phase A — procedural paper
+
+- [ ] T1 [R1, R2, P2] — The paper texture kit in `src/client/src/kit/textures.ts`:
+  `stock`, `crease`, `deckle`, `flat`, `checker`, `stripe`, `dot`, `grid`
   Test: `textures.test.ts` — every generator returns a 64x64 `DataTexture` with
-  `NearestFilter` and `RepeatWrapping`; generation is deterministic (byte-identical
+  `LinearFilter` and `RepeatWrapping`; generation is deterministic (byte-identical
   texels for identical arguments); the cache returns the same object for the same
-  signature; every colour argument resolves through `PALETTE` or a player colour
+  signature; `FIBRE_CONTRAST` keeps `stock()` inside a narrow tonal band, so it reads
+  as paper rather than as noise
 
 - [ ] T2 [R1] — Keep the Kit honest with the new capability
   Test: `kit-rules.test.ts` — `kit_check.py --check` is green with textures in play;
   a seeded `.png` and a seeded `TextureLoader` are each still rejected; `DataTexture`
   is not mistaken for a loader
 
-- [ ] T3 [R8, P2] — The face generator in `src/client/src/kit/face.ts`
+- [ ] T3 [R8, P3] — The face generator in `src/client/src/kit/face.ts`
   Test: `face.test.ts` — `faceFor(slot)` is deterministic; the 8 slots produce 8
   pairwise-distinct texel arrays; every parameter stays inside its declared range;
-  eyes and mouth land inside the texture bounds for every slot
+  all linework lands inside the texture bounds for every slot
 
-## Phase B — the retro pass
+- [ ] T4 [R3] — Move the palette to paper stock in `src/client/src/kit/palette.ts`
+  Test: `palette.test.ts` — the 8 player colours are **unchanged** (RD-007's dichromacy
+  search still holds); arena tokens are the new warm stock; every token is well-formed;
+  `INK` contrasts at least 7:1 against every paper ground it outlines
 
-- [ ] T4 [R3, P4] — Render target sizing in `src/client/src/kit/retro.ts`
-  Test: `retro.test.ts` — the target is `RETRO_HEIGHT` tall and derives width from
-  aspect; it never exceeds the drawing buffer (upscale only); it resizes with the
-  viewport without leaking targets; `RETRO_HEIGHT` is inside a sane readable band
+## Phase B — outlines and materials
 
-- [ ] T5 [R4] — Quantization and ordered dither
-  Test: `retro.test.ts` — a reference implementation of the shader's maths in TS
-  quantizes to 32 levels per channel; the Bayer matrix is the standard 4x4 and sums
-  correctly; dithering a flat ramp produces more distinct output values than rounding
-  it flat (the property that makes banding acceptable)
+- [~] T5 — **SUPERSEDED by T8** (RD-021). Was: render-target sizing for the retro pass.
+  There is no retro buffer; rendering is crisp and native.
 
-- [ ] T6 [R5] — Flat shading and per-arena fog in `src/client/src/render.ts`
-  Test: `render.test.ts` — every material the Kit hands out is `flatShading: true`;
-  fog is set from the arena's `sky` on `setArena` and cleared between arenas
+- [~] T6 — **SUPERSEDED** (RD-021). Was: 15-bit quantization and ordered Bayer dither.
+  Dithering exists to break up flat colour, and flat colour is the entire paper read.
 
-- [ ] T7 [R6] — Record the exclusions
-  Test: `retro.test.ts` — the retro shader source contains no vertex-snapping and no
-  affine-UV path, asserted against the source so a future addition is a decision and
-  not a drift
+- [~] T7 — **SUPERSEDED by T9** (RD-021). Was: flat shading plus per-arena distance fog.
+  Fog dissolves edges; hard edges are the point. Characters are now unlit outright.
+
+- [ ] T8 [R3, R4, P1] — Native crisp rendering and the outline strategy in
+  `src/client/src/kit/paper.ts`
+  Test: `paper.test.ts` — the pixel ratio is capped at 2; **no fullscreen pass and no
+  depth-texture requirement exists in the render source** (P1, asserted against the
+  source); a slab's edge faces resolve to `INK` while its front and back take the
+  player colour; the opt-in inverted hull applies only to objects that request it
+
+- [ ] T9 [R5, R6] — Materials: unlit characters, lightly-lit arena, paper surfaces
+  Test: `paper.test.ts` — character materials are unlit; arena materials keep one soft
+  light; no fog is ever set; no shadow map is ever enabled; `stock()` and `crease()`
+  are applied to arena surfaces rather than flat colour
 
 ## Phase C — the character
 
-- [ ] T8 [R7] — The box humanoid in `src/client/src/kit/character.ts`
-  Test: `character.test.ts` — the parts are all `BoxGeometry` from the Kit's cache;
-  total height and footprint are unchanged from the bean; the face texture lands on
-  the head's +Z face; geometries and materials are shared, not per-instance
+- [ ] T10 [R7] — The slab humanoid in `src/client/src/kit/character.ts`
+  Test: `character.test.ts` — every part is a slab of `SLAB_DEPTH` with `INK` edges;
+  total height and footprint are unchanged from the capsule it replaces; the face
+  texture lands on the head's front face; geometries and materials are shared, not
+  per-instance; **the character is never camera-facing** — a billboard would remove
+  the depth cue Sweepers and Hot Potato depend on
 
-- [ ] T9 [R9, P3] — Procedural limb animation, extending `poseFor`
-  Test: `actor.test.ts` — legs and arms are in counter-phase; amplitude scales with
-  speed and is zero at rest; the airborne pose differs from every grounded pose; every
-  angle is finite for extreme inputs; the whole pose is a pure function of
-  `(speed, height, grounded, t)`
+- [ ] T11 [R9, P4] — Hinged paper motion, extending `poseFor`
+  Test: `actor.test.ts` — limbs hinge in counter-phase; the swing curve eases sharply
+  at the extremes rather than sinusoidally (paper has no inertia); a turn rotates the
+  slab enough to show its edge; the airborne pose differs from every grounded pose;
+  every angle is finite for extreme inputs and is a pure function of its arguments
 
-- [ ] T10 [R7, R13] — Readability and cost with 8 on screen
+- [ ] T12 [R7, R13] — Readability with 8 on screen
   Test: manual capture at phone size, 8 characters, each arena — plus
   `character.test.ts` asserting the per-character mesh count stays within budget
 
 ## Phase D — the interface
 
-- [ ] T11 [R10, R11] — The panel, button and card primitives in `src/client/src/ui/kit.ts`
-  Test: `ui-kit.test.ts` — the outline and hard offset shadow are present (no blur
-  radius); every interactive target is at least 44 px on its shortest side; accents
-  resolve to the game's own player colours
+- [ ] T13 [R10, R11] — Panel, button and card primitives in `src/client/src/ui/kit.ts`
+  Test: `ui-kit.test.ts` — outline and hard offset shadow present (no blur radius);
+  every interactive target is at least 44 px on its shortest side; accents resolve to
+  the game's own player colours; the panel construction matches a character slab's,
+  which is what makes the two read as one thing
 
-- [ ] T12 [R10] — Motion, and its reduced-motion path
+- [ ] T14 [R10] — Motion, and its reduced-motion path
   Test: `ui-motion.test.ts` — entrances overshoot and settle; under
   `prefers-reduced-motion` every animation is removed and **every piece of information
-  is still rendered** — the property that matters
+  is still rendered**
 
-- [ ] T13 [R12] — Screens: join, lobby, intro, result, match result
+- [ ] T15 [R12] — Screens: join, lobby, intro, result, match result
   Test: `ui.test.ts` — the intro renders the minigame's `rule` verbatim; the lobby
-  shows the room code, and each player's colour, face and name; results order by
-  points descending with ties stable
+  shows the room code and each player's colour, face and name; results order by points
+  descending with ties stable
 
-- [ ] T14 [R12] — A snapshot-driven HUD in `src/client/src/ui/hud.ts`
+- [ ] T16 [R12] — A snapshot-driven HUD in `src/client/src/ui/hud.ts`
   Test: `hud.test.ts` — known snapshot keys (`fuse`, `remaining`, `counts`) render
   their widget; unknown keys are ignored without throwing; **no minigame id appears
-  anywhere in the UI source**, asserted the same way `main.ts` is (RD-009)
+  anywhere in the UI source** (RD-009)
 
-- [ ] T15 [R11] — Landscape phone layout
-  Test: `ui.test.ts` — the whole interface fits a 360 px-tall viewport; nothing
-  interactive sits in either bottom corner where a thumb rests
+- [ ] T17 [R11] — Landscape phone layout
+  Test: `ui.test.ts` — the interface fits a 360 px-tall viewport; nothing interactive
+  sits in either bottom corner where a thumb rests
 
 ## Phase E — close
 
-- [ ] T16 [R13] — Measure the cost, do not assume it
-  Test: frame timing with 8 characters in each arena, retro pass on and off, captured
-  on a phone. If the retro pass does not pay for itself, that is a finding for the
-  DECISION_LOG, not something to quietly keep.
+- [ ] T18 [R13] — Measure the cost, do not assume it
+  Test: frame timing with 8 characters in each arena, before and after. Unlit fill and
+  geometry outlines **should** be cheaper than the current Lambert build; if they are
+  not, that is a finding for the DECISION_LOG, not something to quietly keep.
 
-- [ ] T17 — Played for real, on a phone, by someone who is not the author
-  Test: manual playtest via `pnpm playtest`. The question is whether the look reads at
-  arm's length in a lit room, which no test answers.
+- [ ] T19 — Played for real, on a phone, by someone who is not the author
+  Test: manual playtest via `pnpm playtest`. Two questions no test answers: does the
+  paper read at arm's length in a lit room, and can you still judge depth well enough
+  to time a jump over a sweeper?

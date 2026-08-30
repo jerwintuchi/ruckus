@@ -11,7 +11,8 @@ These are disagreements between what a spec says and what the tree contains.
 
 ### `specs/visual-direction/` — 🟢 active
 
-- **MISSING** — open tasks name 15 file(s) not in the tree: src/client/src/kit/textures.ts, textures.test.ts, kit-rules.test.ts, face.test.ts
+- **MISSING** — open tasks name 14 file(s) not in the tree: src/client/src/kit/textures.ts, textures.test.ts, kit-rules.test.ts, face.test.ts
+- **LIKELY-SHIPPED** — 1 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T4
 
 ### `specs/shell/` — 🟡 dormant
 
@@ -21,7 +22,7 @@ These are disagreements between what a spec says and what the tree contains.
 
 | spec | status | done | open | superseded | last touched | flags |
 |---|---|---:|---:|---:|---|---|
-| `visual-direction` | 🟢 active | 0 | 17 | 0 | 2026-08-31 | MISSING |
+| `visual-direction` | 🟢 active | 0 | 16 | 3 | 2026-08-31 | MISSING, LIKELY-SHIPPED |
 | `shell` | 🟡 dormant | 17 | 2 | 0 | 2026-08-30 | MISSING |
 | `minigame-falling-floor` | ✅ done | 7 | 0 | 0 | 2026-08-30 | — |
 | `minigame-hot-potato` | ✅ done | 11 | 0 | 0 | 2026-08-30 | — |

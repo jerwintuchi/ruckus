@@ -1,529 +1,500 @@
-<title>Ruckus Visual Direction</title>
+<title>Ruckus Paper Direction</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Dark-first: the world register is a dark arena, so that is the committed default.
-   Tokens only in the theme blocks — no component rule lives inside one. */
-:root {
-  --ground:#0b0d11; --panel:#13171e; --panel-2:#1a202a; --line:#242c38;
-  --ink:#eaeef5; --ink-2:#a8b3c4; --muted:#788394;
-  --accent:#1ab0ff;
-  --ok:#34c46a; --warn:#ffb020; --bad:#ff5a45;
-  --shadow:0 10px 30px rgba(0,0,0,.45);
-  color-scheme: dark;
-}
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --ground:#f4f6f9; --panel:#ffffff; --panel-2:#eef1f6; --line:#dbe1ea;
-    --ink:#121722; --ink-2:#3e4959; --muted:#687384;
-    --accent:#0a7fc4;
-    --ok:#127a3e; --warn:#8a5a00; --bad:#c02718;
-    --shadow:0 10px 30px rgba(16,24,40,.10);
-    color-scheme: light;
-  }
-}
-:root[data-theme="light"] {
-  --ground:#f4f6f9; --panel:#ffffff; --panel-2:#eef1f6; --line:#dbe1ea;
-  --ink:#121722; --ink-2:#3e4959; --muted:#687384;
+/* Light-first: the subject is paper, so the page's default is a warm stock and the
+   dark palette is the swap. Tokens only inside the theme blocks. */
+:root{
+  --ground:#f3ece0; --panel:#fdf8ee; --panel-2:#eae0cd; --line:#d8cab0;
+  --ink:#1b1a17; --ink-2:#4d4a41; --muted:#7d7767;
   --accent:#0a7fc4;
   --ok:#127a3e; --warn:#8a5a00; --bad:#c02718;
-  --shadow:0 10px 30px rgba(16,24,40,.10);
+  --hard:#1b1a17;                 /* the outline colour, in both themes */
   color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#14140f; --panel:#1d1c16; --panel-2:#262419; --line:#3a362a;
+    --ink:#f2ede1; --ink-2:#bdb6a4; --muted:#8b8574;
+    --accent:#5cc8ff;
+    --ok:#4ad07f; --warn:#ffc247; --bad:#ff6a56;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#14140f; --panel:#1d1c16; --panel-2:#262419; --line:#3a362a;
+  --ink:#f2ede1; --ink-2:#bdb6a4; --muted:#8b8574;
+  --accent:#5cc8ff;
+  --ok:#4ad07f; --warn:#ffc247; --bad:#ff6a56;
+  color-scheme: dark;
 }
 
 *,*::before,*::after{box-sizing:border-box}
-body{
-  margin:0;background:var(--ground);color:var(--ink);
+body{margin:0;background:var(--ground);color:var(--ink);
   font-family:Nunito,ui-sans-serif,system-ui,sans-serif;font-size:15.5px;line-height:1.6;
-  -webkit-font-smoothing:antialiased;
-}
+  -webkit-font-smoothing:antialiased}
 .wrap{max-width:1000px;margin:0 auto;padding:44px 22px 80px}
 h1,h2,h3,.disp{font-family:Fredoka,ui-rounded,system-ui,sans-serif;text-wrap:balance;margin:0}
 code,.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.88em}
 a{color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
 
-/* ---- masthead ---------------------------------------------------------- */
-.mast{border-bottom:1px solid var(--line);padding-bottom:26px}
 .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--muted)}
-.mast h1{font-size:clamp(34px,6vw,58px);font-weight:700;letter-spacing:-.02em;line-height:1;margin:10px 0 0}
+.mast{border-bottom:2px solid var(--line);padding-bottom:26px}
+.mast h1{font-size:clamp(36px,6.4vw,62px);font-weight:700;letter-spacing:-.02em;line-height:1;margin:10px 0 0}
 .mast p{color:var(--ink-2);max-width:62ch;margin:14px 0 0;font-size:17px}
 .mast strong{color:var(--ink);font-weight:800}
 
-/* the two registers, stated as a diagram */
-.registers{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:26px 0 0}
-@media (max-width:640px){.registers{grid-template-columns:1fr}}
-.reg{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--panel)}
-.reg h3{font-size:17px;font-weight:600}
-.reg p{margin:6px 0 0;color:var(--ink-2);font-size:14px}
-.reg .tag{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;
-  padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-top:10px}
-
-section{margin-top:56px}
-section>h2{font-size:26px;font-weight:600;letter-spacing:-.01em}
+section{margin-top:58px}
+section>h2{font-size:27px;font-weight:600;letter-spacing:-.01em}
 section>.lead{color:var(--ink-2);max-width:66ch;margin:8px 0 22px}
-h3.sub{font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+h3.sub{font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
   color:var(--muted);margin:30px 0 12px;font-family:Nunito,sans-serif}
 
-/* ---- swatch grids ------------------------------------------------------ */
+/* ---------- the live slab: the whole idea, demonstrated ---------- */
+.slabstage{background:var(--panel-2);border:2px solid var(--line);border-radius:18px;
+  padding:34px 18px 26px;display:grid;place-items:center;gap:20px;perspective:900px}
+.slab{width:150px;height:190px;position:relative;transform-style:preserve-3d;
+  animation:spin 9s cubic-bezier(.6,0,.4,1) infinite}
+@keyframes spin{
+  0%,18%{transform:rotateY(-14deg)}
+  42%,60%{transform:rotateY(-90deg)}
+  84%,100%{transform:rotateY(-166deg)}
+}
+.slab .face{position:absolute;inset:0;background:#1ab0ff;border:3px solid var(--hard);
+  border-radius:9px;display:grid;place-items:center;backface-visibility:hidden}
+.slab .face.back{transform:translateZ(-13px) rotateY(180deg);background:#0f8ecb}
+.slab .face.front{transform:translateZ(0)}
+.slab .edge{position:absolute;top:0;bottom:0;width:13px;background:var(--hard);
+  transform-origin:left center}
+.slab .edge.r{right:0;transform:rotateY(90deg) translateZ(0)}
+.slab .edge.l{left:0;transform:rotateY(90deg) translateZ(-13px)}
+.slab canvas{width:82px;height:82px;image-rendering:auto;border-radius:5px}
+.slabnote{color:var(--muted);font-size:12.5px;text-align:center;
+  font-family:"IBM Plex Mono",monospace;max-width:46ch}
+@media (prefers-reduced-motion:reduce){.slab{animation:none;transform:rotateY(-32deg)}}
+
+.callout{border:2px solid var(--hard);background:var(--panel);border-radius:16px;
+  box-shadow:5px 5px 0 var(--hard);padding:16px 20px;margin-top:20px}
+.callout b{font-family:Fredoka,sans-serif;font-weight:600}
+.callout p{margin:5px 0 0;color:var(--ink-2)}
+
+/* ---------- grids ---------- */
 .grid{display:grid;gap:12px}
-.g-tex{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
-.g-face{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
-.g-col{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
-.cell{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
-.cell canvas{width:100%;height:auto;display:block;border-radius:7px;
-  image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
+.g-tex{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+.g-face{grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}
+.g-col{grid-template-columns:repeat(auto-fill,minmax(116px,1fr))}
+.cell{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.cell canvas{width:100%;height:auto;display:block;border-radius:7px;border:1px solid var(--line)}
 .cell b{display:block;font-family:"IBM Plex Mono",monospace;font-size:11.5px;
   font-weight:500;margin-top:8px;color:var(--ink-2)}
 .cell span{display:block;font-size:11px;color:var(--muted);margin-top:1px}
 
 .chip{display:flex;align-items:center;gap:9px;background:var(--panel);
-  border:1px solid var(--line);border-radius:11px;padding:9px 11px}
-.chip i{width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:block}
-.chip div{min-width:0}
-.chip b{display:block;font-size:12.5px;font-weight:700}
+  border:2px solid var(--line);border-radius:11px;padding:8px 10px}
+.chip i{width:24px;height:24px;border-radius:5px;flex:0 0 auto;display:block;border:2px solid var(--hard)}
+.chip b{display:block;font-size:12.5px;font-weight:800}
 .chip span{display:block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted)}
 
-/* ---- specimen: the party UI, in its own colours in both themes --------- */
-.stage{background:linear-gradient(180deg,#2a3550 0%,#141c2e 100%);
-  border:1px solid var(--line);border-radius:16px;padding:34px 20px;
-  display:flex;flex-direction:column;align-items:center;gap:18px}
-.card{
-  --c:#1ab0ff;
-  background:#fdf7e8;color:#20242c;border:4px solid #171a20;border-radius:20px;
-  box-shadow:6px 6px 0 #171a20;padding:20px 26px;max-width:420px;width:100%;
-  text-align:center;transform:rotate(-1.2deg);
-}
-.card.plain{transform:rotate(.8deg)}
+/* ---------- UI specimen: keeps its own colours in either theme ---------- */
+.stage{background:#cfe4f2;border:2px solid var(--line);border-radius:18px;
+  padding:34px 20px;display:flex;flex-direction:column;align-items:center;gap:18px}
+.card{--c:#69f982;background:#fdf8ee;color:#1b1a17;border:4px solid #1b1a17;border-radius:20px;
+  box-shadow:6px 6px 0 #1b1a17;padding:20px 26px;max-width:420px;width:100%;
+  text-align:center;transform:rotate(-1.2deg)}
 .card .kicker{font-family:Fredoka,sans-serif;font-weight:600;font-size:12.5px;
-  letter-spacing:.12em;text-transform:uppercase;color:#7a6a4a}
+  letter-spacing:.12em;text-transform:uppercase;color:#8a7d5f}
 .card .name{font-family:Fredoka,sans-serif;font-weight:700;font-size:32px;line-height:1.08;
-  margin:6px 0 8px;color:#20242c}
-.card .rule{font-size:16px;color:#4a4f5c;margin:0}
-.card .pill{display:inline-block;margin-top:14px;background:var(--c);color:#08121c;
-  border:3px solid #171a20;border-radius:999px;padding:5px 16px;
-  font-family:Fredoka,sans-serif;font-weight:600;font-size:13px;box-shadow:3px 3px 0 #171a20}
-.btn{
-  font-family:Fredoka,sans-serif;font-weight:600;font-size:19px;color:#08121c;
-  background:#ffd23f;border:4px solid #171a20;border-radius:16px;
-  box-shadow:0 6px 0 #171a20;padding:13px 34px;cursor:pointer;min-height:52px;
-  transition:transform .08s,box-shadow .08s;
-}
-.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #171a20}
+  margin:6px 0 8px;color:#1b1a17}
+.card .rule{font-size:16px;color:#514d43;margin:0}
+.card .pill{display:inline-block;margin-top:14px;background:var(--c);color:#12240f;
+  border:3px solid #1b1a17;border-radius:999px;padding:5px 16px;
+  font-family:Fredoka,sans-serif;font-weight:600;font-size:13px;box-shadow:3px 3px 0 #1b1a17}
+.btn{font-family:Fredoka,sans-serif;font-weight:600;font-size:19px;color:#241d05;
+  background:#ffd23f;border:4px solid #1b1a17;border-radius:16px;
+  box-shadow:0 6px 0 #1b1a17;padding:13px 34px;cursor:pointer;min-height:52px;
+  transition:transform .08s,box-shadow .08s}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #1b1a17}
 .roster{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-.pcard{background:#fdf7e8;border:3px solid #171a20;border-radius:14px;
-  box-shadow:4px 4px 0 #171a20;padding:8px 8px 6px;width:74px;text-align:center}
-.pcard canvas{width:44px;height:44px;image-rendering:pixelated;border-radius:6px;display:block;margin:0 auto}
-.pcard b{display:block;font-family:Fredoka,sans-serif;font-size:11.5px;color:#20242c;margin-top:5px}
-.pcard i{display:block;height:5px;border-radius:3px;margin-top:4px}
+.pcard{background:#fdf8ee;border:3px solid #1b1a17;border-radius:14px;
+  box-shadow:4px 4px 0 #1b1a17;padding:8px 8px 6px;width:74px;text-align:center}
+.pcard canvas{width:44px;height:44px;border-radius:5px;display:block;margin:0 auto}
+.pcard b{display:block;font-family:Fredoka,sans-serif;font-size:11.5px;color:#1b1a17;margin-top:5px}
+.pcard i{display:block;height:6px;border-radius:3px;margin-top:4px;border:1px solid #1b1a17}
 .stagenote{color:var(--muted);font-size:12.5px;text-align:center;margin-top:12px;
   font-family:"IBM Plex Mono",monospace}
 
-/* ---- comparison ------------------------------------------------------- */
-.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media (max-width:620px){.compare{grid-template-columns:1fr}}
-.compare figure{margin:0;background:var(--panel);border:1px solid var(--line);
-  border-radius:12px;padding:11px}
-.compare canvas{width:100%;height:auto;display:block;border-radius:7px;image-rendering:pixelated}
-.compare figcaption{font-size:12.5px;color:var(--ink-2);margin-top:9px;text-align:center}
-.compare figcaption b{font-family:"IBM Plex Mono",monospace;font-size:11.5px;
-  display:block;color:var(--muted);font-weight:500}
+/* ---------- tables ---------- */
+.tablewrap{overflow-x:auto;border:2px solid var(--line);border-radius:12px;background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  font-weight:800;padding:11px 14px;border-bottom:2px solid var(--line);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.yes{color:var(--ok);font-weight:800}
+.no{color:var(--bad);font-weight:800}
+.was{color:var(--muted);text-decoration:line-through}
 
-/* ---- character diagram ------------------------------------------------ */
 .charwrap{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:center;
-  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:20px}
 @media (max-width:640px){.charwrap{grid-template-columns:1fr}}
 .charwrap pre{margin:0;font-family:"IBM Plex Mono",monospace;font-size:12.5px;
   line-height:1.45;color:var(--ink-2);white-space:pre}
-.parts{display:grid;gap:7px;font-size:13.5px}
-.parts div{display:grid;grid-template-columns:74px 1fr;gap:12px}
+.parts{display:grid;gap:7px;font-size:13.5px;margin:0}
+.parts div{display:grid;grid-template-columns:78px 1fr;gap:12px}
 .parts dt{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent)}
 .parts dd{margin:0;color:var(--ink-2)}
 
-/* ---- decision table --------------------------------------------------- */
-.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
-table{width:100%;border-collapse:collapse;font-size:14px}
-th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
-  font-weight:700;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
-tr:last-child td{border-bottom:0}
-.yes{color:var(--ok);font-weight:700}
-.no{color:var(--bad);font-weight:700}
-
-.note{border-left:3px solid var(--accent);background:var(--panel);padding:13px 16px;
-  border-radius:0 10px 10px 0;color:var(--ink-2);font-size:14.5px;margin-top:18px}
-.note b{color:var(--ink)}
-
-footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);
+footer{margin-top:64px;padding-top:20px;border-top:2px solid var(--line);
   color:var(--muted);font-size:13px}
-
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
 <div class="wrap">
   <header class="mast">
-    <div class="eyebrow">Ruckus · specs/visual-direction</div>
-    <h1>Two registers</h1>
-    <p>A <strong>PS1-era low-poly world</strong> rendered chunky and dithered, wrapped in a
-    <strong>bright, chunky party interface</strong> that stays razor sharp. The contrast is
-    the direction, not a compromise inside it.</p>
-
-    <div class="registers">
-      <div class="reg">
-        <h3>The world</h3>
-        <p>Renders to a 270-pixel-tall buffer and upscales with no smoothing. Flat shading,
-        hard edges, 15-bit colour, ordered dither, distance fog.</p>
-        <span class="tag">480 × 270 · nearest · 5 bits/channel</span>
-      </div>
-      <div class="reg">
-        <h3>The interface</h3>
-        <p>DOM at native resolution, so type and panels stay crisp on a 3× phone display.
-        Never drawn into the retro buffer.</p>
-        <span class="tag">native · subpixel type · 44px targets</span>
-      </div>
-    </div>
+    <div class="eyebrow">Ruckus · specs/visual-direction · rewritten 2026-08-31</div>
+    <h1>Cut from paper</h1>
+    <p>Flat cutouts with hard outlines, in a crisp saturated storybook world, under a
+    chunky party interface of the <strong>same family</strong>. The game and its menus
+    finally come from one reference instead of two bolted together.</p>
   </header>
 
   <section>
-    <h2>Textures are code</h2>
-    <p class="lead">Every texture below is generated in this page by the same functions the
-    spec defines — no image files, no loaders, so <code>kit_check.py</code> stays green by
-    construction rather than by exemption. PS1 textures were small tiling patterns, which
-    are cheaper to write than to author and manage.</p>
+    <h2>The outline is geometry, not a shader</h2>
+    <p class="lead">This is the decision the rest hangs off. A character is a slab
+    <strong>0.08 m deep</strong>: coloured front and back, <strong>near-black on the four
+    edge faces</strong>. That outlines the silhouette by construction — no inverted hull,
+    no depth-buffer edge detection, no fullscreen pass, and <em>no per-frame cost at
+    all</em>.</p>
 
-    <h3 class="sub">The generator kit · 64 × 64 · nearest · repeat</h3>
+    <div class="slabstage">
+      <div class="slab">
+        <div class="face front"><canvas id="slabface"></canvas></div>
+        <div class="face back"></div>
+        <div class="edge l"></div>
+        <div class="edge r"></div>
+      </div>
+      <p class="slabnote">the edge you see when it turns <em>is</em> the outline</p>
+    </div>
+
+    <div class="callout">
+      <b>Slabs, not billboards — and that is a gameplay decision.</b>
+      <p>True camera-facing quads are the more authentic read, and they would remove depth
+      judgement completely. In a game about timing a jump over a sweeping bar and dashing
+      into a moving player, that is a playability risk rather than a stylistic one. The
+      slab keeps the paper flip <em>and</em> keeps the cue.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Paper, generated in code</h2>
+    <p class="lead">Every swatch below is produced in this page by the functions the spec
+    defines — no image files, no loaders, so <code>kit_check.py</code> stays green by
+    construction. Paper is a kinder subject for this than PS1 was: it wants flat colour, a
+    whisper of fibre and hard lines, which are cheaper to write than to draw.</p>
+
+    <h3 class="sub">The generator kit · 64 × 64 · smooth · tiling</h3>
     <div class="grid g-tex" id="textures"></div>
-
-    <div class="note"><b>The limit, stated plainly.</b> A generator cannot paint a logo, a
-    sign or a portrait. The design does without those. The one place that looked like it
-    needed painting — a face — turns out not to.</div>
   </section>
 
   <section>
     <h2>Eight faces, from four numbers</h2>
-    <p class="lead">A PS1 face was a 32×32 texture with dot eyes and a mouth. That is a
-    handful of drawing primitives. <code>faceFor(slot)</code> varies eye spacing, eye size,
-    brow angle and mouth shape from the slot seed — so the eight players get eight
-    <em>different</em> faces, which one painted texture could never do.</p>
+    <p class="lead">Inked linework on a cutout. <code>faceFor(slot)</code> varies eye
+    spacing, eye size, brow angle and mouth shape from the slot seed, so the eight players
+    get eight <em>different</em> faces — which one drawn texture could never do.</p>
 
     <div class="grid g-face" id="faces"></div>
 
-    <div class="note"><b>This is the second identity channel RD-007 named and did not
-    build.</b> Eight colours that survive dichromacy is over-constrained. Eight colours
-    <em>plus</em> eight faces is not.</div>
+    <div class="callout">
+      <b>A player now carries three identity channels.</b>
+      <p>Colour, outline, and face. RD-007 found that eight simultaneously bright,
+      saturated <em>and</em> dichromacy-safe colours is over-constrained, and named a
+      second channel as the real fix without building one. This builds two.</p>
+    </div>
   </section>
 
   <section>
     <h2>The character</h2>
-    <p class="lead">Boxes, a generated face, and no rig. Footprint and
-    <code>PLAYER_RADIUS</code> are unchanged from the capsule it replaces, so nothing about
-    collision, spawning or any minigame's geometry moves — this stays a render-layer change.</p>
+    <p class="lead">Every part is a slab: coloured faces, ink edges, hinged at the joints.
+    Footprint and <code>PLAYER_RADIUS</code> are unchanged, so no collision, spawn or
+    minigame geometry moves — this stays a render-layer change.</p>
 
     <div class="charwrap">
       <pre>       ┌────┐
-       │ ·· │      head
+       │◕  ◕│      head    0.44 slab, face inked on the front
        └─┬──┘
-   ┌─┐ ┌─┴──┐ ┌─┐
-   │ │ │████│ │ │  torso + arms
-   └─┘ └─┬──┘ └─┘
+   ┌┐  ┌─┴──┐  ┌┐
+   ││  │████│  ││  torso   0.60 × 0.66 · arms 0.14 × 0.52
+   └┘  └─┬──┘  └┘
        ┌─┴─┐
-      ┌┴┐ ┌┴┐       legs
+      ┌┴┐ ┌┴┐      legs    0.19 × 0.50, hinged at the hip
       └─┘ └─┘
-      ╰────╯        shadow</pre>
+      ╰────╯       shadow  flat blob, shrinks with height</pre>
       <dl class="parts">
-        <div><dt>head</dt><dd>0.46 cube · face texture on the +Z face</dd></div>
-        <div><dt>torso</dt><dd>0.62 × 0.70 × 0.36 · player colour</dd></div>
-        <div><dt>arms</dt><dd>0.17 × 0.58 × 0.17 · pivot at the shoulder</dd></div>
-        <div><dt>legs</dt><dd>0.21 × 0.58 × 0.21 · pivot at the hip</dd></div>
-        <div><dt>shadow</dt><dd>flat circle, shrinks with height</dd></div>
-        <div><dt>height</dt><dd>≈1.85 m, unchanged footprint</dd></div>
+        <div><dt>depth</dt><dd>0.08 m — reads as an outline, reads as paper</dd></div>
+        <div><dt>edges</dt><dd><code>INK #1b1a17</code> — a printed black, not a pure one</dd></div>
+        <div><dt>motion</dt><dd>hinged and snappy; a cutout pivots, it never bends</dd></div>
+        <div><dt>turning</dt><dd>rotates enough to show the edge — the flip</dd></div>
+        <div><dt>lighting</dt><dd>none. Paper does not receive light</dd></div>
+        <div><dt>height</dt><dd>≈1.80 m, footprint unchanged</dd></div>
       </dl>
     </div>
-
-    <h3 class="sub">Animation is a pure function, as it already was</h3>
-    <p class="lead" style="margin-top:0">Legs counter-rotate on a phase from speed; arms
-    counter-swing against them; airborne poses differently from grounded. No rig, no
-    keyframes, no clips — every angle is a function of
-    <code>(speed, height, grounded, t)</code>, so it is testable without a renderer.</p>
   </section>
 
   <section>
-    <h2>15-bit colour, dithered</h2>
-    <p class="lead">The console quantized to 5 bits per channel. Rounding flat gives ugly
-    banding; an ordered 4×4 Bayer matrix trades it for texture, which is what the era
-    actually looked like. Same source gradient, three treatments:</p>
-
-    <div class="compare">
-      <figure><canvas id="q-full"></canvas><figcaption><b>24-bit</b>the source</figcaption></figure>
-      <figure><canvas id="q-flat"></canvas><figcaption><b>5-bit, rounded</b>hard banding</figcaption></figure>
-      <figure><canvas id="q-dith"></canvas><figcaption><b>5-bit, Bayer 4×4</b>what ships</figcaption></figure>
-    </div>
-  </section>
-
-  <section>
-    <h2>The interface</h2>
-    <p class="lead">Fat rounded panels, a heavy near-black outline, and a <em>hard</em>
-    offset shadow — not a soft blur. That is what makes a panel read as a printed card
-    rather than a web modal. Live specimens, in their own colours in either theme:</p>
+    <h2>The interface, same construction</h2>
+    <p class="lead">A panel is a character slab at UI scale: flat fill, a heavy ink
+    outline, and a <em>hard</em> offset shadow with no blur. That shared construction is
+    why the menus and the world now read as one thing.</p>
 
     <div class="stage">
-      <div class="card" style="--c:#69f982">
+      <div class="card">
         <div class="kicker">Round 3 of 5</div>
         <div class="name">Falling Floor</div>
         <p class="rule">The floor is falling, so keep moving.</p>
         <span class="pill">stick only</span>
       </div>
-
       <div class="roster" id="roster"></div>
-
       <button class="btn" type="button">Start</button>
     </div>
-    <p class="stagenote">panel radius 20 · outline 4px #171a20 · shadow 6px offset, 0 blur · rotation ±1.2°</p>
+    <p class="stagenote">radius 20 · outline 4px INK · shadow 6px offset, 0 blur · rotation ±1.2°</p>
+  </section>
 
-    <h3 class="sub">Type</h3>
+  <section>
+    <h2>The palette moves to stock</h2>
+    <p class="lead">The arena tokens become warm paper. <strong>The eight player colours
+    do not change</strong> — they came out of a search against deuteranopia and
+    protanopia simulation (RD-007), and that constraint has nothing to do with style.</p>
+
+    <h3 class="sub">Players — unchanged</h3>
+    <div class="grid g-col" id="players"></div>
+
+    <h3 class="sub">Arena — retargeted</h3>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Role</th><th>Face</th><th>Used for</th></tr></thead>
+        <thead><tr><th>Token</th><th>Was</th><th>Becomes</th><th>Why</th></tr></thead>
+        <tbody id="tokens"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the PS1 direction leaves behind</h2>
+    <p class="lead">The two styles are near-opposites, so this is a replacement rather
+    than an addition. Recorded in place so the reversal stays legible.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Was specified</th><th>Now</th><th>Why</th></tr></thead>
         <tbody>
-          <tr><td class="mono">display</td><td><span class="disp" style="font-size:19px;font-weight:600">Fredoka 600/700</span></td><td>minigame names, scores, the room code</td></tr>
-          <tr><td class="mono">body</td><td style="font-weight:700;font-size:16px">Nunito 400/700</td><td>rules, labels, everything read</td></tr>
+          <tr><td class="was">270px retro buffer, upscaled</td><td class="no">dropped</td><td>crisp native rendering; flat colour is the read</td></tr>
+          <tr><td class="was">15-bit colour + Bayer dither</td><td class="no">dropped</td><td>dithering exists to break up flat colour</td></tr>
+          <tr><td class="was">Distance fog</td><td class="no">dropped</td><td>fog dissolves edges; hard edges are the point</td></tr>
+          <tr><td class="was">Nearest-filtered texels</td><td class="no">dropped</td><td>paper is smooth, not pixelated</td></tr>
+          <tr><td class="was">Box humanoid, Lambert-lit</td><td class="yes">slab, unlit</td><td>cheaper to draw and outlined for free</td></tr>
+          <tr><td class="was">Vertex jitter · affine warping</td><td class="no">never were in</td><td>excluded under both directions</td></tr>
         </tbody>
       </table>
     </div>
-    <div class="note"><b>A named trade-off.</b> Both faces load from Google Fonts. That is a
-    runtime CDN dependency, not an asset file, so the Kit is untouched — but a cold load on a
-    bad connection falls back to a system rounded stack. Declared, not left to chance.</div>
-
-    <h3 class="sub">Motion</h3>
-    <p class="lead" style="margin-top:0">Entrances scale from 0.86 with an overshoot and
-    settle; scores count up rather than appearing; the round card deals in, holds, and flicks
-    away. Under <code>prefers-reduced-motion</code> every animation goes and
-    <strong>every piece of information stays</strong> — the animation is emphasis, never the
-    message.</p>
   </section>
 
   <section>
-    <h2>The palette</h2>
-    <p class="lead">The eight player colours are not chosen by eye — they came out of a
-    search against deuteranopia and protanopia simulation (RD-007), which is why two of
-    them are deliberately dark. Brightening them uniformly re-breaks the constraint.</p>
-    <div class="grid g-col" id="palette"></div>
-  </section>
+    <h2>Does generating assets in code perform better?</h2>
+    <p class="lead">Asked directly, and the honest answer is <strong>no — not in any way
+    that matters</strong>. Once a texture is on the GPU it is the same object whichever
+    way its pixels arrived. Measured, rather than asserted:</p>
 
-  <section>
-    <h2>What is deliberately excluded</h2>
-    <p class="lead">Recorded so that adding one later is a decision rather than a drift.</p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>PS1 artefact</th><th>In?</th><th>Why</th></tr></thead>
+        <thead><tr><th></th><th>Generated in code</th><th>Shipped as files</th><th>Wins</th></tr></thead>
         <tbody>
-          <tr><td>Low internal resolution</td><td class="yes">yes</td><td>the chunk is most of the read, and it renders <em>faster</em> than native</td></tr>
-          <tr><td>15-bit colour + ordered dither</td><td class="yes">yes</td><td>the era's texture, cheap in a fragment shader</td></tr>
-          <tr><td>Flat shading, hard edges</td><td class="yes">yes</td><td>already how the Kit builds every material</td></tr>
-          <tr><td>Nearest-filtered texels</td><td class="yes">yes</td><td>chunky texels, no cost</td></tr>
-          <tr><td>Distance fog</td><td class="yes">yes</td><td>dissolves the far wall; per-arena, from its own sky colour</td></tr>
-          <tr><td><b>Vertex jitter</b></td><td class="no">no</td><td>on eight fast-moving players it reads as a rendering bug, not as an era</td></tr>
-          <tr><td><b>Affine texture warping</b></td><td class="no">no</td><td>worst on large flat floors, which is what every arena here is</td></tr>
-          <tr><td>Polygon sorting errors</td><td class="no">no</td><td>authentically bad is still bad</td></tr>
+          <tr><td>GPU cost per frame</td><td>identical</td><td>identical</td><td class="muted">tie</td></tr>
+          <tr><td>GPU memory</td><td>identical</td><td>identical</td><td class="muted">tie</td></tr>
+          <tr><td>Cold start</td><td>0 bytes, 0 requests, 8.5&nbsp;ms CPU</td><td>~26&nbsp;KB, 16 requests, decode</td><td class="yes">code</td></tr>
+          <tr><td>Build &amp; deploy</td><td>nothing to pipeline</td><td>asset pipeline, cache-busting</td><td class="yes">code</td></tr>
+          <tr><td>Artistic ceiling</td><td>shapes and patterns</td><td>anything at all</td><td class="no">files</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="callout">
+      <b>So the rule is kept on its real grounds, not a borrowed one.</b>
+      <p>No asset files, because that makes the art loop which stalled the previous project
+      <em>structurally unavailable</em> (RD-001). That is a process argument and a good one.
+      Calling it a performance win would have been a rationalisation — and a constraint
+      defended on a false basis is one that gets dropped the moment somebody checks.</p>
     </div>
   </section>
 
   <footer>
-    <code>specs/visual-direction/</code> — 17 tasks across five phases. Render layer only:
-    no minigame's geometry, collision or scoring changes. Every texture and face on this page
-    was generated by the page itself, with the functions the spec defines.
+    <code>specs/visual-direction/</code> — 16 open tasks, 3 superseded, five phases.
+    Render layer only. Every swatch and face on this page was generated by the page itself,
+    with the functions the spec defines.
   </footer>
 </div>
 
 <script>
 (() => {
   "use strict";
-  const S = 64;
+  const S = 64, FS = 40;
+  const INK = [27, 26, 23];
 
-  /* Deterministic RNG — the same mulberry32 the game uses, so a texture generated
-     here and in the game from the same seed is byte-identical. */
-  const rng = (seed) => {
-    let a = seed >>> 0;
-    return () => {
-      a = (a + 0x6d2b79f5) >>> 0;
-      let t = a;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  };
-
-  const hex = (h) => {
-    const n = parseInt(h.slice(1), 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  };
+  const rng = (seed) => { let a = seed >>> 0; return () => {
+    a = (a + 0x6d2b79f5) >>> 0; let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+  const hex = (h) => { const n = parseInt(h.slice(1), 16); return [(n>>16)&255,(n>>8)&255,n&255]; };
   const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  const shade = (c, k) => c.map((v) => Math.max(0, Math.min(255, v * k)));
 
-  /* Each generator writes an RGBA byte array — exactly what DataTexture takes. */
-  function make(fn) {
-    const px = new Uint8ClampedArray(S * S * 4);
-    for (let y = 0; y < S; y++) {
-      for (let x = 0; x < S; x++) {
-        const c = fn(x, y);
-        const i = (y * S + x) * 4;
-        px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
-      }
+  function make(size, fn) {
+    const px = new Uint8ClampedArray(size * size * 4);
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      const c = fn(x, y), i = (y * size + x) * 4;
+      px[i] = c[0]; px[i+1] = c[1]; px[i+2] = c[2]; px[i+3] = 255;
     }
     return px;
   }
 
+  const FIBRE_CONTRAST = 0.06;
+
+  /* The paper generator kit — the same functions the spec names. */
   const GEN = {
+    // fibre: low-contrast directional grain. The base of every paper surface.
+    stock: (tint, seed) => {
+      const B = hex(tint), r = rng(seed);
+      const n = Array.from({ length: S * S }, () => r());
+      return make(S, (x, y) => {
+        const grain = (n[y * S + x] * 0.6 + n[((y + 1) % S) * S + x] * 0.4 - 0.5);
+        const streak = Math.sin(y * 0.9 + n[x] * 6) * 0.25;
+        return B.map((c) => c + (grain + streak) * FIBRE_CONTRAST * 255);
+      });
+    },
+    // a fold: a soft valley with a bright highlight on one side
+    crease: (tint, dir) => {
+      const B = hex(tint);
+      return make(S, (x, y) => {
+        const d = dir === "v" ? x : dir === "h" ? y : Math.min(x, y);
+        const t = Math.abs((d % (S / 2)) - S / 4) / (S / 4);
+        const fold = Math.pow(1 - t, 8);
+        return B.map((c, i) => c * (1 - fold * 0.14) + (fold > 0.6 ? 14 : 0) + (i === 2 ? 0 : 0));
+      });
+    },
+    // a torn edge: ragged alpha-free boundary against the ground
+    deckle: (tint, seed) => {
+      const B = hex(tint), G = hex("#cfe4f2"), r = rng(seed);
+      const edge = Array.from({ length: S }, () => 6 + r() * 7);
+      return make(S, (x, y) => {
+        const smooth = (edge[x] + edge[(x + 1) % S] + edge[(x + S - 1) % S]) / 3;
+        if (y < smooth) return G;
+        if (y < smooth + 1.4) return shade(B, 0.72);
+        return B;
+      });
+    },
+    flat: (tint) => { const B = hex(tint); return make(S, () => B); },
     checker: (a, b, cells = 8) => {
-      const A = hex(a), B = hex(b), n = S / cells;
-      return make((x, y) => ((x / n | 0) + (y / n | 0)) % 2 ? A : B);
+      const A = hex(a), Bc = hex(b), n = S / cells;
+      return make(S, (x, y) => ((x / n | 0) + (y / n | 0)) % 2 ? A : Bc);
     },
-    brick: (mortar, face, rows = 4) => {
-      const M = hex(mortar), F = hex(face), h = S / rows;
-      return make((x, y) => {
-        const row = y / h | 0;
-        const off = (row % 2) * (S / 4);
-        const gx = (x + off) % (S / 2);
-        if (y % h < 2 || gx < 2) return M;
-        // a touch of per-brick tonal variation, seeded so it is stable
-        const r = rng(row * 31 + ((x + off) / (S / 2) | 0) * 7 + 1)();
-        return mix(F, M, r * 0.22);
-      });
+    stripe: (a, b, count = 6) => {
+      const A = hex(a), Bc = hex(b), n = S / count;
+      return make(S, (x) => ((x / n | 0) % 2 ? A : Bc));
     },
-    tile: (line, fill, cells = 4) => {
-      const L = hex(line), F = hex(fill), n = S / cells;
-      return make((x, y) => (x % n < 2 || y % n < 2) ? L : F);
+    dot: (a, b, spacing = 16) => {
+      const D = hex(a), G = hex(b);
+      return make(S, (x, y) => Math.hypot((x % spacing) - spacing/2, (y % spacing) - spacing/2) < spacing/5 ? D : G);
     },
-    grid: (line, fill, cells = 8) => {
-      const L = hex(line), F = hex(fill), n = S / cells;
-      return make((x, y) => (x % n === 0 || y % n === 0) ? L : F);
-    },
-    stripes: (a, b, count = 6, diagonal = false) => {
-      const A = hex(a), B = hex(b), n = S / count;
-      return make((x, y) => (((diagonal ? x + y : x) / n | 0) % 2 ? A : B));
-    },
-    noise: (base, contrast, seed) => {
-      const B = hex(base), r = rng(seed);
-      const vals = Array.from({ length: S * S }, () => r());
-      return make((x, y) => {
-        const v = (vals[y * S + x] - 0.5) * contrast;
-        return B.map((c) => c + v * 255);
-      });
-    },
-    gradient: (top, bottom) => {
-      const T = hex(top), Bo = hex(bottom);
-      return make((_x, y) => mix(T, Bo, y / (S - 1)));
-    },
-    dots: (dot, ground, spacing = 16) => {
-      const D = hex(dot), G = hex(ground), r = spacing / 4;
-      return make((x, y) => {
-        const cx = (x % spacing) - spacing / 2, cy = (y % spacing) - spacing / 2;
-        return Math.hypot(cx, cy) < r ? D : G;
-      });
+    grid: (a, b, cells = 8) => {
+      const L = hex(a), F = hex(b), n = S / cells;
+      return make(S, (x, y) => (x % n === 0 || y % n === 0) ? L : F);
     },
   };
 
-  const PALETTE = {
-    floor: "#3b4152", floorEdge: "#2a2f3c", wall: "#2a2f3c",
-    sky: "#0e1014", hazard: "#e6484d", pickup: "#ffef14",
-  };
+  const PAPER = { stock:"#f2e9d6", stockDim:"#d9caa9", sky:"#cfe4f2", ink:"#1b1a17" };
   const PLAYERS = ["#1ab0ff","#ff3f18","#ffef14","#69f982","#b013b0","#875e35","#08865a","#870909"];
   const NAMES = ["blue","red","yellow","mint","magenta","brown","forest","maroon"];
 
-  function paint(canvas, px, size = S) {
+  const paint = (canvas, px, size) => {
     canvas.width = size; canvas.height = size;
     const ctx = canvas.getContext("2d");
     const img = ctx.createImageData(size, size);
     img.data.set(px);
     ctx.putImageData(img, 0, 0);
-  }
+  };
 
-  /* --- texture swatches ------------------------------------------------- */
-  const specs = [
-    ["checker",  "arena floor",      GEN.checker(PALETTE.floor, PALETTE.floorEdge, 8)],
-    ["brick",    "arena wall",       GEN.brick(PALETTE.sky, PALETTE.wall, 5)],
-    ["tile",     "platform faces",   GEN.tile(PALETTE.floorEdge, PALETTE.floor, 4)],
-    ["grid",     "hazard decking",   GEN.grid(PALETTE.hazard, PALETTE.floorEdge, 8)],
-    ["stripes",  "warning bands",    GEN.stripes(PALETTE.hazard, PALETTE.sky, 8, true)],
-    ["noise",    "worn concrete",    GEN.noise(PALETTE.floor, 0.35, 7)],
-    ["gradient", "sky / backdrop",   GEN.gradient("#2a3550", PALETTE.sky)],
-    ["dots",     "pickup glow",      GEN.dots(PALETTE.pickup, PALETTE.floorEdge, 16)],
+  /* --- texture swatches --- */
+  const swatches = [
+    ["stock()",   "every paper surface", GEN.stock(PAPER.stock, 3)],
+    ["crease()",  "folds along structure", GEN.crease(PAPER.stock, "v")],
+    ["deckle()",  "a torn edge, not a cut one", GEN.deckle(PAPER.stock, 11)],
+    ["flat()",    "character fill", GEN.flat("#69f982")],
+    ["checker()", "floor panels", GEN.checker(PAPER.stock, PAPER.stockDim, 8)],
+    ["stripe()",  "hazard banding", GEN.stripe("#ff3f18", PAPER.stock, 8)],
+    ["dot()",     "pickup markings", GEN.dot("#ffef14", PAPER.stockDim, 16)],
+    ["grid()",    "guide lines", GEN.grid(PAPER.ink, PAPER.stock, 8)],
   ];
   const texWrap = document.getElementById("textures");
-  for (const [name, use, px] of specs) {
+  for (const [name, use, px] of swatches) {
     const cell = document.createElement("div");
     cell.className = "cell";
     const c = document.createElement("canvas");
-    paint(c, px);
-    cell.append(c);
-    const b = document.createElement("b"); b.textContent = name + "()";
+    paint(c, px, S);
+    const b = document.createElement("b"); b.textContent = name;
     const s = document.createElement("span"); s.textContent = use;
-    cell.append(b, s);
+    cell.append(c, b, s);
     texWrap.append(cell);
   }
 
-  /* --- the face generator ---------------------------------------------- */
-  const FS = 32;
+  /* --- the face generator, now inked --- */
   const MOUTHS = ["line", "oh", "smile", "grimace"];
-
-  function faceFor(slot, skin) {
+  function faceFor(slot, fill) {
     const r = rng(slot * 2654435761 + 11);
-    const spacing = 0.28 + r() * 0.18;      // eye separation, fraction of width
-    const eye = 3 + Math.floor(r() * 4);    // eye radius in px
-    const brow = (r() - 0.5) * 24;          // degrees
+    const spacing = 0.26 + r() * 0.18;
+    const eye = 3 + Math.floor(r() * 3);
+    const brow = (r() - 0.5) * 26;
     const mouth = MOUTHS[Math.floor(r() * MOUTHS.length)];
 
-    const base = hex(skin);
-    const ink = [22, 24, 30];
+    const base = hex(fill);
     const px = new Uint8ClampedArray(FS * FS * 4);
     const put = (x, y, c) => {
       if (x < 0 || y < 0 || x >= FS || y >= FS) return;
-      const i = ((y | 0) * FS + (x | 0)) * 4;
-      px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+      const i = ((y|0) * FS + (x|0)) * 4;
+      px[i] = c[0]; px[i+1] = c[1]; px[i+2] = c[2]; px[i+3] = 255;
     };
     for (let y = 0; y < FS; y++) for (let x = 0; x < FS; x++) put(x, y, base);
 
-    const cx = FS / 2, ex = spacing * FS, ey = FS * 0.42;
     const disc = (px0, py0, rad, c) => {
-      for (let y = -rad; y <= rad; y++)
-        for (let x = -rad; x <= rad; x++)
-          if (x * x + y * y <= rad * rad) put(px0 + x, py0 + y, c);
+      for (let y = -rad; y <= rad; y++) for (let x = -rad; x <= rad; x++)
+        if (x*x + y*y <= rad*rad) put(px0 + x, py0 + y, c);
     };
-    disc(cx - ex, ey, eye, ink);
-    disc(cx + ex, ey, eye, ink);
+    const cx = FS / 2, ex = spacing * FS, ey = FS * 0.40;
+    disc(cx - ex, ey, eye, INK);
+    disc(cx + ex, ey, eye, INK);
 
-    // brows: a short run rotated by the brow angle
     const rad = (brow * Math.PI) / 180;
-    for (const sgn of [-1, 1]) {
-      for (let t = -eye - 1; t <= eye + 1; t++) {
-        const bx = cx + sgn * ex + t;
-        const by = ey - eye - 3 + Math.tan(rad) * t * sgn;
-        put(bx, by, ink); put(bx, by + 1, ink);
-      }
+    for (const sgn of [-1, 1]) for (let t = -eye - 2; t <= eye + 2; t++) {
+      const bx = cx + sgn * ex + t, by = ey - eye - 4 + Math.tan(rad) * t * sgn;
+      put(bx, by, INK); put(bx, by + 1, INK);
     }
 
-    const my = FS * 0.66;
-    if (mouth === "line") for (let x = -5; x <= 5; x++) { put(cx + x, my, ink); put(cx + x, my + 1, ink); }
-    if (mouth === "oh") disc(cx, my + 1, 3, ink);
-    if (mouth === "smile") for (let x = -6; x <= 6; x++) {
-      const y = my + Math.round(Math.cos((x / 6) * 1.35) * -3) + 3;
-      put(cx + x, y, ink); put(cx + x, y + 1, ink);
+    const my = FS * 0.68;
+    if (mouth === "line") for (let x = -6; x <= 6; x++) { put(cx+x, my, INK); put(cx+x, my+1, INK); }
+    if (mouth === "oh") disc(cx, my + 1, 4, INK);
+    if (mouth === "smile") for (let x = -7; x <= 7; x++) {
+      const y = my + Math.round(Math.cos((x / 7) * 1.35) * -3) + 3;
+      put(cx+x, y, INK); put(cx+x, y+1, INK);
     }
     if (mouth === "grimace") {
-      for (let x = -6; x <= 6; x++) { put(cx + x, my, ink); put(cx + x, my + 3, ink); }
-      for (let x = -6; x <= 6; x += 3) for (let y = 0; y <= 3; y++) put(cx + x, my + y, ink);
+      for (let x = -7; x <= 7; x++) { put(cx+x, my, INK); put(cx+x, my+4, INK); }
+      for (let x = -7; x <= 7; x += 3) for (let y = 0; y <= 4; y++) put(cx+x, my+y, INK);
     }
-    return { px, mouth, spacing, eye, brow };
+    return { px, mouth };
   }
 
   const faceWrap = document.getElementById("faces");
   const rosterWrap = document.getElementById("roster");
   PLAYERS.forEach((colour, slot) => {
     const f = faceFor(slot, colour);
-
     const cell = document.createElement("div");
     cell.className = "cell";
     const c = document.createElement("canvas");
@@ -543,48 +514,34 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);
     rosterWrap.append(p);
   });
 
-  /* --- quantization demo ------------------------------------------------ */
-  const BAYER = [
-    [0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5],
-  ];
-  function ramp(canvas, mode) {
-    const W = 220, H = 90;
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext("2d");
-    const img = ctx.createImageData(W, H);
-    const levels = 32;                 // 5 bits per channel
-    const from = hex("#2a3550"), to = hex("#ffb020");
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const t = x / (W - 1);
-        let c = mix(from, to, t).map((v, i) => v * (1 - y / H * 0.55) + hex("#e6484d")[i] * (y / H * 0.35));
-        if (mode !== "full") {
-          const d = mode === "dither" ? (BAYER[y % 4][x % 4] / 16 - 0.5) * (255 / levels) : 0;
-          c = c.map((v) => Math.round((v + d) / (255 / (levels - 1))) * (255 / (levels - 1)));
-        }
-        const i = (y * W + x) * 4;
-        img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255;
-      }
-    }
-    ctx.putImageData(img, 0, 0);
-  }
-  ramp(document.getElementById("q-full"), "full");
-  ramp(document.getElementById("q-flat"), "flat");
-  ramp(document.getElementById("q-dith"), "dither");
+  // the live slab wears slot 0's face
+  paint(document.getElementById("slabface"), faceFor(0, PLAYERS[0]).px, FS);
 
-  /* --- palette ---------------------------------------------------------- */
-  const palWrap = document.getElementById("palette");
+  /* --- palette --- */
+  const playersWrap = document.getElementById("players");
   PLAYERS.forEach((c, i) => {
     const el = document.createElement("div");
     el.className = "chip";
     el.innerHTML = `<i style="background:${c}"></i><div><b>${NAMES[i]}</b><span>${c}</span></div>`;
-    palWrap.append(el);
+    playersWrap.append(el);
   });
-  Object.entries(PALETTE).forEach(([k, c]) => {
-    const el = document.createElement("div");
-    el.className = "chip";
-    el.innerHTML = `<i style="background:${c}"></i><div><b>${k}</b><span>${c}</span></div>`;
-    palWrap.append(el);
-  });
+
+  const tokens = [
+    ["sky", "#0e1014", "#cfe4f2", "a pale paper sky rather than a void"],
+    ["floor", "#3b4152", "#f2e9d6", "warm paper stock"],
+    ["floorEdge", "#2a2f3c", "#d9caa9", "the same stock, one shade down"],
+    ["ink", "—", "#1b1a17", "every outline and every drawn line"],
+  ];
+  const tbody = document.getElementById("tokens");
+  for (const [name, was, now, why] of tokens) {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td><code>${name}</code></td>` +
+      `<td><span class="was mono">${was}</span></td>` +
+      `<td><span class="mono" style="display:inline-flex;align-items:center;gap:7px">` +
+      `<i style="width:15px;height:15px;border-radius:4px;border:2px solid var(--hard);background:${now};display:inline-block"></i>${now}</span></td>` +
+      `<td class="muted">${why}</td>`;
+    tbody.append(tr);
+  }
 })();
 </script>

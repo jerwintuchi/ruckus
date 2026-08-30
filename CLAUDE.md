@@ -60,10 +60,13 @@ The art drain is designed out structurally, not by discipline.
 - **Textures are generated in code** into `DataTexture`s (RD-020) — real textures, no
   file, no loader. A texture the generators cannot express is one the design does
   without, never a reason to add a file.
-- Everything is a Three.js **primitive** — capsule, box, cylinder, sphere, plane —
-  flat-shaded, colored from the fixed palette in `src/client/src/kit/palette.ts`.
-- Character animation is **procedural** (bob, squash, lean). No rigs, no keyframes.
-- Lighting is one directional + one ambient. No shadow maps, no post-processing.
+- Everything is a Three.js **primitive** — box, cylinder, sphere, plane — coloured from
+  the fixed palette in `src/client/src/kit/palette.ts`.
+- The look is **paper cutouts with hard outlines** (RD-021). A character is a thin slab
+  with near-black edge faces, so the outline is *geometry* — no shader, no pass, no
+  per-frame cost. Characters are unlit; paper does not receive light.
+- Character animation is **procedural and hinged**. No rigs, no keyframes.
+- No shadow maps, no post-processing, no fog.
 
 A minigame that "needs" a new asset needs a different rule instead.
 

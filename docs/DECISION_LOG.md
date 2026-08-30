@@ -511,3 +511,57 @@ declared system fallback. The spec touches `src/client/src/kit/` and
 
 Visual reference, with every texture and face generated live by the page itself:
 <https://claude.ai/code/artifact/e50f2313-48a7-4f50-a41f-66a6a073f4ac>
+
+## RD-021 — Paper, not PS1; and the honest case for procedural (2026-08-31)
+
+**Decision.** Replace the PS1-era direction with a Paper Mario one: flat cutouts with
+hard outlines, crisp and saturated, no retro buffer. Characters are **thin slabs**, not
+billboards. The no-asset rule stands, on corrected grounds.
+
+**Context — the styles are near-opposites.** PS1 is low-resolution, dithered,
+colour-banded and murky. Paper is crisp, flat, saturated and hard-edged. Dithering
+exists to break up flat colour, and flat colour is the entire paper read, so the two
+cannot both be run. RD-020's retro pass is superseded, and its tasks are marked in place
+rather than deleted — the reversal should be legible.
+
+Paper is the better fit for three reasons that are specific to this game rather than to
+taste. Hard outlines make eight players readable at phone size, which is vision pillar
+3 directly. Unlit flat fill is *cheaper* than the Lambert build it replaces. And it is
+the same family as the party UI already chosen, so the game stops being two references
+bolted together.
+
+**The outline turned out to be free.** A slab 0.08 m deep with near-black edge faces is
+outlined by construction — no inverted hull, no depth-buffer edge detection, no
+fullscreen pass, no per-frame cost. Turning shows the edge, so the flip that reads as
+paper is also the depth cue. Internal linework is drawn into the generated texture,
+which is what a paper cutout physically is: an outlined shape with printing on it.
+
+**Slabs, not billboards, and this is a gameplay decision rather than an art one.** True
+camera-facing quads are the more authentic Paper Mario read and would have removed
+depth judgement entirely — in a game about timing a jump over a sweeping bar and dashing
+into a moving player, that is a playability risk, not a stylistic one. The slab keeps
+the look and keeps the cue.
+
+**On procedural generation — the previous justification was partly wrong.** Asked
+directly whether generating assets in code performs better than shipping files, the
+measured answer is: **no, not in any way that matters.** Once a texture is on the GPU it
+is the same object whichever way its pixels arrived; frame cost and GPU memory are
+identical. Generating the whole set takes 8.5 ms on desktop. Procedural wins **cold
+start** (zero bytes, zero requests, against ~26 KB and 16 requests) and build simplicity,
+and it loses the artistic ceiling outright.
+
+So the rule is kept on RD-001's grounds and only those: it makes the art loop that
+stalled the previous project structurally unavailable. That is a process argument, and
+it is a good one; dressing it up as a performance win would have been a rationalisation.
+Recorded because a constraint defended on a false basis is a constraint that gets
+dropped the moment someone checks.
+
+**A consequence worth noting:** paper is a *more* forgiving subject for procedural
+generation than PS1 was. PS1 wanted texture detail — grime, panels, decals — which is
+where hand-authoring wins. Paper wants flat colour, a whisper of fibre, and hard lines,
+which are cheaper to write than to draw. The constraint costs less under this direction
+than it would have under the last one.
+
+**Also:** a player now carries **three** identity channels — colour, outline and face —
+so the eight dichromacy-safe colours no longer have to do the job alone. That is the
+limit RD-007 named and could not fix from the palette side.
