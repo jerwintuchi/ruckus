@@ -85,6 +85,8 @@ Both views are generated from the tree, never hand-written:
 
 - **[Status page](https://claude.ai/code/artifact/a72093c9-3080-4524-9a01-1da111d2a4fb)** —
   guards, minigames, spec progress and every decision, at a glance.
+- **[Visual direction](https://claude.ai/code/artifact/e50f2313-48a7-4f50-a41f-66a6a073f4ac)** —
+  the look, with every texture and face generated live by the page itself.
 - `docs/technical/spec-status.md` — the machine-readable registry the page is built from.
 
 ```bash

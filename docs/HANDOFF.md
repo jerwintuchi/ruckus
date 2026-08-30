@@ -1,36 +1,37 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `a22272b`, work has happened since this was written: distrust it and read
+> `bda3c4f`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-08-30 23:58 · branch `master` ·
-HEAD `a22272b` — feat(tools): playtest scripts, so the game can be played by actual people · 6 uncommitted file(s)*
+*Written 2026-08-31 00:20 · branch `master` ·
+HEAD `bda3c4f` — feat(tools): a generated status page, guarded like everything else · 7 uncommitted file(s)*
 
 ## What I was doing
 
-Added tools/status_html.py — a generated project status page, published as an artifact, wired into pnpm check so it cannot silently drift. Everything on it is derived: spec state from spec_status --json, the minigame roster parsed from the minigames' own source, decisions from the log, deps from the manifests, test count from the test files.
+Wrote specs/visual-direction (17 tasks): PS1-era world at 270p with 15-bit dither, box-humanoid characters with generated faces, and a chunky Nintendo-party DOM UI. Published a visual reference artifact that generates every texture and face live. No code written yet — this is the spec.
 
 ## What is half-finished
 
-Nothing. Still open from the start: specs/shell T16 (render.ts) and T18 (ui.ts) are implemented and working but untested, needing a browser/DOM test env.
+specs/visual-direction is entirely unimplemented (0/17) — the spec and the visual reference exist, the kit does not. Still open: specs/shell T16/T18, which the registry now shows as dormant.
 
 ## The very next action
 
-Playtest with real people (pnpm playtest) - every tuning figure in the log is from bots. Then minigame #5 (co-op, Hold the Line) or close T16/T18.
+Phase A of specs/visual-direction: the procedural texture kit (T1), the kit_check regression test (T2), and the face generator (T3). The artifact at the URL in RD-020 contains WORKING implementations of both generators in JS — port them, do not reinvent them.
 
 ## Gotchas
 
-The status page has TWO views that drift independently: the file and the published artifact. pnpm check guards the file; only the Artifact tool updates the artifact, so REPUBLISH after regenerating (artifact URL is in .claude/rules/spec-workflow.md and README). This is the exact failure that put the previous project's published registry two weeks behind while every check stayed green.
+The Kit ban stands: textures are DataTextures generated in code, NOT files. kit_check bans TextureLoader but DataTexture is fine and T2 must assert that distinction. Vertex jitter and affine warping are DELIBERATELY excluded (RD-020) — adding either is a decision, not a tweak. The UI is DOM at native resolution and must never be drawn into the retro buffer; that split is the whole direction.
 
 ## Uncommitted when this was written
 
-- `claude/rules/spec-workflow.md`
+- `LAUDE.md`
 - `README.md`
 - `docs/DECISION_LOG.md`
-- `package.json`
+- `docs/technical/spec-status.md`
 - `docs/technical/status.html`
-- `tools/status_html.py`
+- `docs/technical/visual-direction.html`
+- `specs/visual-direction/`
 
 ---
 

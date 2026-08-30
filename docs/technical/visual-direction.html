@@ -1,0 +1,590 @@
+<title>Ruckus Visual Direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Dark-first: the world register is a dark arena, so that is the committed default.
+   Tokens only in the theme blocks — no component rule lives inside one. */
+:root {
+  --ground:#0b0d11; --panel:#13171e; --panel-2:#1a202a; --line:#242c38;
+  --ink:#eaeef5; --ink-2:#a8b3c4; --muted:#788394;
+  --accent:#1ab0ff;
+  --ok:#34c46a; --warn:#ffb020; --bad:#ff5a45;
+  --shadow:0 10px 30px rgba(0,0,0,.45);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground:#f4f6f9; --panel:#ffffff; --panel-2:#eef1f6; --line:#dbe1ea;
+    --ink:#121722; --ink-2:#3e4959; --muted:#687384;
+    --accent:#0a7fc4;
+    --ok:#127a3e; --warn:#8a5a00; --bad:#c02718;
+    --shadow:0 10px 30px rgba(16,24,40,.10);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --ground:#f4f6f9; --panel:#ffffff; --panel-2:#eef1f6; --line:#dbe1ea;
+  --ink:#121722; --ink-2:#3e4959; --muted:#687384;
+  --accent:#0a7fc4;
+  --ok:#127a3e; --warn:#8a5a00; --bad:#c02718;
+  --shadow:0 10px 30px rgba(16,24,40,.10);
+  color-scheme: light;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:Nunito,ui-sans-serif,system-ui,sans-serif;font-size:15.5px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1000px;margin:0 auto;padding:44px 22px 80px}
+h1,h2,h3,.disp{font-family:Fredoka,ui-rounded,system-ui,sans-serif;text-wrap:balance;margin:0}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.88em}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+
+/* ---- masthead ---------------------------------------------------------- */
+.mast{border-bottom:1px solid var(--line);padding-bottom:26px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted)}
+.mast h1{font-size:clamp(34px,6vw,58px);font-weight:700;letter-spacing:-.02em;line-height:1;margin:10px 0 0}
+.mast p{color:var(--ink-2);max-width:62ch;margin:14px 0 0;font-size:17px}
+.mast strong{color:var(--ink);font-weight:800}
+
+/* the two registers, stated as a diagram */
+.registers{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:26px 0 0}
+@media (max-width:640px){.registers{grid-template-columns:1fr}}
+.reg{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--panel)}
+.reg h3{font-size:17px;font-weight:600}
+.reg p{margin:6px 0 0;color:var(--ink-2);font-size:14px}
+.reg .tag{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-top:10px}
+
+section{margin-top:56px}
+section>h2{font-size:26px;font-weight:600;letter-spacing:-.01em}
+section>.lead{color:var(--ink-2);max-width:66ch;margin:8px 0 22px}
+h3.sub{font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin:30px 0 12px;font-family:Nunito,sans-serif}
+
+/* ---- swatch grids ------------------------------------------------------ */
+.grid{display:grid;gap:12px}
+.g-tex{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
+.g-face{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+.g-col{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
+.cell{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.cell canvas{width:100%;height:auto;display:block;border-radius:7px;
+  image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
+.cell b{display:block;font-family:"IBM Plex Mono",monospace;font-size:11.5px;
+  font-weight:500;margin-top:8px;color:var(--ink-2)}
+.cell span{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+
+.chip{display:flex;align-items:center;gap:9px;background:var(--panel);
+  border:1px solid var(--line);border-radius:11px;padding:9px 11px}
+.chip i{width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:block}
+.chip div{min-width:0}
+.chip b{display:block;font-size:12.5px;font-weight:700}
+.chip span{display:block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted)}
+
+/* ---- specimen: the party UI, in its own colours in both themes --------- */
+.stage{background:linear-gradient(180deg,#2a3550 0%,#141c2e 100%);
+  border:1px solid var(--line);border-radius:16px;padding:34px 20px;
+  display:flex;flex-direction:column;align-items:center;gap:18px}
+.card{
+  --c:#1ab0ff;
+  background:#fdf7e8;color:#20242c;border:4px solid #171a20;border-radius:20px;
+  box-shadow:6px 6px 0 #171a20;padding:20px 26px;max-width:420px;width:100%;
+  text-align:center;transform:rotate(-1.2deg);
+}
+.card.plain{transform:rotate(.8deg)}
+.card .kicker{font-family:Fredoka,sans-serif;font-weight:600;font-size:12.5px;
+  letter-spacing:.12em;text-transform:uppercase;color:#7a6a4a}
+.card .name{font-family:Fredoka,sans-serif;font-weight:700;font-size:32px;line-height:1.08;
+  margin:6px 0 8px;color:#20242c}
+.card .rule{font-size:16px;color:#4a4f5c;margin:0}
+.card .pill{display:inline-block;margin-top:14px;background:var(--c);color:#08121c;
+  border:3px solid #171a20;border-radius:999px;padding:5px 16px;
+  font-family:Fredoka,sans-serif;font-weight:600;font-size:13px;box-shadow:3px 3px 0 #171a20}
+.btn{
+  font-family:Fredoka,sans-serif;font-weight:600;font-size:19px;color:#08121c;
+  background:#ffd23f;border:4px solid #171a20;border-radius:16px;
+  box-shadow:0 6px 0 #171a20;padding:13px 34px;cursor:pointer;min-height:52px;
+  transition:transform .08s,box-shadow .08s;
+}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #171a20}
+.roster{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.pcard{background:#fdf7e8;border:3px solid #171a20;border-radius:14px;
+  box-shadow:4px 4px 0 #171a20;padding:8px 8px 6px;width:74px;text-align:center}
+.pcard canvas{width:44px;height:44px;image-rendering:pixelated;border-radius:6px;display:block;margin:0 auto}
+.pcard b{display:block;font-family:Fredoka,sans-serif;font-size:11.5px;color:#20242c;margin-top:5px}
+.pcard i{display:block;height:5px;border-radius:3px;margin-top:4px}
+.stagenote{color:var(--muted);font-size:12.5px;text-align:center;margin-top:12px;
+  font-family:"IBM Plex Mono",monospace}
+
+/* ---- comparison ------------------------------------------------------- */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:620px){.compare{grid-template-columns:1fr}}
+.compare figure{margin:0;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:11px}
+.compare canvas{width:100%;height:auto;display:block;border-radius:7px;image-rendering:pixelated}
+.compare figcaption{font-size:12.5px;color:var(--ink-2);margin-top:9px;text-align:center}
+.compare figcaption b{font-family:"IBM Plex Mono",monospace;font-size:11.5px;
+  display:block;color:var(--muted);font-weight:500}
+
+/* ---- character diagram ------------------------------------------------ */
+.charwrap{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+@media (max-width:640px){.charwrap{grid-template-columns:1fr}}
+.charwrap pre{margin:0;font-family:"IBM Plex Mono",monospace;font-size:12.5px;
+  line-height:1.45;color:var(--ink-2);white-space:pre}
+.parts{display:grid;gap:7px;font-size:13.5px}
+.parts div{display:grid;grid-template-columns:74px 1fr;gap:12px}
+.parts dt{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent)}
+.parts dd{margin:0;color:var(--ink-2)}
+
+/* ---- decision table --------------------------------------------------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  font-weight:700;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.yes{color:var(--ok);font-weight:700}
+.no{color:var(--bad);font-weight:700}
+
+.note{border-left:3px solid var(--accent);background:var(--panel);padding:13px 16px;
+  border-radius:0 10px 10px 0;color:var(--ink-2);font-size:14.5px;margin-top:18px}
+.note b{color:var(--ink)}
+
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:13px}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div class="eyebrow">Ruckus · specs/visual-direction</div>
+    <h1>Two registers</h1>
+    <p>A <strong>PS1-era low-poly world</strong> rendered chunky and dithered, wrapped in a
+    <strong>bright, chunky party interface</strong> that stays razor sharp. The contrast is
+    the direction, not a compromise inside it.</p>
+
+    <div class="registers">
+      <div class="reg">
+        <h3>The world</h3>
+        <p>Renders to a 270-pixel-tall buffer and upscales with no smoothing. Flat shading,
+        hard edges, 15-bit colour, ordered dither, distance fog.</p>
+        <span class="tag">480 × 270 · nearest · 5 bits/channel</span>
+      </div>
+      <div class="reg">
+        <h3>The interface</h3>
+        <p>DOM at native resolution, so type and panels stay crisp on a 3× phone display.
+        Never drawn into the retro buffer.</p>
+        <span class="tag">native · subpixel type · 44px targets</span>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Textures are code</h2>
+    <p class="lead">Every texture below is generated in this page by the same functions the
+    spec defines — no image files, no loaders, so <code>kit_check.py</code> stays green by
+    construction rather than by exemption. PS1 textures were small tiling patterns, which
+    are cheaper to write than to author and manage.</p>
+
+    <h3 class="sub">The generator kit · 64 × 64 · nearest · repeat</h3>
+    <div class="grid g-tex" id="textures"></div>
+
+    <div class="note"><b>The limit, stated plainly.</b> A generator cannot paint a logo, a
+    sign or a portrait. The design does without those. The one place that looked like it
+    needed painting — a face — turns out not to.</div>
+  </section>
+
+  <section>
+    <h2>Eight faces, from four numbers</h2>
+    <p class="lead">A PS1 face was a 32×32 texture with dot eyes and a mouth. That is a
+    handful of drawing primitives. <code>faceFor(slot)</code> varies eye spacing, eye size,
+    brow angle and mouth shape from the slot seed — so the eight players get eight
+    <em>different</em> faces, which one painted texture could never do.</p>
+
+    <div class="grid g-face" id="faces"></div>
+
+    <div class="note"><b>This is the second identity channel RD-007 named and did not
+    build.</b> Eight colours that survive dichromacy is over-constrained. Eight colours
+    <em>plus</em> eight faces is not.</div>
+  </section>
+
+  <section>
+    <h2>The character</h2>
+    <p class="lead">Boxes, a generated face, and no rig. Footprint and
+    <code>PLAYER_RADIUS</code> are unchanged from the capsule it replaces, so nothing about
+    collision, spawning or any minigame's geometry moves — this stays a render-layer change.</p>
+
+    <div class="charwrap">
+      <pre>       ┌────┐
+       │ ·· │      head
+       └─┬──┘
+   ┌─┐ ┌─┴──┐ ┌─┐
+   │ │ │████│ │ │  torso + arms
+   └─┘ └─┬──┘ └─┘
+       ┌─┴─┐
+      ┌┴┐ ┌┴┐       legs
+      └─┘ └─┘
+      ╰────╯        shadow</pre>
+      <dl class="parts">
+        <div><dt>head</dt><dd>0.46 cube · face texture on the +Z face</dd></div>
+        <div><dt>torso</dt><dd>0.62 × 0.70 × 0.36 · player colour</dd></div>
+        <div><dt>arms</dt><dd>0.17 × 0.58 × 0.17 · pivot at the shoulder</dd></div>
+        <div><dt>legs</dt><dd>0.21 × 0.58 × 0.21 · pivot at the hip</dd></div>
+        <div><dt>shadow</dt><dd>flat circle, shrinks with height</dd></div>
+        <div><dt>height</dt><dd>≈1.85 m, unchanged footprint</dd></div>
+      </dl>
+    </div>
+
+    <h3 class="sub">Animation is a pure function, as it already was</h3>
+    <p class="lead" style="margin-top:0">Legs counter-rotate on a phase from speed; arms
+    counter-swing against them; airborne poses differently from grounded. No rig, no
+    keyframes, no clips — every angle is a function of
+    <code>(speed, height, grounded, t)</code>, so it is testable without a renderer.</p>
+  </section>
+
+  <section>
+    <h2>15-bit colour, dithered</h2>
+    <p class="lead">The console quantized to 5 bits per channel. Rounding flat gives ugly
+    banding; an ordered 4×4 Bayer matrix trades it for texture, which is what the era
+    actually looked like. Same source gradient, three treatments:</p>
+
+    <div class="compare">
+      <figure><canvas id="q-full"></canvas><figcaption><b>24-bit</b>the source</figcaption></figure>
+      <figure><canvas id="q-flat"></canvas><figcaption><b>5-bit, rounded</b>hard banding</figcaption></figure>
+      <figure><canvas id="q-dith"></canvas><figcaption><b>5-bit, Bayer 4×4</b>what ships</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>The interface</h2>
+    <p class="lead">Fat rounded panels, a heavy near-black outline, and a <em>hard</em>
+    offset shadow — not a soft blur. That is what makes a panel read as a printed card
+    rather than a web modal. Live specimens, in their own colours in either theme:</p>
+
+    <div class="stage">
+      <div class="card" style="--c:#69f982">
+        <div class="kicker">Round 3 of 5</div>
+        <div class="name">Falling Floor</div>
+        <p class="rule">The floor is falling, so keep moving.</p>
+        <span class="pill">stick only</span>
+      </div>
+
+      <div class="roster" id="roster"></div>
+
+      <button class="btn" type="button">Start</button>
+    </div>
+    <p class="stagenote">panel radius 20 · outline 4px #171a20 · shadow 6px offset, 0 blur · rotation ±1.2°</p>
+
+    <h3 class="sub">Type</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Role</th><th>Face</th><th>Used for</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">display</td><td><span class="disp" style="font-size:19px;font-weight:600">Fredoka 600/700</span></td><td>minigame names, scores, the room code</td></tr>
+          <tr><td class="mono">body</td><td style="font-weight:700;font-size:16px">Nunito 400/700</td><td>rules, labels, everything read</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><b>A named trade-off.</b> Both faces load from Google Fonts. That is a
+    runtime CDN dependency, not an asset file, so the Kit is untouched — but a cold load on a
+    bad connection falls back to a system rounded stack. Declared, not left to chance.</div>
+
+    <h3 class="sub">Motion</h3>
+    <p class="lead" style="margin-top:0">Entrances scale from 0.86 with an overshoot and
+    settle; scores count up rather than appearing; the round card deals in, holds, and flicks
+    away. Under <code>prefers-reduced-motion</code> every animation goes and
+    <strong>every piece of information stays</strong> — the animation is emphasis, never the
+    message.</p>
+  </section>
+
+  <section>
+    <h2>The palette</h2>
+    <p class="lead">The eight player colours are not chosen by eye — they came out of a
+    search against deuteranopia and protanopia simulation (RD-007), which is why two of
+    them are deliberately dark. Brightening them uniformly re-breaks the constraint.</p>
+    <div class="grid g-col" id="palette"></div>
+  </section>
+
+  <section>
+    <h2>What is deliberately excluded</h2>
+    <p class="lead">Recorded so that adding one later is a decision rather than a drift.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>PS1 artefact</th><th>In?</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Low internal resolution</td><td class="yes">yes</td><td>the chunk is most of the read, and it renders <em>faster</em> than native</td></tr>
+          <tr><td>15-bit colour + ordered dither</td><td class="yes">yes</td><td>the era's texture, cheap in a fragment shader</td></tr>
+          <tr><td>Flat shading, hard edges</td><td class="yes">yes</td><td>already how the Kit builds every material</td></tr>
+          <tr><td>Nearest-filtered texels</td><td class="yes">yes</td><td>chunky texels, no cost</td></tr>
+          <tr><td>Distance fog</td><td class="yes">yes</td><td>dissolves the far wall; per-arena, from its own sky colour</td></tr>
+          <tr><td><b>Vertex jitter</b></td><td class="no">no</td><td>on eight fast-moving players it reads as a rendering bug, not as an era</td></tr>
+          <tr><td><b>Affine texture warping</b></td><td class="no">no</td><td>worst on large flat floors, which is what every arena here is</td></tr>
+          <tr><td>Polygon sorting errors</td><td class="no">no</td><td>authentically bad is still bad</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <code>specs/visual-direction/</code> — 17 tasks across five phases. Render layer only:
+    no minigame's geometry, collision or scoring changes. Every texture and face on this page
+    was generated by the page itself, with the functions the spec defines.
+  </footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const S = 64;
+
+  /* Deterministic RNG — the same mulberry32 the game uses, so a texture generated
+     here and in the game from the same seed is byte-identical. */
+  const rng = (seed) => {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  const hex = (h) => {
+    const n = parseInt(h.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+
+  /* Each generator writes an RGBA byte array — exactly what DataTexture takes. */
+  function make(fn) {
+    const px = new Uint8ClampedArray(S * S * 4);
+    for (let y = 0; y < S; y++) {
+      for (let x = 0; x < S; x++) {
+        const c = fn(x, y);
+        const i = (y * S + x) * 4;
+        px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+      }
+    }
+    return px;
+  }
+
+  const GEN = {
+    checker: (a, b, cells = 8) => {
+      const A = hex(a), B = hex(b), n = S / cells;
+      return make((x, y) => ((x / n | 0) + (y / n | 0)) % 2 ? A : B);
+    },
+    brick: (mortar, face, rows = 4) => {
+      const M = hex(mortar), F = hex(face), h = S / rows;
+      return make((x, y) => {
+        const row = y / h | 0;
+        const off = (row % 2) * (S / 4);
+        const gx = (x + off) % (S / 2);
+        if (y % h < 2 || gx < 2) return M;
+        // a touch of per-brick tonal variation, seeded so it is stable
+        const r = rng(row * 31 + ((x + off) / (S / 2) | 0) * 7 + 1)();
+        return mix(F, M, r * 0.22);
+      });
+    },
+    tile: (line, fill, cells = 4) => {
+      const L = hex(line), F = hex(fill), n = S / cells;
+      return make((x, y) => (x % n < 2 || y % n < 2) ? L : F);
+    },
+    grid: (line, fill, cells = 8) => {
+      const L = hex(line), F = hex(fill), n = S / cells;
+      return make((x, y) => (x % n === 0 || y % n === 0) ? L : F);
+    },
+    stripes: (a, b, count = 6, diagonal = false) => {
+      const A = hex(a), B = hex(b), n = S / count;
+      return make((x, y) => (((diagonal ? x + y : x) / n | 0) % 2 ? A : B));
+    },
+    noise: (base, contrast, seed) => {
+      const B = hex(base), r = rng(seed);
+      const vals = Array.from({ length: S * S }, () => r());
+      return make((x, y) => {
+        const v = (vals[y * S + x] - 0.5) * contrast;
+        return B.map((c) => c + v * 255);
+      });
+    },
+    gradient: (top, bottom) => {
+      const T = hex(top), Bo = hex(bottom);
+      return make((_x, y) => mix(T, Bo, y / (S - 1)));
+    },
+    dots: (dot, ground, spacing = 16) => {
+      const D = hex(dot), G = hex(ground), r = spacing / 4;
+      return make((x, y) => {
+        const cx = (x % spacing) - spacing / 2, cy = (y % spacing) - spacing / 2;
+        return Math.hypot(cx, cy) < r ? D : G;
+      });
+    },
+  };
+
+  const PALETTE = {
+    floor: "#3b4152", floorEdge: "#2a2f3c", wall: "#2a2f3c",
+    sky: "#0e1014", hazard: "#e6484d", pickup: "#ffef14",
+  };
+  const PLAYERS = ["#1ab0ff","#ff3f18","#ffef14","#69f982","#b013b0","#875e35","#08865a","#870909"];
+  const NAMES = ["blue","red","yellow","mint","magenta","brown","forest","maroon"];
+
+  function paint(canvas, px, size = S) {
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    const img = ctx.createImageData(size, size);
+    img.data.set(px);
+    ctx.putImageData(img, 0, 0);
+  }
+
+  /* --- texture swatches ------------------------------------------------- */
+  const specs = [
+    ["checker",  "arena floor",      GEN.checker(PALETTE.floor, PALETTE.floorEdge, 8)],
+    ["brick",    "arena wall",       GEN.brick(PALETTE.sky, PALETTE.wall, 5)],
+    ["tile",     "platform faces",   GEN.tile(PALETTE.floorEdge, PALETTE.floor, 4)],
+    ["grid",     "hazard decking",   GEN.grid(PALETTE.hazard, PALETTE.floorEdge, 8)],
+    ["stripes",  "warning bands",    GEN.stripes(PALETTE.hazard, PALETTE.sky, 8, true)],
+    ["noise",    "worn concrete",    GEN.noise(PALETTE.floor, 0.35, 7)],
+    ["gradient", "sky / backdrop",   GEN.gradient("#2a3550", PALETTE.sky)],
+    ["dots",     "pickup glow",      GEN.dots(PALETTE.pickup, PALETTE.floorEdge, 16)],
+  ];
+  const texWrap = document.getElementById("textures");
+  for (const [name, use, px] of specs) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    const c = document.createElement("canvas");
+    paint(c, px);
+    cell.append(c);
+    const b = document.createElement("b"); b.textContent = name + "()";
+    const s = document.createElement("span"); s.textContent = use;
+    cell.append(b, s);
+    texWrap.append(cell);
+  }
+
+  /* --- the face generator ---------------------------------------------- */
+  const FS = 32;
+  const MOUTHS = ["line", "oh", "smile", "grimace"];
+
+  function faceFor(slot, skin) {
+    const r = rng(slot * 2654435761 + 11);
+    const spacing = 0.28 + r() * 0.18;      // eye separation, fraction of width
+    const eye = 3 + Math.floor(r() * 4);    // eye radius in px
+    const brow = (r() - 0.5) * 24;          // degrees
+    const mouth = MOUTHS[Math.floor(r() * MOUTHS.length)];
+
+    const base = hex(skin);
+    const ink = [22, 24, 30];
+    const px = new Uint8ClampedArray(FS * FS * 4);
+    const put = (x, y, c) => {
+      if (x < 0 || y < 0 || x >= FS || y >= FS) return;
+      const i = ((y | 0) * FS + (x | 0)) * 4;
+      px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+    };
+    for (let y = 0; y < FS; y++) for (let x = 0; x < FS; x++) put(x, y, base);
+
+    const cx = FS / 2, ex = spacing * FS, ey = FS * 0.42;
+    const disc = (px0, py0, rad, c) => {
+      for (let y = -rad; y <= rad; y++)
+        for (let x = -rad; x <= rad; x++)
+          if (x * x + y * y <= rad * rad) put(px0 + x, py0 + y, c);
+    };
+    disc(cx - ex, ey, eye, ink);
+    disc(cx + ex, ey, eye, ink);
+
+    // brows: a short run rotated by the brow angle
+    const rad = (brow * Math.PI) / 180;
+    for (const sgn of [-1, 1]) {
+      for (let t = -eye - 1; t <= eye + 1; t++) {
+        const bx = cx + sgn * ex + t;
+        const by = ey - eye - 3 + Math.tan(rad) * t * sgn;
+        put(bx, by, ink); put(bx, by + 1, ink);
+      }
+    }
+
+    const my = FS * 0.66;
+    if (mouth === "line") for (let x = -5; x <= 5; x++) { put(cx + x, my, ink); put(cx + x, my + 1, ink); }
+    if (mouth === "oh") disc(cx, my + 1, 3, ink);
+    if (mouth === "smile") for (let x = -6; x <= 6; x++) {
+      const y = my + Math.round(Math.cos((x / 6) * 1.35) * -3) + 3;
+      put(cx + x, y, ink); put(cx + x, y + 1, ink);
+    }
+    if (mouth === "grimace") {
+      for (let x = -6; x <= 6; x++) { put(cx + x, my, ink); put(cx + x, my + 3, ink); }
+      for (let x = -6; x <= 6; x += 3) for (let y = 0; y <= 3; y++) put(cx + x, my + y, ink);
+    }
+    return { px, mouth, spacing, eye, brow };
+  }
+
+  const faceWrap = document.getElementById("faces");
+  const rosterWrap = document.getElementById("roster");
+  PLAYERS.forEach((colour, slot) => {
+    const f = faceFor(slot, colour);
+
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    const c = document.createElement("canvas");
+    paint(c, f.px, FS);
+    const b = document.createElement("b"); b.textContent = "slot " + slot;
+    const s = document.createElement("span"); s.textContent = f.mouth;
+    cell.append(c, b, s);
+    faceWrap.append(cell);
+
+    const p = document.createElement("div");
+    p.className = "pcard";
+    const pc = document.createElement("canvas");
+    paint(pc, f.px, FS);
+    const nb = document.createElement("b"); nb.textContent = NAMES[slot];
+    const bar = document.createElement("i"); bar.style.background = colour;
+    p.append(pc, nb, bar);
+    rosterWrap.append(p);
+  });
+
+  /* --- quantization demo ------------------------------------------------ */
+  const BAYER = [
+    [0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5],
+  ];
+  function ramp(canvas, mode) {
+    const W = 220, H = 90;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    const img = ctx.createImageData(W, H);
+    const levels = 32;                 // 5 bits per channel
+    const from = hex("#2a3550"), to = hex("#ffb020");
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const t = x / (W - 1);
+        let c = mix(from, to, t).map((v, i) => v * (1 - y / H * 0.55) + hex("#e6484d")[i] * (y / H * 0.35));
+        if (mode !== "full") {
+          const d = mode === "dither" ? (BAYER[y % 4][x % 4] / 16 - 0.5) * (255 / levels) : 0;
+          c = c.map((v) => Math.round((v + d) / (255 / (levels - 1))) * (255 / (levels - 1)));
+        }
+        const i = (y * W + x) * 4;
+        img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  ramp(document.getElementById("q-full"), "full");
+  ramp(document.getElementById("q-flat"), "flat");
+  ramp(document.getElementById("q-dith"), "dither");
+
+  /* --- palette ---------------------------------------------------------- */
+  const palWrap = document.getElementById("palette");
+  PLAYERS.forEach((c, i) => {
+    const el = document.createElement("div");
+    el.className = "chip";
+    el.innerHTML = `<i style="background:${c}"></i><div><b>${NAMES[i]}</b><span>${c}</span></div>`;
+    palWrap.append(el);
+  });
+  Object.entries(PALETTE).forEach(([k, c]) => {
+    const el = document.createElement("div");
+    el.className = "chip";
+    el.innerHTML = `<i style="background:${c}"></i><div><b>${k}</b><span>${c}</span></div>`;
+    palWrap.append(el);
+  });
+})();
+</script>

@@ -36,7 +36,8 @@ Four minigames ship: `falling-floor`, `hot-potato`, `sweepers`, `scramble`. The 
 contract holds — the last three each needed one line in the server registry and no
 client code. `scramble` is the first non-elimination round.
 
-Next: minigame #5, or close `specs/shell/` T16/T18 by setting up a DOM test env.
+Next: `specs/visual-direction/` (17 tasks) — PS1-era world, party UI, procedural
+textures. Or minigame #5, or close `specs/shell/` T16/T18 with a DOM test env.
 
 ## Trust Boundary
 
@@ -54,8 +55,11 @@ contract.
 
 The art drain is designed out structurally, not by discipline.
 
-- **No model files. No textures. No Blender.** `.glb/.gltf/.fbx/.obj/.blend` and
+- **No model files. No image files. No Blender.** `.glb/.gltf/.fbx/.obj/.blend` and
   image assets are rejected by `python3 tools/kit_check.py --check`.
+- **Textures are generated in code** into `DataTexture`s (RD-020) — real textures, no
+  file, no loader. A texture the generators cannot express is one the design does
+  without, never a reason to add a file.
 - Everything is a Three.js **primitive** — capsule, box, cylinder, sphere, plane —
   flat-shaded, colored from the fixed palette in `src/client/src/kit/palette.ts`.
 - Character animation is **procedural** (bob, squash, lean). No rigs, no keyframes.

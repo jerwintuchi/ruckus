@@ -469,3 +469,45 @@ count the page displays. That is the guard doing its job on its first run.
 **On the design.** The page uses the game's own eight player colours — the set chosen by
 search against colour-blindness simulation in RD-007 — rather than an invented palette,
 so the dashboard and the thing it describes read as the same project.
+
+## RD-020 — Visual direction: PS1 world, party interface, textures still code (2026-08-31)
+
+**Decision.** `specs/visual-direction/` — a PS1-era low-poly world rendered to a
+270px-tall buffer, quantized to 15-bit colour with an ordered dither, wrapped in a
+bright chunky party interface that stays at native resolution. Characters become box
+humanoids with generated faces. **Textures are generated in code into `DataTexture`s;
+the Kit ban stands unchanged.**
+
+**Context.** The author asked for "simple shapes with image textures", PS1/PS2 era with
+a modern twist, and a Nintendo-type UI. The texture half collides directly with RD-001:
+`kit_check.py` fails on any `.png` and on `TextureLoader`, and that ban is the
+*structural* reason this project has not repeated the art loop that stalled Testament.
+
+The collision turned out to be smaller than it looked. Of the seven things that make
+the PS1 read — low internal resolution, dithering, flat shading, hard edges, fog, texel
+chunk, affine warping — five need no image at all. And PS1 textures were 64×64 tiling
+patterns (brick, tile, checker, grating, noise), which are **cheaper to write as code
+than to author and manage as files**. So the answer is not an exemption, it is a
+generator kit returning `DataTexture`s: real textures, no file, no loader, guard intact.
+
+**The one thing that looked like it needed painting was a face** — and it does not. A
+PS1 face was a 32×32 texture with dot eyes and a mouth, which is a handful of drawing
+primitives. `faceFor(slot)` varies eye spacing, eye size, brow angle and mouth shape
+from the slot seed, so the eight players get eight *different* faces. That is strictly
+better than one painted texture, and it finally builds the second identity channel
+RD-007 named and left undone.
+
+**Two PS1 artefacts are deliberately excluded**, recorded so adding one later is a
+decision rather than a drift: **vertex jitter**, because on eight fast-moving players it
+reads as a rendering bug rather than as an era; and **affine texture warping**, because
+it is worst on large flat floors and every arena here is one.
+
+**Consequences.** The interface is DOM at native resolution and is never drawn into the
+retro buffer, so the world is chunky and the type is razor sharp — retro world, modern
+interface, which is the "modern twist" and falls out of the split for free. Two runtime
+webfonts (Fredoka, Nunito) are a named CDN dependency, not an asset file, with a
+declared system fallback. The spec touches `src/client/src/kit/` and
+`src/client/src/ui/` only: no minigame's geometry, collision or scoring changes.
+
+Visual reference, with every texture and face generated live by the page itself:
+<https://claude.ai/code/artifact/e50f2313-48a7-4f50-a41f-66a6a073f4ac>
