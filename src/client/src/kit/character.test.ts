@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Mesh, MeshBasicMaterial, type Material } from "three";
 import { PLAYER_COLOURS } from "@ruckus/shared";
-import { BODY, Character, MESHES_PER_CHARACTER } from "./character.ts";
+import { BODY, Character, MESHES_PER_CHARACTER, OUT_BLINK_S, blinkVisible } from "./character.ts";
 import { EDGE_FACES, FRONT_FACE, SLAB_DEPTH, materialForFace } from "./paper.ts";
 import { PAPER } from "./palette.ts";
 
@@ -172,51 +172,59 @@ describe("limbs hinge, and the pose is only ever a function of its inputs (T11)"
   });
 });
 
-describe("eliminated players stay on screen (spectating T1, R1, P1, P2)", () => {
-  it("is still visible and still in the scene", () => {
-    // The comment above setEliminated has always said losing must be watchable; the
-    // two lines below it hid the character completely, and Hot Potato emptied its
-    // arena as players went out (RD-048).
+describe("going out is an event, not a state (round-lifecycle T3, R3, P3, P4)", () => {
+  // This has been wrong both ways. It first hid the character instantly under a comment
+  // claiming the opposite, so Hot Potato's arena silently emptied (RD-048). Then it
+  // greyed them and left them standing, which read as a player stuck rather than out
+  // (RD-049). It blinks and leaves now.
+  it("is visible the moment it happens, so the elimination is seen", () => {
     const c = new Character(PLAYER_COLOURS[0]!, 0);
+    c.update(0, 0, 0, 0, 10);
     c.setEliminated();
+    c.update(0, 0, 0, 0, 10);
     expect(c.root.visible).toBe(true);
-    const parts = meshes(c);
-    expect(parts).toHaveLength(MESHES_PER_CHARACTER);
-    for (const m of parts) expect(m.visible).toBe(true);
   });
 
-  it("greys every fill and leaves every ink edge alone (P2)", () => {
-    const c = new Character(PLAYER_COLOURS[3]!, 3);
-    const before = meshes(c)
-      .filter((m) => Array.isArray(m.material))
-      .map((m) => (m.material as Material[]).map((x) => x));
+  it("flickers across the window and is gone after it", () => {
+    const c = new Character(PLAYER_COLOURS[0]!, 0);
+    c.update(0, 0, 0, 0, 10);
     c.setEliminated();
 
-    const after = meshes(c).filter((m) => Array.isArray(m.material));
-    after.forEach((m, i) => {
-      (m.material as Material[]).forEach((mat, j) => {
-        const was = before[i]![j]!;
-        const wasInk = colourOf(was) === INK;
-        // Ink survives so the silhouette still reads; everything else goes flat.
-        if (wasInk) expect(colourOf(mat), "ink").toBe(INK);
-        else expect(colourOf(mat), "fill").not.toBe(colourOf(was));
-      });
-    });
+    const seen = new Set<boolean>();
+    for (let dt = 0; dt < OUT_BLINK_S; dt += OUT_BLINK_S / 32) {
+      c.update(0, 0, 0, 0, 10 + dt);
+      seen.add(c.root.visible);
+    }
+    expect(seen.has(true) && seen.has(false), "it actually flickers").toBe(true);
+
+    c.update(0, 0, 0, 0, 10 + OUT_BLINK_S + 0.01);
+    expect(c.root.visible, "and then leaves").toBe(false);
   });
 
-  it("is idempotent, because it is called on every snapshot while out", () => {
+  it("blinks as a pure function of elapsed time", () => {
+    expect(blinkVisible(0)).toBe(true);
+    expect(blinkVisible(OUT_BLINK_S)).toBe(false);
+    expect(blinkVisible(OUT_BLINK_S * 10)).toBe(false);
+    expect(blinkVisible(0.1)).toBe(blinkVisible(0.1));
+  });
+
+  it("cannot be undone by the per-frame visibility call", () => {
+    // syncPlayers calls setVisible(true) every frame; it must not resurrect a body.
     const c = new Character(PLAYER_COLOURS[1]!, 1);
+    c.update(0, 0, 0, 0, 5);
     c.setEliminated();
-    const first = meshes(c).map((m) => m.material);
-    c.setEliminated();
-    expect(meshes(c).map((m) => m.material)).toEqual(first);
+    c.update(0, 0, 0, 0, 5 + OUT_BLINK_S + 0.01);
+    c.setVisible(true);
+    expect(c.root.visible).toBe(false);
   });
 
-  it("stops animating, so an out player is not mistaken for a live one", () => {
+  it("is never out when freshly built, so it cannot outlive its round (P4)", () => {
+    // Characters are rebuilt at ROUND_START, which is what makes elimination
+    // round-scoped by construction rather than by remembering to clear it.
     const c = new Character(PLAYER_COLOURS[2]!, 2);
-    c.setEliminated();
-    c.update(0, 6, 0, 0, 0.3);
+    c.update(0, 4, 0, 0, 0.3);
+    expect(c.root.visible).toBe(true);
     const pivot = c.root.children[0]!;
-    for (const limb of pivot.children) expect(limb.rotation.x).toBeCloseTo(0, 6);
+    expect(Math.abs(pivot.children[4]!.rotation.x), "and it animates").toBeGreaterThan(0);
   });
 });

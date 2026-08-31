@@ -148,6 +148,22 @@ export class Match {
     return this.roundRoster;
   }
 
+  /**
+   * The round in progress, for someone who has just arrived (round-lifecycle R2).
+   *
+   * A mid-round joiner used to receive snapshots with no arena to draw them in, so a
+   * scramble round appeared as pickups floating in an empty sky. They get the same
+   * `roundStart` payload they would have had, built from the same `arena()` call — so
+   * nothing minigame-specific enters the shell.
+   *
+   * Seeing a round and being in it stay separate: this does not add them to the roster
+   * (RD-046), only to the audience.
+   */
+  inProgress(): { game: Minigame<never>; state: never } | null {
+    if (this.room.state !== "ROUND_PLAY" || !this.game || this.gameState === null) return null;
+    return { game: this.game as Minigame<never>, state: this.gameState as never };
+  }
+
   private beginIntro(): void {
     this.room.round += 1;
     this.game = this.bag.next();
@@ -158,10 +174,26 @@ export class Match {
 
   private beginPlay(): void {
     const game = this.game!;
+    // A round begins from nothing (round-lifecycle R1).
+    //
+    // Every minigame's `init` sets `body.pos`, and not one of them touches `y`, `vy`,
+    // `grounded` or `vel` — reasonably, because those are motion rather than placement.
+    // Nothing reset them either, so a player who died by FALLING in falling-floor began
+    // the next round at a correct x/z while thirty metres below the floor and still
+    // falling: eliminated on the first tick, greyed and frozen for the whole round.
+    //
+    // The shell does it, before `init`, so a minigame chooses where a player starts and
+    // never has to remember how fast they were moving in a game that already ended.
     const players = this.room.connected.map((p) => {
-      p.runtime.alive = true;
-      p.runtime.connected = true;
-      return p.runtime;
+      const r = p.runtime;
+      r.alive = true;
+      r.connected = true;
+      r.facing = 0;
+      r.body.y = 0;
+      r.body.vy = 0;
+      r.body.grounded = true;
+      r.body.vel = vec();
+      return r;
     });
     this.roundRng = makeRng(seedFrom(this.room.code, this.room.round));
     this.roundRoster = players;

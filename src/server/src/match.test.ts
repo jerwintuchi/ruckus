@@ -387,3 +387,94 @@ describe("a round is played with the roster it started with (RD-046)", () => {
     expect(room.state).not.toBe("ROUND_PLAY");
   });
 });
+
+describe("a round begins from nothing (round-lifecycle T1, R1, P1)", () => {
+  it("resets motion that a previous round left behind", () => {
+    // The bug this exists for: every minigame's init sets body.pos and none of them
+    // touch y, vy, grounded or vel. A player who died by FALLING began the next round
+    // at a correct x/z while still thirty metres down and falling — eliminated on the
+    // first tick, greyed and frozen for the whole round (RD-049).
+    const { room, match } = setup([stub("a", 3) as Minigame<never>, stub("b", 3) as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + TICK_DT * 1000);
+
+    // Wreck every body the way a real round would: mid-fall, sprinting, turned around.
+    for (const p of room.players.values()) {
+      p.runtime.body.y = -30;
+      p.runtime.body.vy = -18;
+      p.runtime.body.grounded = false;
+      p.runtime.body.vel = vec(6, -4);
+      p.runtime.facing = 3.1;
+      p.runtime.alive = false;
+    }
+
+    // Into the next round.
+    pump(match, 12_000);
+
+    for (const p of room.players.values()) {
+      const b = p.runtime.body;
+      expect(b.y, "y").toBe(0);
+      expect(b.vy, "vy").toBe(0);
+      expect(b.grounded, "grounded").toBe(true);
+      expect(b.vel.x, "vel.x").toBe(0);
+      expect(b.vel.z, "vel.z").toBe(0);
+      expect(p.runtime.facing, "facing").toBe(0);
+      expect(p.runtime.alive, "alive").toBe(true);
+    }
+  });
+
+  it("resets before init, so a minigame's spawn is not overwritten", () => {
+    // Order matters: the shell owns motion, the minigame owns position. Reversing them
+    // would put every player back at the origin after the game had placed them.
+    const placed: number[] = [];
+    const spawner: Minigame<{ n: number }> = {
+      ...(stub("spawn", 999) as unknown as Minigame<{ n: number }>),
+      init: (ctx) => {
+        for (const p of ctx.players) {
+          p.body.pos = vec(5, 5);
+          placed.push(p.slot);
+        }
+        return { n: 0 };
+      },
+    };
+    const { room, match } = setup([spawner as unknown as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + TICK_DT * 1000);
+    expect(placed.length).toBeGreaterThan(0);
+    for (const p of room.players.values()) {
+      expect(p.runtime.body.pos.x, "the spawn survived the reset").toBe(5);
+    }
+  });
+});
+
+describe("a spectator is shown the round they are watching (round-lifecycle T2, R2, P2)", () => {
+  it("offers the round in progress, and nothing outside one", () => {
+    // Without this a mid-round joiner received snapshots with no arena to draw them in
+    // — a scramble round arrived as pickups floating in an empty sky (RD-049).
+    const { match } = setup([stub("a", 999) as Minigame<never>]);
+    expect(match.inProgress(), "nothing to watch in the lobby").toBeNull();
+
+    match.requestStart(0);
+    pump(match, INTRO_MS / 2);
+    expect(match.inProgress(), "nor during the intro").toBeNull();
+
+    pump(match, INTRO_MS);
+    const live = match.inProgress();
+    expect(live, "but yes during play").not.toBeNull();
+    expect(live!.game.arena(live!.state)).toBeDefined();
+  });
+
+  it("shows the round without adding the watcher to it (RD-046)", () => {
+    // Seeing a round and being in it are different things; conflating them is what put
+    // a ghost at the arena's centre.
+    const { room, match } = setup([stub("a", 999) as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + TICK_DT * 1000);
+    const before = match.roster.length;
+
+    room.join("watcher");
+    match.update();
+    expect(match.inProgress()).not.toBeNull();
+    expect(match.roster.length).toBe(before);
+  });
+});

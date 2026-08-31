@@ -115,3 +115,25 @@ describe("a round's world leaves with the round", () => {
     expect(branch).toContain("clearHud");
   });
 });
+
+describe("nothing survives ROUND_START (round-lifecycle T4, R4)", () => {
+  // The class of bug this whole spec exists for: state from a previous round, or from
+  // a round you were not in, arriving in the current one.
+  const main = readFileSync(
+    join(dirname(new URL(import.meta.url).pathname), "main.ts"), "utf8");
+  const roundStart = main.slice(main.indexOf('case "roundStart"'), main.indexOf("break;", main.indexOf('case "roundStart"')));
+
+  it("replaces the arena, the tiles, the prims and the characters", () => {
+    for (const call of ["setArena", "clearPlayers", "setPrims"]) {
+      expect(roundStart, call).toContain(call);
+    }
+  });
+
+  it("replaces the controls, so a previous round's verb is not left on the button", () => {
+    expect(roundStart).toContain("controls.show");
+  });
+
+  it("clears the banner, so an intro or a scoreboard does not sit over the round", () => {
+    expect(roundStart).toContain("hideBanner");
+  });
+});

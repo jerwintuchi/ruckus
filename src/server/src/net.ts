@@ -173,6 +173,21 @@ export class GameServer {
     }
   }
 
+  /** The round already running, for a socket that has just joined. */
+  private sendRoundInProgress(conn: Conn, match: Match): void {
+    const live = match.inProgress();
+    if (!live) return;
+    this.send(conn.ws, {
+      t: "roundStart",
+      game: live.game.id,
+      arena: live.game.arena(live.state) as never,
+      roster: match.roster.map((r) => r.slot),
+      endsAt: Date.now() + 60_000,
+      input: live.game.input,
+      ...(live.game.buttonLabel === undefined ? {} : { buttonLabel: live.game.buttonLabel }),
+    });
+  }
+
   private sendSnapshot(room: Room, extra: unknown): void {
     // The round's own roster, not everyone connected. A mid-round joiner is not in the
     // simulation, so putting them in the snapshot drew a body the round had never dealt
@@ -249,6 +264,10 @@ export class GameServer {
           host: entry.room.host,
         });
         this.broadcastRoom(entry.room);
+        // Arriving mid-round: send the arena so there is a game to watch rather than
+        // pickups floating in an empty sky (round-lifecycle R2). This puts them in the
+        // audience, not in the roster — they still play from the next ROUND_START (I8).
+        this.sendRoundInProgress(conn, entry.match);
         return;
       }
 

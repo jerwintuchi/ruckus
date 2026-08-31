@@ -1622,3 +1622,50 @@ rose, `setEliminated`'s comment, and `shell` T18's zero-scorer test. Prose and t
 drift from code silently. The ones that held were the mechanical guards — `kit_check`,
 the context budget, the spec registry — which is an argument for more of those and fewer
 promises in comments.
+
+## RD-049 — A round begins from nothing (2026-08-31)
+
+Three playtest reports, one cause: **state surviving a round it should not have.**
+`specs/round-lifecycle/`.
+
+**The root cause.** Every minigame's `init` sets `body.pos`. Not one of them touches
+`y`, `vy`, `grounded` or `vel` — reasonably, because those are motion rather than
+placement. And nothing else reset them either. So a player who died by *falling* in
+`falling-floor` began the next round at a correct x/z while still thirty metres below
+the floor and falling at speed: eliminated on the first tick, and — because elimination
+also stopped the walk animation — greyed and frozen for the entire round. That is
+exactly the "suspended" character that was reported.
+
+The shell resets motion at `beginPlay`, before `init` runs. A minigame chooses *where* a
+player starts; it has no business remembering how fast they were moving in a game that
+has already finished. Putting it in the shell means minigame five gets it free, the same
+argument as the round timeout (I8) and player collision (RD-040). A test wrecks every
+body — mid-fall, sprinting, facing backwards, eliminated — and asserts the next round
+starts clean, plus that the reset happens *before* `init` so a spawn is not overwritten.
+
+**The floating pickups.** A mid-round joiner received `snap` messages, whose `prims` the
+client draws unconditionally, but never a `roundStart` — so there was no arena to draw
+them in, and a `scramble` round arrived as pickups floating in an empty sky. They are
+now sent the round in progress on join: the same payload they would have had, from the
+same `arena()` call, so nothing minigame-specific enters the shell. Watching a round and
+being in one stay separate — this adds them to the audience, not the roster (RD-046).
+
+**Elimination has now been wrong in both directions.** It first hid the character
+instantly, under a comment claiming the opposite, and Hot Potato's arena silently
+emptied (RD-048). Yesterday's fix greyed them and left them standing — which reads as a
+player *stuck*, not a player *out*, and was reported as such within one session. It
+blinks and leaves now: four flickers over 700 ms, then gone. You see it happen, and then
+the arena shows only who is still in.
+
+That is worth sitting with. The first version was a bug. The second was a considered
+fix, tested, that solved the stated problem and produced a worse one — because "stays on
+screen" was my reading of vision pillar 3, and the pillar actually says *being eliminated
+is still fun because you can see what happens next*. That is about what the eliminated
+player can watch, not about whether their body remains. I had been optimising the wrong
+noun.
+
+**A structural note.** The blink lives on the `Character`, and characters are rebuilt at
+`ROUND_START` — so elimination cannot outlive its round by construction rather than by
+remembering to clear a flag. That is the same shape as the fix above: put the state
+where the lifecycle already destroys it, instead of adding a cleanup step that a future
+round can skip.

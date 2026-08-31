@@ -9,12 +9,11 @@
  * would remove depth judgement entirely, in a game about timing a jump over a sweeping
  * bar. That was a gameplay decision, not an art one (RD-021).
  */
-import { Group, type Material, type Mesh } from "three";
+import { Group, type Mesh } from "three";
 import { MAX_SPEED } from "@ruckus/shared";
 import { poseFor } from "./actor.ts";
 import { faceFor } from "./face.ts";
-import { PAPER } from "./palette.ts";
-import { SLAB_DEPTH, inkMaterial, slab, unlit } from "./paper.ts";
+import { SLAB_DEPTH, slab } from "./paper.ts";
 import { blobShadow } from "./prims.ts";
 
 /** Proportions. Footprint and height stay as the capsule's, so no collision moves. */
@@ -30,8 +29,22 @@ export const BODY = {
   height: 1.80,
 } as const;
 
-/** A faint mark on the ground: out, but still standing somewhere. */
-export const OUT_SHADOW_OPACITY = 0.12;
+/** How long going out takes to read, in seconds. */
+export const OUT_BLINK_S = 0.7;
+/** Flickers across that window: a flicker, not a strobe. */
+export const OUT_BLINKS = 4;
+
+/**
+ * Visible or not, this far through the blink (round-lifecycle P3).
+ *
+ * Pure and time-based, so it looks the same at 60 Hz and at 120 Hz, and so it can be
+ * tested without a scene.
+ */
+export function blinkVisible(elapsed: number): boolean {
+  if (elapsed >= OUT_BLINK_S) return false; // gone
+  const phase = (elapsed / OUT_BLINK_S) * OUT_BLINKS;
+  return phase % 1 < 0.5;
+}
 
 /** Meshes per character, asserted so the 8-on-screen budget cannot drift (T12). */
 export const MESHES_PER_CHARACTER = 7;
@@ -46,7 +59,9 @@ export class Character {
   private readonly legL = new Group();
   private readonly legR = new Group();
   private readonly shadow: Mesh;
-  private out = false;
+  /** Frame time at which this player went out, or null while they are in. */
+  private outAt: number | null = null;
+  private lastT = 0;
 
   constructor(colour: string, slot: number) {
     // The head carries the generated face on its front (+Z) slab face.
@@ -90,8 +105,16 @@ export class Character {
     height: number, speed: number, vy: number, facing: number, t: number,
     turning = 0, tumbling = 0,
   ): void {
-    // Out players stop moving, so nobody mistakes one for a player still in the round.
-    const pose = poseFor(this.out ? 0 : speed, MAX_SPEED, height, vy, t, turning, tumbling);
+    this.lastT = t;
+
+    if (this.outAt !== null) {
+      // Blink, then leave. Nothing else about an out player needs updating.
+      const elapsed = t - this.outAt;
+      this.root.visible = blinkVisible(elapsed);
+      return;
+    }
+
+    const pose = poseFor(speed, MAX_SPEED, height, vy, t, turning, tumbling);
 
     this.pivot.position.y = height + pose.bob;
     // The flip adds yaw on a turn so the ink edge comes into view — the paper tell.
@@ -113,43 +136,30 @@ export class Character {
     // `update` runs every frame, so it has to honour the eliminated fade rather than
     // writing over it — the first version set the fade once and then undid it 60 times
     // a second.
-    (this.shadow.material as { opacity: number }).opacity =
-      this.out ? OUT_SHADOW_OPACITY : 0.34 * shrink;
+    (this.shadow.material as { opacity: number }).opacity = 0.34 * shrink;
   }
 
   setVisible(v: boolean): void {
-    this.root.visible = v;
+    // An out player stays gone: `syncPlayers` calls this every frame, and it must not
+    // undo the blink.
+    this.root.visible = v && (this.outAt === null || blinkVisible(this.lastT - this.outAt));
   }
 
   /**
-   * Eliminated players stay on screen — losing must be watchable (vision pillar 3).
+   * Going out is an event, not a state (round-lifecycle R3).
    *
-   * This comment sat directly above two lines that hid them completely, and had done
-   * since the character was written. In Hot Potato, where players go out one at a time,
-   * the arena emptied as the round went on and a playtester reported the bots as
-   * "invisible" (RD-048).
+   * It has been both wrong ways. Originally this hid the character instantly, under a
+   * comment claiming the opposite, and Hot Potato's arena silently emptied (RD-048).
+   * Then it greyed them and left them standing, which read as a player stuck rather
+   * than a player out (RD-049). Now it blinks and leaves: you see it happen, and then
+   * the arena shows only who is still in.
    *
-   * Out is a costume change now: every non-ink material goes flat grey and everything
-   * else stays exactly where it is. The ink edges survive, so the silhouette still
-   * reads at phone size, and the shadow fades rather than vanishing.
-   *
-   * Materials are matched against `inkMaterial()` rather than by index, because a
-   * slab's material array is indexed by GROUP once identical neighbours coalesce
-   * (RD-028) — an index-based swap would grey the outline on some slabs and not others.
+   * The state lives on the Character, and characters are rebuilt at ROUND_START — so
+   * it cannot outlive its round by construction rather than by remembering to clean up.
    */
   setEliminated(): void {
-    if (this.out) return; // called every snapshot while a player is out
-    this.out = true;
-
-    const ink = inkMaterial();
-    const dim = unlit(PAPER.textDim);
-    this.pivot.traverse((o) => {
-      const mesh = o as Mesh;
-      if (!mesh.isMesh) return;
-      const mats = mesh.material as Material[];
-      if (!Array.isArray(mats)) return;
-      mesh.material = mats.map((m) => (m === ink ? ink : dim));
-    });
-
+    if (this.outAt !== null) return; // called on every snapshot while out
+    this.outAt = this.lastT;
   }
+
 }
