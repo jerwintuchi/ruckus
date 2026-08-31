@@ -55,9 +55,20 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--ground);color:va
   -webkit-font-smoothing:antialiased}
 canvas{display:block;position:fixed;inset:0}
 
+/*
+ * Safe areas (arena-framing T4, R4).
+ *
+ * viewport-fit=cover in index.html is what makes these env() values non-zero; on its
+ * own it only means content slides UNDER the browser's chrome and the notch, which is
+ * what the first phone playtest photographed — the HUD sitting beneath Safari's URL
+ * bar. The padding is what actually keeps things clear of it. In landscape the notch
+ * is at the SIDE, so all four sides are inset, not just the top.
+ */
 .overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;
   justify-content:center;flex-direction:column;gap:14px;pointer-events:none;
-  text-align:center;padding:16px}
+  text-align:center;
+  padding:calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+          calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left))}
 
 /* A panel IS a slab: flat fill, ink outline, hard offset shadow, no blur. */
 .card{pointer-events:auto;background:var(--card);color:var(--text);
@@ -115,7 +126,9 @@ input::placeholder{color:var(--text-dim)}
 .rule{font-size:clamp(15px,4vw,18px);color:var(--text);max-width:26ch;margin:0 auto}
 
 /* The HUD sits above the arena, out of both thumb corners (R11). */
-#hud{position:fixed;top:0;left:0;right:0;z-index:5;padding:10px 14px;
+#hud{position:fixed;top:0;left:0;right:0;z-index:5;
+  padding:calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
+          10px calc(14px + env(safe-area-inset-left));
   display:flex;justify-content:center;gap:10px;pointer-events:none}
 .gauge{background:var(--card);border:3px solid var(--ink);border-radius:999px;
   box-shadow:3px 3px 0 var(--ink);padding:5px 14px;
@@ -141,11 +154,44 @@ input::placeholder{color:var(--text-dim)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
   .card.tilt{transform:rotate(-${UI.tilt}deg)}
+  /* The wobble goes; the sentence stays. Motion is emphasis, never the message. */
+  #rotate span{transform:none}
+}
+
+/*
+ * "Turn your phone" (arena-framing T5, R5).
+ *
+ * CSS only — no JS, no resize listener, no state in flow.ts. The browser already knows
+ * which way up it is, and a media query cannot get out of sync with it the way a
+ * cached orientation flag can. It also means no sequence of rotations can strand a
+ * player on a screen, so the reducer's totality property is untouched (P4).
+ *
+ * It does NOT cover the game. The arena keeps rendering, correctly framed, underneath:
+ * a player whose orientation lock is on, or whose phone is propped on a table, loses
+ * comfort and not the round. Never require an action to keep playing (I8's spirit).
+ */
+#rotate{display:none}
+@media (orientation:portrait){
+  #rotate{position:fixed;z-index:20;left:0;right:0;
+    bottom:calc(14px + env(safe-area-inset-bottom));
+    display:flex;justify-content:center;pointer-events:none}
+  #rotate span{background:var(--card);color:var(--text);
+    border:var(--outline) solid var(--ink);border-radius:999px;
+    box-shadow:var(--shadow);padding:9px 18px;
+    font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;font-size:14px;
+    animation:nudge 1.9s ease-in-out infinite}
+}
+@keyframes nudge{
+  0%,72%,100%{transform:rotate(0deg)}
+  80%{transform:rotate(-7deg)}
+  90%{transform:rotate(7deg)}
 }
 
 /* Landscape phones: short viewports get tighter, never scrolled (R11, T17). */
 @media (max-height:430px){
-  .overlay{padding:8px}
+  /* Tighter, but never inside the chrome: the insets survive the squeeze. */
+  .overlay{padding:calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right))
+           calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left))}
   .card{padding:12px 18px;gap:7px;max-height:94vh;overflow-y:auto}
   h1{font-size:26px}
   .code{font-size:34px}

@@ -40,16 +40,17 @@ a task finds itself editing a `tick()`, it has gone wrong.
   `setArena` no longer contains `position.set(...arena.camera.eye)` — the exact line
   that put a 24 m arena off a phone screen.
 
-- [ ] T4 [R4] — Safe-area insets for the HUD and every overlay in
+- [x] T4 [R4] — Safe-area insets for the HUD and every overlay in
   `src/client/src/ui/kit.ts`
   Test: `kit.test.ts` — the HUD and overlay rules carry `env(safe-area-inset-*)` on all
   four sides; the 44 px tap floor still holds once the insets are applied; the short-
   viewport landscape query from T17 still tightens the layout
 
-- [ ] T5 [R5, P4] — The portrait prompt
+- [x] T5 [R5, P4] — The portrait prompt
   Test: `kit.test.ts` — the prompt is a CSS-only `@media (orientation: portrait)` rule;
-  it does not hide or cover the canvas; under `prefers-reduced-motion` it is still
-  rendered and its animation is removed; **`flow.ts` gains no state** (P4, asserted
+  it is pinned to one edge with `pointer-events:none` rather than covering the canvas,
+  and clears the home indicator; under `prefers-reduced-motion` the wobble goes and the
+  sentence stays; **`flow.ts` contains no orientation state at all** (P4, asserted
   against the source — an orientation cannot strand a player)
 
 - [ ] T6 [R1, R4] — Seen on the phone that found it

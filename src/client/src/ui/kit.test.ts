@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PLAYER_COLOURS } from "@ruckus/shared";
 import { FONT_LINK, UI, UI_CSS, colourFor, escapeHtml } from "./kit.ts";
@@ -102,5 +104,78 @@ describe("hygiene", () => {
 
   it("declares no asset url anywhere — the Kit is closed (RD-001)", () => {
     expect(UI_CSS).not.toMatch(/url\(/);
+  });
+});
+
+describe("the browser's chrome never covers anything (arena-framing T4, R4)", () => {
+  // viewport-fit=cover only means content slides UNDER the notch and the URL bar. The
+  // padding is what keeps it clear, and its absence is what the first phone playtest
+  // photographed: the HUD sitting beneath Safari's address bar.
+  it("insets the overlay on all four sides, not just the top", () => {
+    // In landscape the notch is at the side, which is the orientation the game is
+    // played in — a top-only inset would miss it entirely.
+    const overlay = rule(".overlay");
+    for (const side of ["top", "right", "bottom", "left"]) {
+      expect(overlay, side).toContain(`env(safe-area-inset-${side})`);
+    }
+  });
+
+  it("insets the HUD, which is pinned to the very edge", () => {
+    const hud = rule("#hud");
+    for (const side of ["top", "right", "left"]) {
+      expect(hud, side).toContain(`env(safe-area-inset-${side})`);
+    }
+  });
+
+  it("keeps the insets when the short-viewport layout tightens (T17)", () => {
+    // The landscape squeeze re-declares .overlay's padding, and an inset dropped there
+    // would fail exactly where it matters most: a phone on its side.
+    const short = UI_CSS.slice(UI_CSS.indexOf("@media (max-height:430px)"));
+    const overlay = short.slice(short.indexOf(".overlay{"), short.indexOf("}", short.indexOf(".overlay{")));
+    for (const side of ["top", "right", "bottom", "left"]) {
+      expect(overlay, side).toContain(`env(safe-area-inset-${side})`);
+    }
+  });
+
+  it("still clears the 44px tap floor once padding is applied", () => {
+    expect(UI.minTarget).toBeGreaterThanOrEqual(44);
+    expect(UI_CSS).toContain(`min-height:${UI.minTarget}px`);
+  });
+});
+
+describe("portrait says what to do and blocks nothing (arena-framing T5, R5, P4)", () => {
+  it("is decided by a media query, not by code", () => {
+    expect(UI_CSS).toContain("@media (orientation:portrait)");
+    expect(UI_CSS).toContain("#rotate");
+  });
+
+  it("carries no state in the flow reducer", () => {
+    // A cached orientation flag can disagree with the device; a media query cannot.
+    // It also keeps `reduce` total — no sequence of rotations can strand a player.
+    const flow = readFileSync(
+      join(dirname(new URL(import.meta.url).pathname), "..", "flow.ts"), "utf8");
+    for (const forbidden of ["orientation", "portrait", "landscape", "rotate"]) {
+      expect(flow.toLowerCase(), forbidden).not.toContain(forbidden);
+    }
+  });
+
+  it("never covers the arena — it is a nudge, not a wall", () => {
+    const portrait = UI_CSS.slice(UI_CSS.indexOf("@media (orientation:portrait)"));
+    const block = portrait.slice(0, portrait.indexOf("\n}"));
+    // Pinned to one edge and untouchable: a player who cannot rotate keeps playing.
+    expect(block).toContain("pointer-events:none");
+    expect(block).toContain("bottom:");
+    expect(block).not.toContain("inset:0");
+    // And it clears the home indicator while it is down there.
+    expect(block).toContain("env(safe-area-inset-bottom)");
+  });
+
+  it("keeps the message under reduced motion, and drops only the movement", () => {
+    const reduced = UI_CSS.slice(UI_CSS.indexOf("@media (prefers-reduced-motion:reduce)"));
+    const block = reduced.slice(0, reduced.indexOf("\n}"));
+    expect(block).toContain("animation:none!important");
+    expect(block).toContain("#rotate span");
+    // The prompt is never hidden — that would remove information, not emphasis.
+    expect(block).not.toContain("#rotate{display:none");
   });
 });

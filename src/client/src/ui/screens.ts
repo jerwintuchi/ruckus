@@ -195,6 +195,12 @@ const TEMPLATE = `
 <div id="hud"></div>
 <div id="banner" class="overlay" style="display:none"></div>
 
+<!--
+  Portrait nudge (arena-framing T5). Always in the DOM; a media query decides whether
+  it is seen, so nothing here has to track the orientation. It never covers the arena.
+-->
+<div id="rotate"><span>turn your phone sideways</span></div>
+
 <div id="menu" class="overlay">
   <div class="card">
     <h1>ruckus</h1>
