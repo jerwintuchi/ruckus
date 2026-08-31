@@ -91,6 +91,24 @@ most likely to actually look at were the two that nothing guarded.
 
 Artifact URL: <https://claude.ai/code/artifact/a72093c9-3080-4524-9a01-1da111d2a4fb>
 
+## Seeing the game, and what that does not tell you
+
+`tools/shoot.sh ROOM [seconds]` drives the real client through the real join flow with
+`?auto=` and screenshots it, using the Chrome already on the machine. Use it before
+claiming a UI change works: nine of eleven bugs in the session that produced it were
+invisible to a green suite and obvious in a picture.
+
+**It renders in software, in one process, with no touch hardware.** It answers *does
+this look right*. It cannot answer:
+
+- *does it hold 60 fps* — `bench.html` on a real phone is the only source (RD-028)
+- *does it feel right* — latency, the stick under a thumb, whether a jump is judgeable
+- *would a stranger work this out* — which is what most manual tasks actually ask
+- anything about safe areas, notches, or the browser chrome on a real device
+
+**A screenshot never ticks a manual box.** Every spec's final task says "played on a
+phone" for reasons this tool does not change.
+
 ## Before ending a session
 
 ```bash

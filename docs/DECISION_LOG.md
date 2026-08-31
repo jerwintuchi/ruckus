@@ -1702,3 +1702,40 @@ leak named the minigame that had the grid, and the RD-009 guard scans `main.ts` 
 minigame ids without stripping comments. The precedent from RD-020 is that the guard
 stays maximally strict and the code works around it, so the comment is reworded. A guard
 loosened to accommodate an explanation stops being a guard.
+
+## RD-051 — A way to see the game (2026-08-31)
+
+`specs/auto-playtest/`. For the whole of this project I have been unable to look at what
+I build, and it shows: of eleven bugs found in one day's playtesting, nine were invisible
+to a green test suite and obvious in a photograph. A canvas at twice the viewport, a
+deep link that could not be joined, a button stretched into an ellipse, characters that
+vanished when eliminated, a whole round of dead players — every one had passing tests
+around it.
+
+**Two pieces, no dependencies.** `?auto=NAME` joins a room and plays: it sets the name,
+goes through the same `net.connect` and the same reducer a player does, and feeds
+`InputController.setSynthetic` a wandering circle with a periodic press. `tools/shoot.sh`
+runs the Chrome already installed on the machine in headless mode with `--screenshot`.
+Nothing was installed, and a test asserts no browser-automation package ever appears in
+`package.json`.
+
+**The guard was right and I did not argue with it.** The first version wrote screenshots
+into `.playtest/`, and `kit_check` rejected them — `.png` is `.png` wherever it lands.
+Its message offers an `ALLOW_PATHS` exception plus a decision entry, and that was the
+wrong door: images belong outside the tree, not inside it with a note attached. They go
+to `${TMPDIR}/ruckus-shots` and the Kit is untouched. **A guard that grows exceptions
+for convenience stops being a guard**, and this project has exactly one asset rule
+holding an entire failure mode shut.
+
+**The harness drives the real client, not a test seam.** `setSynthetic` feeds the
+ordinary `read()` rather than replacing it, and `?auto=` uses the same join path as a
+shared link. A harness that skips the flow verifies a code path no player ever takes —
+which would reproduce the original problem in a new place.
+
+**What it cannot see, written down where the next person will look.** It renders in
+software with no touch hardware, so it answers *does this look right* and nothing else:
+not frame rate, not latency, not whether a stranger can work out the controls, not safe
+areas on a real phone. `spec-workflow.md` now says so, and says plainly that **a
+screenshot never ticks a manual box**. Every spec's last task still reads "played on a
+phone", and this changes none of them — it removes the round trip for the class of bug
+that never needed a human in the first place.

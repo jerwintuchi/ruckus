@@ -280,3 +280,35 @@ if (new URLSearchParams(location.search).has("debug")) {
 // A shared link opens straight on the join screen with its code filled and locked.
 const fromUrl = new URLSearchParams(location.search).get("room");
 if (fromUrl) dispatch({ t: "deepLink", code: fromUrl });
+
+/**
+ * `?auto=NAME`: join and play without hands (auto-playtest R1).
+ *
+ * A headless browser can screenshot a page but cannot type a name or hold a button, and
+ * every UI bug this project has shipped was invisible to its test suite and obvious in
+ * a screenshot. This drives the real client through the real join flow — no test hooks,
+ * no bypass — so what gets captured is what a player would see.
+ *
+ * Input is a slow circle plus a periodic button press: enough to exercise movement,
+ * the tumble, collision and the cooldown without pretending to be skilled play.
+ */
+const autoName = new URLSearchParams(location.search).get("auto");
+if (autoName && fromUrl) {
+  dispatch({ t: "setName", name: autoName });
+  setTimeout(() => {
+    dispatch({ t: "connecting" });
+    net.connect({ t: "join", code: fromUrl.toUpperCase(), name: autoName });
+  }, 300);
+
+  const started = performance.now();
+  setInterval(() => {
+    if (!net.connected) return;
+    const t = (performance.now() - started) / 1000;
+    // A wandering circle, and a press for a fifth of every two seconds.
+    input.setSynthetic({
+      ax: Math.cos(t * 0.9),
+      ay: Math.sin(t * 0.9),
+      btn: t % 2 < 0.4,
+    });
+  }, 50);
+}

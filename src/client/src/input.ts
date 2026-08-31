@@ -67,6 +67,8 @@ export class InputController {
   /** The drawn action button, once the UI has one. See `attachButton`. */
   private button: HTMLElement | null = null;
   private buttonTouch: number | null = null;
+  /** Scripted input, for the automated playtester. Null in every real session. */
+  private synthetic: InputState | null = null;
 
   constructor(private readonly surface: HTMLElement) {
     this.bindKeyboard();
@@ -88,7 +90,19 @@ export class InputController {
     };
   }
 
+  /**
+   * Drive the stick from a script instead of a thumb (auto-playtest R1).
+   *
+   * Only reachable from `?auto=`, and it feeds the SAME `read()` every other consumer
+   * uses — a harness that bypassed the real input path would verify a code path no
+   * player ever takes.
+   */
+  setSynthetic(state: InputState | null): void {
+    this.synthetic = state;
+  }
+
   read(): InputState {
+    if (this.synthetic) return this.synthetic;
     const touch = this.readTouch();
     if (touch) return touch;
     // The button is independent of the stick.

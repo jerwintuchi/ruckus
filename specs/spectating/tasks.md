@@ -1,9 +1,8 @@
 # Spectating — Tasks
 
-- [x] T1 [R1, P1, P2] — Grey rather than hide, in `src/client/src/kit/character.ts`
-  Test: `character.test.ts` — an eliminated character is still visible and still in the
-  scene; every non-ink material has changed and every ink material has not; the change
-  is idempotent, since `setEliminated` is called on every snapshot while a player is out
+- [~] T1 [R1] — **SUPERSEDED by `round-lifecycle` T3** (RD-049). Was: grey the character
+  and leave it standing. Shipped, played, and read as a player stuck rather than out.
+  Replaced by blink-and-vanish, whose tests live with the spec that owns it.
 
 - [x] T2 [R2, P3] — A live waiting indicator in `src/client/src/ui/screens.ts`
   Test: `screens.test.ts` — the waiting card names the round being waited for and

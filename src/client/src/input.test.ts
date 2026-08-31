@@ -191,3 +191,28 @@ describe("touches on a control belong to the control (T19)", () => {
     expect(s.fire("touchmove", [s.touch(30, 410)], s.bare)).toBe(true);
   });
 });
+
+describe("scripted input drives the real path (auto-playtest T1, R1, P2)", () => {
+  it("is null in an ordinary session", () => {
+    // Inert without `?auto=`: the harness must add nothing to a real player's session.
+    const s = surfaceStub();
+    const input = new InputController(s.el);
+    expect(input.read()).toEqual({ ax: 0, ay: 0, btn: false });
+  });
+
+  it("feeds the same read() every other consumer uses", () => {
+    // A harness with its own path would verify a code path no player ever takes.
+    const s = surfaceStub();
+    const input = new InputController(s.el);
+    input.setSynthetic({ ax: 0.5, ay: -0.5, btn: true });
+    expect(input.read()).toEqual({ ax: 0.5, ay: -0.5, btn: true });
+  });
+
+  it("hands control back when it is switched off", () => {
+    const s = surfaceStub();
+    const input = new InputController(s.el);
+    input.setSynthetic({ ax: 1, ay: 0, btn: true });
+    input.setSynthetic(null);
+    expect(input.read()).toEqual({ ax: 0, ay: 0, btn: false });
+  });
+});

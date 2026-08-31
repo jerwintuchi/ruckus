@@ -102,3 +102,25 @@ describe("repo guards (T19)", () => {
     expect(run("context_budget.py", "--check").code).toBe(0);
   });
 });
+
+describe("the screenshot harness needs no exception (auto-playtest T2, P1)", () => {
+  it("writes outside the working tree, so the Kit guard is untouched", () => {
+    // The first version wrote into .playtest/ and kit_check rejected it — correctly.
+    // The answer was to keep images out of the tree rather than carve an exception:
+    // a guard that grows exceptions for convenience stops being a guard (RD-051).
+    const sh = readFileSync(join(ROOT, "tools", "shoot.sh"), "utf8");
+    expect(sh).toContain("TMPDIR");
+    expect(sh).not.toMatch(/OUT_DIR="\$\{SHOT_DIR:-\$ROOT/);
+  });
+
+  it("adds no dependency to take a picture", () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
+      devDependencies?: Record<string, string>;
+      dependencies?: Record<string, string>;
+    };
+    const all = { ...pkg.dependencies, ...pkg.devDependencies };
+    for (const banned of ["playwright", "puppeteer", "@playwright/test", "selenium-webdriver"]) {
+      expect(Object.keys(all), banned).not.toContain(banned);
+    }
+  });
+});

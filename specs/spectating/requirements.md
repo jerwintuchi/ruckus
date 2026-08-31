@@ -7,17 +7,22 @@
 *Written 2026-08-31, from playtest reports: "some of the bots are invisible in hot
 potato", and "there's gotta be an indicator so players wouldn't feel bad waiting".*
 
-**R1**: An eliminated player stays on screen.
-- AC: their character remains drawn, in a muted form that reads instantly as *out* —
-      not hidden, and not so faded it is mistaken for a rendering fault
-- AC: the ink outline survives, because that is what makes a paper character legible
-      at all (`visual-direction` R4)
-- AC: they stop moving and stop casting a full shadow, so nobody mistakes them for a
-      player still in the round
-- AC: **`character.ts` said this already.** Its `setEliminated` carries the comment
-      "eliminated players stay on screen — losing must be watchable" directly above the
-      two lines that hide them (RD-048). The requirement is the comment; the code was
-      the bug.
+**R1**: Going out is a visible event. *(Amended — see the note below.)*
+- AC: elimination plays a **blink and vanish**, so it reads as *that just happened*
+- AC: the body leaves once the animation ends, so the arena shows who is still in
+- AC: whatever the animation sets cannot outlive its round
+
+**Why this requirement was rewritten**, rather than quietly edited: it first said an
+eliminated player "stays on screen, in a muted form". That came from reading vision
+pillar 3 as being about the *body*. The pillar actually says *being eliminated is still
+fun because you can see what happens next* — it is about what the eliminated **player
+watches**, which is R3 below, and says nothing about whether their character remains.
+
+Grey-and-remain shipped, was played, and read as a player *stuck* rather than a player
+*out* (RD-049). The spec is amended in place because a requirement that disagrees with
+the code is the failure mode that produced three separate bugs in one day — a netcode
+invariant still claiming 20 Hz, a comment claiming the opposite of its own function,
+and a test defending a leaderboard nobody was on.
 
 **R2**: A player waiting for the next round can see that something is happening.
 - AC: the waiting card shows a live indicator — motion, not a static sentence

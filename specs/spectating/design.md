@@ -2,21 +2,12 @@
 
 Satisfies R1–R3.
 
-## Eliminated is a costume change, not a disappearance
+## Eliminated is an event
 
-`Character.setEliminated` swaps every non-ink material for one muted colour and leaves
-everything else exactly where it is. The ink edges stay, so the silhouette still reads;
-the fill goes flat and grey, so the player reads as *out* at a glance across a room.
-
-Materials are compared against `inkMaterial()` rather than by index, because a slab's
-material array is indexed by *group* once identical neighbours coalesce (RD-028) — an
-index-based swap would recolour the outline on some slabs and not others.
-
-**P1** (R1): an eliminated character is still in the scene and still visible; only its
-colours change. Asserted, because the previous implementation hid it while a comment
-directly above claimed the opposite.
-
-**P2** (R1): the ink outline is untouched.
+`Character.setEliminated` records the frame time and blinks from it; the body leaves
+when the blink ends. The implementation and its properties live in
+`specs/round-lifecycle/` (R3, P3, P4), which superseded the muted-costume version
+described here originally (RD-049).
 
 ## The wait has a shape
 
