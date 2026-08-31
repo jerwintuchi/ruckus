@@ -150,15 +150,15 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
       low-poly 3D with a fixed camera and <strong>no asset files at all</strong>.</p>
     </div>
     <div class="stamp">
-      <span class="badge ok">all green</span><br>
-      <b>2026-08-31 10:51 UTC</b><br>
-      <code>7f54dfc</code> feat(lobby): a name, a real copy button, and a lobby that talks — RD-038, RD-039
+      <span class="badge bad">needs attention</span><br>
+      <b>2026-08-31 11:07 UTC</b><br>
+      <code>e4a62fe</code> docs: two specs from a mislabelled button — player-collision, action-button
     </div>
   </header>
 
   <div class="metrics">
     <div class="metric"><b>4</b><span>Minigames shipped</span></div>
-    <div class="metric"><b>106</b><span>Tasks done <em>/ 11 open</em></span></div>
+    <div class="metric"><b>106</b><span>Tasks done <em>/ 23 open</em></span></div>
     <div class="metric"><b>571</b><span>Tests</span></div>
     <div class="metric"><b>3,000</b><span>Eager context tokens</span></div>
     <div class="metric"><b>39</b><span>Decisions logged</span></div>
@@ -179,10 +179,10 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
           <span class="guard__label">No asset files (geometry is code)</span>
           <span class="guard__detail">kit OK — no assets, no loaders; geometry is code</span>
         </li>
-<li class="guard guard--ok">
-          <span class="guard__state">pass</span>
+<li class="guard guard--bad">
+          <span class="guard__state">FAIL</span>
           <span class="guard__label">Spec registry matches the tree</span>
-          <span class="guard__detail">spec registry OK — 12 spec(s), 2 flagged</span>
+          <span class="guard__detail">STALE: docs/technical/spec-status.md does not match the tree — run `python3 tools/spec_status.py`</span>
         </li>
     </ul>
   </section>
@@ -240,12 +240,28 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
         <thead><tr><th>Spec</th><th>Status</th><th class="num">Done</th><th class="num">Open</th><th>Progress</th><th>Flags</th></tr></thead>
         <tbody>
         <tr>
+          <td><code>action-button</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">0</td>
+          <td class="num">7</td>
+          <td class="bar"><span style="--pct:0%"></span></td>
+          <td class="flags"><span class="flag">MISSING</span><span class="flag">LIKELY-SHIPPED</span></td>
+        </tr>
+<tr>
           <td><code>audio</code></td>
           <td><span class="chip chip--dormant">dormant</span></td>
           <td class="num">0</td>
           <td class="num">5</td>
           <td class="bar"><span style="--pct:0%"></span></td>
           <td class="flags"><span class="flag">MISSING</span></td>
+        </tr>
+<tr>
+          <td><code>player-collision</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">0</td>
+          <td class="num">5</td>
+          <td class="bar"><span style="--pct:0%"></span></td>
+          <td class="flags"><span class="flag">MISSING</span><span class="flag">LIKELY-SHIPPED</span></td>
         </tr>
 <tr>
           <td><code>shell</code></td>
