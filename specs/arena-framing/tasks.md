@@ -31,12 +31,14 @@ a task finds itself editing a `tick()`, it has gone wrong.
   these angles. A sphere bound is angle-independent, provably contains the disc, and
   costs a few metres of air. The projection test is what makes that difference visible.*
 
-- [ ] T3 [R1, R3, P3] — Apply the fit in `src/client/src/render.ts` on `setArena` and on
+- [x] T3 [R1, R3, P3] — Apply the fit in `src/client/src/render.ts` on `setArena` and on
   `resize`
   Test: `framing.test.ts` — the camera keeps the author's viewing *angle* and changes
   only its distance along it; an arena with no extent is left at the author's camera
   untouched; **the render source calls the fit from `resize`, never from `render`**
-  (P3, asserted against the source, the same way T8's no-fullscreen-pass claim is)
+  (P3, asserted against the source, the same way T8's no-fullscreen-pass claim is), and
+  `setArena` no longer contains `position.set(...arena.camera.eye)` — the exact line
+  that put a 24 m arena off a phone screen.
 
 - [ ] T4 [R4] — Safe-area insets for the HUD and every overlay in
   `src/client/src/ui/kit.ts`

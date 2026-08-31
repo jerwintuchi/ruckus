@@ -8,6 +8,8 @@
  * paper — a perpendicular-plane fit, say, which underestimates badly at these steep
  * camera angles — fails here rather than on someone's phone.
  */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PerspectiveCamera, Vector3 } from "three";
 import {
@@ -168,5 +170,45 @@ describe("degenerate input stays finite (R3)", () => {
   it("returns zero distance for an arena with no size", () => {
     expect(fitDistance(0, 1, 45)).toBe(0);
     expect(fitDistance(-5, 1, 45)).toBe(0);
+  });
+});
+
+describe("the renderer fits on resize, never per frame (T3, P3)", () => {
+  const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "..", "render.ts"), "utf8");
+
+  /** A method body, from its signature to the closing brace at method indentation. */
+  const body = (signature: string): string => {
+    const start = src.indexOf(signature);
+    expect(start, signature).toBeGreaterThan(-1);
+    const end = src.indexOf("\n  }", start);
+    return src.slice(start, end);
+  };
+
+  it("re-fits when the viewport changes shape", () => {
+    // Rotation, browser chrome and split-screen all arrive as a resize. Without this
+    // the arena is framed once, for whatever shape the screen happened to be first.
+    expect(body("resize(): void {")).toContain("placeCamera");
+  });
+
+  it("fits when the arena arrives", () => {
+    expect(body("setArena(arena: ArenaDescriptor): void {")).toContain("placeCamera");
+  });
+
+  it("does no fitting inside the render loop", () => {
+    // A camera that recomputes itself every frame is a camera that can drift every
+    // frame, and a fixed camera is a promise (RD-005). It is also per-frame work in a
+    // 60fps budget for a value that only changes when the window does.
+    const render = body("render(): void {");
+    expect(render).not.toContain("placeCamera");
+    expect(render).not.toContain("fitCamera");
+    expect(render.trim()).toBe("render(): void {\n    this.gl.render(this.scene, this.camera);");
+  });
+
+  it("places the camera through the fit, not from the descriptor directly", () => {
+    // The regression this guards: `camera.position.set(...arena.camera.eye)` is what
+    // the old setArena did, and it is exactly what put a 24m arena off a phone screen.
+    expect(body("setArena(arena: ArenaDescriptor): void {"))
+      .not.toContain("position.set(...arena.camera.eye)");
+    expect(src).toContain("fitCamera");
   });
 });

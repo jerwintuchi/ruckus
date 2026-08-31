@@ -19,6 +19,7 @@ import {
 import type { ArenaDescriptor, Prim } from "@ruckus/shared";
 import { Character } from "./kit/character.ts";
 import { PALETTE } from "./kit/palette.ts";
+import { fitCamera } from "./kit/framing.ts";
 import { PIXEL_RATIO_CAP, lit } from "./kit/paper.ts";
 import { crease, stock } from "./kit/textures.ts";
 import { box, cylinder, sphere } from "./kit/prims.ts";
@@ -34,6 +35,8 @@ export class Renderer {
   private readonly characters = new Map<number, Character>();
   private tileMeshes: Mesh[] = [];
   private tileStates: number[] = [];
+  /** The arena's own camera, kept so a resize can re-fit it (arena-framing T3, R3). */
+  private arenaCamera: ArenaDescriptor["camera"] | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     // Antialiasing ON: the look is hard ink edges at native resolution, and jagged
@@ -66,15 +69,34 @@ export class Renderer {
     this.gl.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    // Re-fit, because the arena that fits a landscape phone does not fit a portrait
+    // one — that is the whole finding. Rotation, the browser's chrome sliding away and
+    // split-screen all arrive here and nowhere else.
+    this.placeCamera();
+  }
+
+  /**
+   * Put the eye where the whole arena is visible, or where its author put it.
+   *
+   * Called on `setArena` and on `resize` only — never per frame (P3). The fit is a few
+   * trig calls, but a camera that recomputes itself every frame is a camera that can
+   * drift every frame, and the fixed camera is a promise (RD-005).
+   */
+  private placeCamera(): void {
+    const cam = this.arenaCamera;
+    if (!cam) return;
+    // `null` means the arena declared no extent: leave the author's camera alone (R2).
+    this.camera.position.set(...(fitCamera(cam, this.camera.aspect) ?? cam.eye));
+    this.camera.lookAt(...cam.look);
+    this.camera.updateProjectionMatrix();
   }
 
   /** Apply an arena: fixed camera, static geometry, clear colour. */
   setArena(arena: ArenaDescriptor): void {
     this.statics.clear();
-    this.camera.position.set(...arena.camera.eye);
-    this.camera.lookAt(...arena.camera.look);
+    this.arenaCamera = arena.camera;
     this.camera.fov = arena.camera.fov;
-    this.camera.updateProjectionMatrix();
+    this.placeCamera();
     this.scene.background = new Color(arena.sky);
     // Never fog: it dissolves edges, and hard edges are the entire point (R6).
     this.scene.fog = null;

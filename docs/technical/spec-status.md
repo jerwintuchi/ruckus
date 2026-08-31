@@ -11,7 +11,7 @@ These are disagreements between what a spec says and what the tree contains.
 
 ### `specs/arena-framing/` — 🟢 active
 
-- **LIKELY-SHIPPED** — 3 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T3, T4, T5
+- **LIKELY-SHIPPED** — 2 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T4, T5
 
 ### `specs/shell/` — 🟡 dormant
 
@@ -26,7 +26,7 @@ These are disagreements between what a spec says and what the tree contains.
 
 | spec | status | done | open | superseded | last touched | flags |
 |---|---|---:|---:|---:|---|---|
-| `arena-framing` | 🟢 active | 2 | 4 | 0 | 2026-08-31 | LIKELY-SHIPPED |
+| `arena-framing` | 🟢 active | 3 | 3 | 0 | 2026-08-31 | LIKELY-SHIPPED |
 | `shell` | 🟡 dormant | 18 | 1 | 0 | 2026-08-31 | MISSING |
 | `touch-controls` | 🟡 dormant | 0 | 7 | 0 | 2026-08-31 | MISSING, LIKELY-SHIPPED |
 | `lobby-flow` | 🟡 dormant | 11 | 1 | 0 | 2026-08-31 | — |
