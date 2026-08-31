@@ -229,7 +229,14 @@ export class Controls {
     this.base.hidden = !touch;
     this.knob.hidden = !touch;
     this.button.hidden = !touch || this.label === "";
-    this.button.textContent = this.label;
+    // NOT textContent: the button's children are the icon, the cooldown ring and the
+    // number, and assigning text destroys all three — the icon never appeared and
+    // setAction was writing to a detached node (RD-042). The label is the accessible
+    // name until the first snapshot replaces it with the live verb.
+    if (this.label) {
+      this.button.setAttribute("aria-label", this.label.toLowerCase());
+      this.button.setAttribute("title", this.label.toLowerCase());
+    }
 
     this.guide.hidden = touch;
     // The word comes from the round, never from a minigame id (RD-009).

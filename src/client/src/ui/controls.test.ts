@@ -237,3 +237,15 @@ describe("the button says what it does, per player (action-button T3, T5, T6)", 
     expect(setAction).toContain('"0"');
   });
 });
+
+describe("the button keeps its icon (RD-042)", () => {
+  it("never assigns textContent, which would destroy its children", () => {
+    // The button's children ARE the icon, the cooldown ring and the number. Assigning
+    // text wiped all three, so the icon never appeared and setAction was writing to a
+    // detached node. The accessible name goes on the attribute instead.
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+    const paint = src.slice(src.indexOf("private paint()"), src.indexOf("\n  }", src.indexOf("private paint()")));
+    expect(paint).not.toContain("button.textContent");
+    expect(paint).toContain("aria-label");
+  });
+});

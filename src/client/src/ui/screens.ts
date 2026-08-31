@@ -52,8 +52,10 @@ export class Ui {
     this.q("#code").addEventListener("input", (e) =>
       this.handlers.onEvent({ t: "setCode", code: (e.target as HTMLInputElement).value }));
     // Live, so the note answers while the player types rather than after they submit.
-    this.q("#name").addEventListener("input", (e) =>
-      this.handlers.onEvent({ t: "setName", name: (e.target as HTMLInputElement).value }));
+    for (const id of ["#name", "#joinName"]) {
+      this.q(id).addEventListener("input", (e) =>
+        this.handlers.onEvent({ t: "setName", name: (e.target as HTMLInputElement).value }));
+    }
     this.q("#startBtn").addEventListener("click", () => this.handlers.onStart());
     this.q("#shareBtn").addEventListener("click", () => void this.share());
   }
@@ -84,8 +86,11 @@ export class Ui {
       this.q(id).textContent = state.error ?? "";
     }
 
-    const nameInput = this.q("#name") as HTMLInputElement;
-    if (nameInput.value !== state.name) nameInput.value = state.name;
+    // Both name fields track one piece of state, so typing on either screen counts.
+    for (const id of ["#name", "#joinName"]) {
+      const el = this.q(id) as HTMLInputElement;
+      if (el.value !== state.name) el.value = state.name;
+    }
 
     const codeInput = this.q("#code") as HTMLInputElement;
     if (codeInput.value !== state.code) codeInput.value = state.code;
@@ -311,6 +316,12 @@ const TEMPLATE = `
 <div id="joining" class="overlay" style="display:none">
   <div class="card">
     <h2>join a room</h2>
+    <!--
+      The name lives on BOTH screens. A shared link opens straight here, so a name
+      field only on the menu meant a deep-linked player faced a disabled Join and
+      nowhere to type the thing it was asking for (RD-042).
+    -->
+    <input id="joinName" placeholder="your name" maxlength="12" autocomplete="off">
     <input id="code" class="codeinput" placeholder="code" maxlength="4"
            autocapitalize="characters" autocomplete="off" spellcheck="false">
     <button id="joinBtn">join</button>

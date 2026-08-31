@@ -1358,3 +1358,42 @@ press as a non-holder, which is the only way to demonstrate a tumble in a round 
 the holder's button means something else. That is the cost of a contextual control, and
 it is worth naming: the same input now has two meanings, and every test of it has to say
 which one it is exercising.
+
+## RD-042 — Three reasons one playtest was impossible (2026-08-31)
+
+A playtest that got nowhere, for three unrelated causes. Worth recording together,
+because the pattern is the same: each was invisible from the machine the code was
+written on.
+
+**1. The name requirement locked out the primary way in.** RD-038 made a name required
+and disabled Join without one — and the name field existed only on the *menu*. A shared
+link opens straight on the join screen, where Join then sat disabled asking for a name
+with nowhere on that screen to type one. "Tap a link, enter a room code, play" is the
+first line of the vision document, and I broke it by adding a requirement without
+walking the path that skips the screen carrying its answer.
+
+Both screens have a name field now, backed by one piece of state, and a test walks the
+deep-link path: land on JOINING, assert Join is refused, type a name *there*, assert it
+is allowed. The general rule the test states is worth keeping: **every screen that can
+refuse for a reason must carry the means to fix that reason.**
+
+**2. The action button destroyed its own icon.** `paint()` assigned
+`button.textContent`, and the button's children *are* the icon, the cooldown ring and
+the number — so all three were wiped on every render, and `setAction` spent its time
+writing to a detached node. The label goes on `aria-label` now. A test asserts `paint`
+never touches `textContent`, because the failure is silent: no error, just a blank
+button and an icon nobody ever sees.
+
+**3. My own edits killed the room they were trying to join.** Editing any server file
+restarts `node --watch`, and a restart drops every room by design (I7 — match state is
+ephemeral). So the room code went dead underneath a tester who was mid-session, and the
+client correctly said `NO_ROOM` for a room that had existed minutes earlier.
+
+That one is not a bug, it is a working-agreement problem, and it is mine: **do not edit
+server files while someone is playtesting, and hand over a fresh room code after any
+server change.** The client half hot-reloads and is safe; the server half is not.
+
+**The stale labels that started this.** `scramble` still declared `buttonLabel: "GRAB"`
+and `hot-potato` `"PASS"` after RD-041 renamed the mechanic — the snapshot's live verb
+was right, but the round-start fallback still carried the old word. Both now say
+`TUMBLE`, which is what the button does before the first snapshot arrives.

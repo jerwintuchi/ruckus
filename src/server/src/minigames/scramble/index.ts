@@ -109,7 +109,7 @@ export const scramble: Minigame<ScrambleState> = {
   displayName: "Scramble",
   rule: "Grab the most before time runs out.",
   input: "stick+button",
-  buttonLabel: "GRAB",
+  buttonLabel: "TUMBLE",
   maxDurationMs: MAX_DURATION_MS,
 
   init(ctx: InitCtx): ScrambleState {

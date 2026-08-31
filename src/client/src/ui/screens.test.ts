@@ -433,3 +433,48 @@ describe("the name field explains itself (lobby-flow T14, R9)", () => {
     expect(at(root, "#nameNote").textContent).toBe("");
   });
 });
+
+describe("a deep link can actually be joined (RD-042)", () => {
+  // The bug this exists to prevent: the name requirement landed with the name field
+  // only on the MENU, and a shared link opens straight on JOINING. Join sat disabled
+  // asking for a name, with nowhere on that screen to type one — a total lock-out on
+  // "tap a link, enter a room code, play", which is the whole first line of the vision.
+  it("offers a name field on the screen a shared link actually opens", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render({ ...initialState(), screen: "JOINING", code: "C8ZK", codeLocked: true });
+    expect(at(root, "#joining").style.display).not.toBe("none");
+    expect(at(root, "#joinName")).toBeTruthy();
+  });
+
+  it("enables Join once a name is typed on that screen", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    const linked = { ...initialState(), screen: "JOINING" as const, code: "C8ZK", codeLocked: true };
+    ui.render(linked);
+    expect(at(root, "#joinBtn").disabled).toBe(true);
+    ui.render({ ...linked, name: "jerwin" });
+    expect(at(root, "#joinBtn").disabled).toBe(false);
+  });
+
+  it("keeps both name fields showing the same name", () => {
+    // One piece of state, two inputs: typing on either screen must count.
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render({ ...initialState(), name: "sam" });
+    expect(at(root, "#name").value).toBe("sam");
+    expect(at(root, "#joinName").value).toBe("sam");
+  });
+
+  it("never disables a control without a field to satisfy it", () => {
+    // The general form of the bug: every screen that can refuse for a reason must
+    // carry the means to fix that reason.
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    for (const screen of ["MENU", "JOINING"] as const) {
+      ui.render({ ...initialState(), screen, code: "C8ZK" });
+      const field = screen === "MENU" ? "#name" : "#joinName";
+      expect(at(root, field), screen).toBeTruthy();
+    }
+  });
+});
