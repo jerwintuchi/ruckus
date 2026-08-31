@@ -1779,3 +1779,39 @@ place to answer. It is optional, so the three that do not compress are untouched
 **Worth noticing that RD-046 caused this.** Fixing the ghost player made mid-round join
 work, which made a code path real that had never run. Nothing regressed; a feature simply
 reached a corner no test covered, because until that week the corner was unreachable.
+
+## RD-053 — Ask the phone instead of guessing at it (2026-09-01)
+
+RD-052 listed what a desktop screenshot cannot see and left it there. The right answer
+was already half-built: `?debug=1` has printed `viewport 402x714 dpr3` since T3, and
+that one line from a real phone was worth more than every estimate made about it from
+a desktop. It just did not print the two numbers that block `arena-framing` R4.
+
+**The safe-area insets.** There is no way to read `env()` from script — it exists only
+inside CSS — so `makeSafeProbe` spends it on padding on a zero-sized fixed element and
+reads the computed value back. `visibility:hidden`, not `display:none`: an unlaid-out
+box has no resolved padding, which is a way to get four zeroes on a notched phone and
+believe them.
+
+**What the browser chrome eats.** The phone's screen is 402x874; the viewport it handed
+the page was 402x714. A hundred and sixty CSS points of URL bar and tab strip, in
+portrait. Every aspect ratio the framing maths is a function of was being estimated
+without that number.
+
+**The readout found a bug in itself on its first run.** Headless Chrome reports
+`screen 89x66` while drawing an 858x307 page, so `chrome` printed `-769 wide`. The fix
+is not better arithmetic — it is that a report whose entire purpose is to replace
+guesses must be able to say **unknown** rather than emit a number that cannot be true.
+The axis-swap guard (browsers disagree about whether `screen.width` follows rotation)
+stays; a screen smaller than its own viewport is a separate kind of wrong.
+
+**And the harness was copying zero bytes.** `shoot.sh` waited for the screenshot to
+*exist* and then copied it; Chrome creates the file and then writes it, and across the
+WSL mount that gap is wide enough to lose. The empty PNG read exactly like "the game
+rendered nothing", which is the failure this tool exists to diagnose — a diagnostic
+that produces its own worst symptom is worse than no diagnostic. It now waits for a
+size that has stopped changing.
+
+**This still does not make a desktop a phone.** It makes the phone able to say what it
+is, in one screenshot, without a round trip per number. WebKit behaviour and frame rate
+remain unavailable here, and `arena-framing` T6 is still a manual task.

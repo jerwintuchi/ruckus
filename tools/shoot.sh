@@ -53,6 +53,8 @@ WIN_PNG="C:\\Temp\\ruckus-$STAMP.png"
 mkdir -p /mnt/c/Temp
 
 URL="http://$HOST:5173/?room=$ROOM&auto=$NAME"
+# DEBUG=1 turns on the on-screen readout — viewport, chrome bite, safe-area insets.
+[ "${DEBUG:-}" = "1" ] && URL="$URL&debug=1"
 [ -n "$SURFACE" ] && URL="$URL&surface=$SURFACE"
 echo "  shooting $URL"
 echo "  ${SECS}s of play — profile $PROFILE, $SIZE at ${SCALE}x"
@@ -66,8 +68,18 @@ timeout $((SECS + 40)) "$CHROME" \
   --screenshot="$WIN_PNG" "$URL" >/dev/null 2>&1
 
 SRC="/mnt/c/Temp/ruckus-$STAMP.png"
-for _ in $(seq 1 20); do [ -f "$SRC" ] && break; sleep 1; done
-if [ ! -f "$SRC" ]; then echo "  no screenshot produced"; exit 1; fi
+# Wait for a file that has stopped GROWING, not one that merely exists. Chrome creates
+# it and then writes it, and across the WSL mount the gap is wide enough to copy zero
+# bytes out of — which this did, silently, and the result was an empty PNG that read as
+# "the game rendered nothing".
+prev=-1
+for _ in $(seq 1 30); do
+  size=$(stat -c %s "$SRC" 2>/dev/null || echo 0)
+  [ "$size" -gt 0 ] && [ "$size" = "$prev" ] && break
+  prev="$size"
+  sleep 1
+done
+if [ ! -s "$SRC" ]; then echo "  no screenshot produced"; exit 1; fi
 
 DEST="$OUT_DIR/$ROOM-$PROFILE-$STAMP.png"
 cp "$SRC" "$DEST" && rm -f "$SRC"

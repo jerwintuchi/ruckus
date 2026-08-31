@@ -23,7 +23,7 @@ These are disagreements between what a spec says and what the tree contains.
 |---|---|---:|---:|---:|---|---|
 | `audio` | 🟡 dormant | 0 | 5 | 0 | 2026-08-31 | MISSING |
 | `shell` | 🟡 dormant | 18 | 1 | 0 | 2026-08-31 | MISSING |
-| `arena-framing` | 🟢 active | 5 | 1 | 0 | 2026-08-31 | — |
+| `arena-framing` | 🟢 active | 6 | 1 | 0 | 2026-08-31 | — |
 | `action-button` | 🟡 dormant | 9 | 1 | 0 | 2026-08-31 | — |
 | `lobby-flow` | 🟡 dormant | 17 | 1 | 0 | 2026-08-31 | — |
 | `player-collision` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |

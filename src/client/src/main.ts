@@ -13,7 +13,10 @@ import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
 import { Renderer } from "./render.ts";
-import { CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui, countdownAt } from "./ui/index.ts";
+import {
+  CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui, countdownAt,
+  makeSafeProbe, readInsets, viewportReport,
+} from "./ui/index.ts";
 
 // The two typefaces are a runtime CDN dependency, not an asset file, with a declared
 // fallback in the stylesheet for a cold load on a bad connection (RD-021).
@@ -258,6 +261,8 @@ if (new URLSearchParams(location.search).has("debug")) {
     color: "#fff", zIndex: "30", pointerEvents: "none", whiteSpace: "pre",
   });
   document.body.append(box);
+  // The insets need a laid-out element to resolve against; the report needs nothing.
+  const probe = makeSafeProbe(document);
   const shown = (id: string): string => {
     const el = overlay.querySelector(id) as HTMLElement | null;
     return el ? (el.style.display === "none" ? "-" : "SHOWN") : "missing";
@@ -265,6 +270,7 @@ if (new URLSearchParams(location.search).has("debug")) {
   setInterval(() => {
     const state = {
       ...renderer.debug(),
+      ...viewportReport(window, readInsets(getComputedStyle(probe))),
       screen: flow.screen,
       overlays: `menu:${shown("#menu")} join:${shown("#joining")} lobby:${shown("#lobby")}`,
       players: String(players.length),

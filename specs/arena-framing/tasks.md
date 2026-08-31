@@ -53,6 +53,19 @@ a task finds itself editing a `tick()`, it has gone wrong.
   sentence stays; **`flow.ts` contains no orientation state at all** (P4, asserted
   against the source — an orientation cannot strand a player)
 
+- [x] T7 [R4] — The device reports its own screen, in `src/client/src/ui/probe.ts`,
+  shown by the existing `?debug=1` box
+  Test: `probe.test.ts` — pinned against the real portrait readout from the phone in
+  RD-029 (`viewport 402x714 dpr3` on a 402x874 screen): the chrome bite comes out as
+  160 CSS points; the screen dimensions are re-oriented to the viewport so `chrome`
+  cannot go negative in landscape; an `env()` that resolves to `""` on a browser
+  without safe areas reads as no inset rather than NaN.
+  *Nothing else can produce these two numbers. The insets are 0 on every desktop, so
+  R4's "clears the notch in landscape" is unverifiable by any screenshot; and the
+  chrome bite is the difference between a phone's specced screen and the viewport the
+  framing maths is actually a function of. Both were being guessed at from a desktop
+  (RD-052) — now the phone says them, and T6 below can be judged against numbers.*
+
 - [ ] T6 [R1, R4] — Seen on the phone that found it
   Test: manual, on the iPhone from RD-029, in Safari with its chrome showing. Portrait
   and landscape, all four arenas, `falling-floor` last because its grid is the widest
