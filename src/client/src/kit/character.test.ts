@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { Mesh, MeshBasicMaterial, type Material } from "three";
 import { PLAYER_COLOURS } from "@ruckus/shared";
 import { BODY, Character, MESHES_PER_CHARACTER } from "./character.ts";
-import { SLAB_DEPTH } from "./paper.ts";
+import { EDGE_FACES, FRONT_FACE, SLAB_DEPTH, materialForFace } from "./paper.ts";
 import { PAPER } from "./palette.ts";
 
 const SRC_DIR = dirname(new URL(import.meta.url).pathname);
@@ -30,7 +30,9 @@ describe("a player is cut from paper (T10, R7)", () => {
     const c = new Character(PLAYER_COLOURS[3]!, 3);
     for (const m of meshes(c)) {
       if (!Array.isArray(m.material)) continue;
-      for (const i of [0, 1, 2, 3]) expect(colourOf(m.material[i]!)).toBe(INK);
+      // By face, not by array index: identical neighbouring faces share a group, so
+      // the materials array is indexed by group once they coalesce (RD-028).
+      for (const i of EDGE_FACES) expect(colourOf(materialForFace(m, i)!)).toBe(INK);
     }
   });
 
@@ -47,8 +49,9 @@ describe("a player is cut from paper (T10, R7)", () => {
     const crowd = PLAYER_COLOURS.map((c, slot) => new Character(c, slot));
     const geometries = new Set<unknown>();
     for (const c of crowd) for (const m of meshes(c)) geometries.add(m.geometry);
-    // One slab geometry, one shadow circle.
-    expect(geometries.size).toBeLessThanOrEqual(2);
+    // Two slab layouts — a plain slab, and the head whose front differs from its back
+    // — plus one shadow circle. Still nothing allocated per character (RD-028).
+    expect(geometries.size).toBeLessThanOrEqual(3);
   });
 
   it("keeps the footprint and height the capsule had, so no collision moves", () => {
@@ -92,7 +95,8 @@ describe("the face lands on the head (T10, R8)", () => {
   it("puts a texture on the head's front face and nowhere else", () => {
     const c = new Character(PLAYER_COLOURS[2]!, 2);
     const textured = meshes(c).filter(
-      (m) => Array.isArray(m.material) && (m.material[4] as MeshBasicMaterial).map,
+      (m) => Array.isArray(m.material) &&
+        (materialForFace(m, FRONT_FACE) as MeshBasicMaterial | undefined)?.map,
     );
     expect(textured).toHaveLength(1);
     const head = textured[0]!;
@@ -105,8 +109,11 @@ describe("the face lands on the head (T10, R8)", () => {
     const a = new Character("#ffffff", 0);
     const b = new Character("#ffffff", 1);
     const mapOf = (c: Character) => {
-      const head = meshes(c).find((m) => Array.isArray(m.material) && (m.material[4] as MeshBasicMaterial).map);
-      return ((head!.material as Material[])[4] as MeshBasicMaterial).map;
+      const head = meshes(c).find(
+        (m) => Array.isArray(m.material) &&
+          (materialForFace(m, FRONT_FACE) as MeshBasicMaterial | undefined)?.map,
+      );
+      return (materialForFace(head!, FRONT_FACE) as MeshBasicMaterial).map;
     };
     expect(mapOf(a)).not.toBe(mapOf(b));
   });

@@ -774,3 +774,51 @@ that legitimately uses those words, so the test strips comments before checking 
 than dropping terms from the list. Same shape as RD-026's loader test. When an assertion
 collides with prose, move the prose out of the assertion's way; do not shrink the
 assertion.
+
+## RD-028 — The outline is free per fragment and is not free per draw (2026-08-31)
+
+**Decision.** `visual-direction` T18. R13 assumed the paper build would be cheaper than
+the Lambert one it replaced. Measured, half of that was true and half was backwards, and
+both halves are now pinned by `src/client/src/kit/cost.test.ts`.
+
+For eight characters, the full lobby the budget is written against:
+
+| | Lambert build | paper, as first written | paper, merged groups |
+|---|---|---|---|
+| triangles | 5,280 | 672 | 672 |
+| draw calls | 40 | **296** | **112** |
+| geometries | 40 | 9 | 9 |
+| materials | 8 | 3 | 3 |
+
+**What the assumption missed.** `WebGLRenderer` emits one render item per *geometry
+group*, not per mesh. A slab carries six materials, so it costs six draws — and a
+character is six slabs. The look that made triangles nearly free made draws nearly
+eight times dearer, on the axis a mid-range phone cares about most. Counting meshes,
+which is what `character.test.ts` was doing, could never have seen it: the mesh count
+went 5 → 7 and looked fine.
+
+**The fix cost nothing visually.** `BoxGeometry` lays its faces out contiguously — the
+four ink edges are indices 0..23, the front and back 24..35 — so runs of an identical
+material coalesce into one group before the mesh is built. A plain slab drops from six
+draws to two, a faced one to three, and every face still resolves to exactly the
+material it did before. 296 → 112.
+
+**112 is still 2.8x the Lambert build, and that is the honest position.** The geometry
+outline is free per fragment and is not free per draw. The test caps it at 120 rather
+than at what it happens to be, so there is room for the arena underneath; pushing
+through that ceiling is a decision to take, not a number to raise.
+
+**A consequence worth knowing.** A slab's material array is no longer indexed by face.
+`materialForFace()` exists so call sites and tests ask for the face they mean, and two
+test files were moved onto it. Anything indexing `material[4]` is now wrong.
+
+**What is still owed.** Milliseconds. Static cost is countable in CI; frame time is not,
+and the answer only means anything on a mid-range Android in landscape. `bench.html`
+(`src/client/src/bench.ts`) is a standalone page — no server, no room — with presets for
+player count, the 121-tile `falling-floor` grid, and the old split-group slab, so the
+table above is falsifiable on the actual hardware. It lands with T19's playtest.
+
+**Unrelated, found on the way.** `flow.test.ts`'s totality property was making 60,000
+`expect()` calls to check 20,000 reduces, and the assertion overhead — not the work —
+made it the first test to time out when the suite got one worker busier. It now asserts
+on the failure instead: same coverage, 2.9 s → 0.07 s.

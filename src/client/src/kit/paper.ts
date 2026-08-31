@@ -6,9 +6,11 @@
  * construction — no inverted hull on the common path, no depth-buffer edge detection,
  * no fullscreen pass, and no per-frame cost at all (RD-021).
  *
- * `BoxGeometry` orders its face groups +X, -X, +Y, -Y, +Z, -Z, so handing it an array
- * of six materials paints the front and back one way and the four edges another. That
- * ordering is the whole trick, and a test pins it.
+ * `BoxGeometry` orders its face groups +X, -X, +Y, -Y, +Z, -Z, so painting the front
+ * and back one way and the four edges another is a matter of which material each face
+ * gets. That ordering is the whole trick, and a test pins it. Faces that end up with
+ * the *same* material are merged into one group before the mesh is built, because the
+ * renderer charges a draw call per group rather than per mesh (RD-028).
  */
 import {
   BoxGeometry,
@@ -71,8 +73,67 @@ export function lit(colour: string, map?: Texture): MeshLambertMaterial {
 
 export const inkMaterial = (): MeshBasicMaterial => unlit(PAPER.ink);
 
-/** One unit box, shared by every slab. Size lives in the transform, never the geometry. */
-export const SLAB_GEOMETRY = new BoxGeometry(1, 1, 1);
+/**
+ * One unit box per *group layout*, shared by every slab that wants it. Size lives in
+ * the transform, never the geometry.
+ *
+ * **Why there is more than one.** `BoxGeometry` ships six groups, one per face, and
+ * `WebGLRenderer` emits a draw call for every group — not for every mesh. Six
+ * materials therefore cost six draws even when four of them are the same ink. The
+ * four edge faces are contiguous in the index buffer (0..23) and so are the front and
+ * back (24..35), so runs of an identical material coalesce into one group and the
+ * picture does not change by a pixel. A plain slab drops from six draws to two, a
+ * faced one to three. Measured, not assumed — RD-028.
+ */
+const geometryCache = new Map<string, BoxGeometry>();
+
+interface Run {
+  start: number;
+  count: number;
+  material: Material;
+}
+
+/** Six indices per face, in `FACE_ORDER`. Adjacent faces sharing a material merge. */
+function coalesce(faces: readonly Material[]): Run[] {
+  const runs: Run[] = [];
+  for (let f = 0; f < faces.length; f++) {
+    const last = runs[runs.length - 1];
+    if (last && last.material === faces[f]) last.count += 6;
+    else runs.push({ start: f * 6, count: 6, material: faces[f]! });
+  }
+  return runs;
+}
+
+function geometryFor(runs: readonly Run[]): BoxGeometry {
+  const signature = runs.map((r) => `${r.start}:${r.count}`).join("|");
+  let geo = geometryCache.get(signature);
+  if (!geo) {
+    geo = new BoxGeometry(1, 1, 1);
+    geo.clearGroups();
+    runs.forEach((r, i) => geo!.addGroup(r.start, r.count, i));
+    geometryCache.set(signature, geo);
+  }
+  return geo;
+}
+
+/**
+ * The material actually bound to one of `FACE_ORDER`'s six faces.
+ *
+ * Coalescing means a slab's material array is no longer indexed by face, so ask by
+ * face rather than by array position — the face is the thing anyone actually means.
+ */
+export function materialForFace(mesh: Mesh, face: number): Material | undefined {
+  const materials = mesh.material as Material[];
+  if (!Array.isArray(materials)) return undefined;
+  const first = face * 6;
+  for (const g of (mesh.geometry as BoxGeometry).groups) {
+    if (first >= g.start && first < g.start + g.count) return materials[g.materialIndex!];
+  }
+  return undefined;
+}
+
+/** Distinct slab group layouts allocated so far. Two, in a full match. */
+export const slabGeometryCount = (): number => geometryCache.size;
 
 export interface SlabOptions {
   /** Drawn on the front (+Z) face — a generated face texture, say. */
@@ -86,9 +147,12 @@ export interface SlabOptions {
 /**
  * A slab: coloured front and back, ink edges.
  *
- * The six-material array is what produces the outline. Turning the slab shows the ink
- * edge, so the flip that reads as paper is also the depth cue the gameplay needs — a
- * billboard would have removed it (R7).
+ * Which material each face gets is what produces the outline. Turning the slab shows
+ * the ink edge, so the flip that reads as paper is also the depth cue the gameplay
+ * needs — a billboard would have removed it (R7).
+ *
+ * The materials array is indexed by *group*, not by face, once identical neighbours
+ * coalesce. Ask `materialForFace` rather than indexing it.
  */
 export function slab(
   colour: string,
@@ -101,8 +165,8 @@ export function slab(
   const face = opts.shaded ? lit(colour, opts.front) : unlit(colour, opts.front);
   const back = opts.shaded ? lit(opts.back ?? colour) : unlit(opts.back ?? colour);
 
-  const materials: Material[] = [ink, ink, ink, ink, face, back];
-  const mesh = new Mesh(SLAB_GEOMETRY, materials);
+  const runs = coalesce([ink, ink, ink, ink, face, back]);
+  const mesh = new Mesh(geometryFor(runs), runs.map((r) => r.material));
   mesh.scale.set(width, height, depth);
   return mesh;
 }

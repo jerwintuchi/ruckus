@@ -113,10 +113,17 @@ legible, not tidied away.*
 
 ## Phase E — close
 
-- [ ] T18 [R13] — Measure the cost, do not assume it
-  Test: frame timing with 8 characters in each arena, before and after. Unlit fill and
-  geometry outlines **should** be cheaper than the current Lambert build; if they are
-  not, that is a finding for the DECISION_LOG, not something to quietly keep.
+- [x] T18 [R13] — Measure the cost, do not assume it
+  Test: `cost.test.ts` — the static cost of 8 characters, counted the way
+  `WebGLRenderer` counts it (one draw per geometry group, not per mesh), against a
+  reconstruction of the Lambert build it replaced. Triangles collapse 7.9x as R13
+  assumed; **draw calls rose 40 → 296**, which it did not. Merging runs of identical
+  face materials brought that to 112 with a pixel-identical picture, and the test pins
+  the ceiling (RD-028).
+  Frame *timing* is a phone question and `src/client/bench.ts` is where it is asked —
+  `/bench.html`, no server, presets for player count, the 121-tile arena and the old
+  split-group slab. The number on real hardware is owed with T19, for the same reason
+  T12's capture is: it needs the phone in a hand.
 
 - [ ] T19 — Played for real, on a phone, by someone who is not the author
   Test: manual playtest via `pnpm playtest`. Two questions no test answers: does the

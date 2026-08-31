@@ -156,15 +156,22 @@ describe("reduce is total (lobby-flow P3, R7)", () => {
     ];
 
     const r = makeRng(7);
+    let s = initialState();
     for (let trial = 0; trial < 500; trial++) {
-      let s = initialState();
+      s = initialState();
       for (let i = 0; i < 40; i++) {
         s = reduce(s, pool[r.int(pool.length)]!);
-        expect(SCREENS).toContain(s.screen);
-        expect(s.code.length).toBeLessThanOrEqual(4);
-        expect(s.name.length).toBeLessThanOrEqual(12);
+        // Assert on the failure, not on every step. Sixty thousand expect() calls cost
+        // several times the twenty thousand reduces they were checking, and made this
+        // the first test in the suite to time out once the suite got busier. The
+        // coverage is identical; only the bookkeeping is gone.
+        const where = `trial ${trial}, step ${i}`;
+        if (!SCREENS.includes(s.screen)) expect.fail(`${where}: screen "${s.screen}"`);
+        if (s.code.length > 4) expect.fail(`${where}: code "${s.code}"`);
+        if (s.name.length > 12) expect.fail(`${where}: name "${s.name}"`);
       }
     }
+    expect(SCREENS).toContain(s.screen);
   });
 
   it("leaves the state untouched for an event it does not know", () => {

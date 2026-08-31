@@ -265,6 +265,10 @@ fi
   echo "  ${bold}Anywhere via Tailscale${off} ${cyn}http://${TAILSCALE_IP}:${CLIENT_PORT}/${Q}${off}"
   echo "     ${dim}Reaches WSL directly, so it needs no forwarding — the easiest remote path.${off}"
 }
+echo
+echo "  ${dim}Frame bench           add ${bold}/bench.html${off}${dim} to any URL above — 8 characters, the${off}"
+echo "  ${dim}                      heaviest arena, no server, no room. p95 is the number${off}"
+echo "  ${dim}                      that matters, and only on a phone (T18, RD-028).${off}"
 echo "${dim}──────────────────────────────────────────────────────────────${off}"
 if [ -n "$ROOM" ]; then
   echo "  Open a link, type a name, join. ${BOT_COUNT} bot(s) are already in ${bold}${ROOM}${off}."

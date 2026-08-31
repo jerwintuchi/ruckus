@@ -19,7 +19,7 @@ These are disagreements between what a spec says and what the tree contains.
 |---|---|---:|---:|---:|---|---|
 | `shell` | 🟡 dormant | 18 | 1 | 0 | 2026-08-31 | MISSING |
 | `lobby-flow` | 🟢 active | 11 | 1 | 0 | 2026-08-31 | — |
-| `visual-direction` | 🟡 dormant | 14 | 2 | 3 | 2026-08-31 | — |
+| `visual-direction` | 🟡 dormant | 15 | 1 | 3 | 2026-08-31 | — |
 | `minigame-falling-floor` | ✅ done | 7 | 0 | 0 | 2026-08-31 | — |
 | `minigame-hot-potato` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |
 | `minigame-scramble` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |

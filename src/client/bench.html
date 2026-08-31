@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0e1014" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>ruckus — frame bench</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1014; }
+    </style>
+  </head>
+  <body>
+    <!--
+      A separate entry on purpose: the bench never enters the game bundle, and main.ts
+      keeps no dead branch for it. Dev-server only — that is the path a phone uses.
+    -->
+    <script type="module" src="/src/bench.ts"></script>
+  </body>
+</html>
