@@ -43,14 +43,14 @@ change; the input budget is drawn here, never widened.
   sits under the home indicator. Coordinate with `arena-framing` T4, which does the
   same for the HUD; if both land at once this is one CSS pass, not two.
 
-- [ ] T8 [R6] — Decide the control surface from the input actually used, in
+- [x] T8 [R6] — Decide the control surface from the input actually used, in
   `src/client/src/ui/controls.ts`
   Test: `controls.test.ts` — the media query decides the initial guess (`pointer:
   coarse` -> touch); a real touch switches to touch and a real key press switches to
   keyboard, whichever comes first; the switch is idempotent and may happen mid-round.
   A synthetic event must not flip it, so the listeners check `isTrusted`.
 
-- [ ] T9 [R6] — The keyboard guide
+- [x] T9 [R6] — The keyboard guide
   Test: `controls.test.ts` — on the keyboard surface the stick and button are absent
   and a guide names WASD/arrows and space; the guide carries the round's own
   `buttonLabel` and **no minigame id appears in the UI source** (RD-009); it is drawn

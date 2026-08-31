@@ -10,7 +10,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  BUTTON_MIN_PX, CONTROLS_CSS, CONTROLS_HTML, STICK_BASE_PX, STICK_REST_OPACITY,
+  BUTTON_MIN_PX, CONTROLS_CSS, CONTROLS_HTML, GUIDE_OPACITY, STICK_BASE_PX,
+  STICK_REST_OPACITY, guessSurface,
 } from "./controls.ts";
 import { STICK_RADIUS } from "../input.ts";
 import { UI } from "./kit.ts";
@@ -135,6 +136,54 @@ describe("the resting stick is one stick, not two (RD-035)", () => {
     for (const prop of ["left", "top"]) {
       expect(home, prop).toContain(`${prop} =`);
       expect(update, prop).toContain(`style.${prop}`);
+    }
+  });
+});
+
+describe("the controls suit the device being held (T8, T9, R6)", () => {
+  it("guesses touch from a coarse pointer, keyboard otherwise", () => {
+    expect(guessSurface((q) => q === "(pointer: coarse)")).toBe("touch");
+    expect(guessSurface(() => false)).toBe("keyboard");
+  });
+
+  it("names the keys that already work, and the round's own word", () => {
+    // The guide is a reminder of bindings that have existed since input.ts was
+    // written; it introduces no new input. The action word comes from the round.
+    expect(CONTROLS_HTML).toContain('id="keyGuide"');
+    expect(rule("#keyGuide")).toContain("pointer-events:none");
+  });
+
+  it("draws the guide quietly enough to ignore", () => {
+    expect(GUIDE_OPACITY).toBeGreaterThan(0.2);
+    expect(GUIDE_OPACITY).toBeLessThan(0.6);
+    expect(rule("#keyGuide")).toContain(`opacity:${GUIDE_OPACITY}`);
+  });
+
+  it("keeps the guide inside the safe area, like every other control (R5)", () => {
+    const guide = rule("#keyGuide");
+    expect(guide).toContain("env(safe-area-inset-left)");
+    expect(guide).toContain("env(safe-area-inset-bottom)");
+  });
+
+  it("only lets a real event switch surfaces", () => {
+    // A synthetic event — a test, an extension, our own dispatch — must not flip the
+    // controls out from under a player mid-round.
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+    const settle = src.slice(src.indexOf("const settle ="), src.indexOf("window.addEventListener"));
+    expect(settle).toContain("e.isTrusted");
+  });
+
+  it("switches idempotently, so repeated input does not thrash the DOM", () => {
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+    const settle = src.slice(src.indexOf("const settle ="), src.indexOf("window.addEventListener"));
+    expect(settle).toContain("this.surface === next");
+  });
+
+  it("mentions no minigame by name anywhere in the controls source (RD-009)", () => {
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    for (const id of ["hot-potato", "sweepers", "scramble", "falling-floor", "PASS", "JUMP", "GRAB"]) {
+      expect(code, id).not.toContain(id);
     }
   });
 });

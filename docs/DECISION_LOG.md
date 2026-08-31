@@ -1191,3 +1191,32 @@ lobby. Fine on WiFi and on real mobile data.
 the last three seconds of its four, derived from the server's absolute `endsAt` so every
 client counts to the same instant. No new message and no per-second traffic; the whole
 feature is one subtraction.
+
+## RD-037 — The controls follow the hands, not the user agent (2026-08-31)
+
+`specs/touch-controls/` T8–T9. A phone gets the stick and the button; a desktop gets a
+faint line of keys instead — `W A S D` or arrows, and `space` carrying the round's own
+word. Neither device carries controls it cannot use.
+
+**Decided by what the player uses, not by what the device could do.** A media query
+(`pointer: coarse`) makes the opening guess, and the first *real* touch or key press
+settles it. A touchscreen laptop is usually driven from the keyboard and an iPad with a
+Magic Keyboard is the same story inverted, so no static answer is right for both. The
+switch is silent and may happen mid-round: picking up a keyboard halfway through a match
+should just show the keys.
+
+`isTrusted` is checked on both listeners. A synthetic event — a test, an extension, our
+own dispatch — must not flip a player's controls out from under them, and a test asserts
+the guard rather than trusting it.
+
+**The guide introduces no new input.** WASD, arrows and space have worked since
+`input.ts` was written; the guide is a reminder of bindings that already exist, which is
+why it can be a passive line of text with no pointer events and 40% opacity. The action
+word comes from the round's `buttonLabel`, so the controls source still names no
+minigame — asserted with comments stripped, and with the three labels themselves in the
+forbidden list (RD-009).
+
+**A consequence of 30 Hz, caught here.** `falling-floor`'s 200-seed shrink property runs
+450k ticks at the new rate, half again what it ran at 20 Hz, and crossed vitest's 5 s
+default. The budget moved rather than the seed count: the coverage is the reason the
+test exists.

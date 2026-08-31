@@ -215,7 +215,9 @@ describe("shrink terminates the round with nobody playing (T3, R4, P2)", () => {
       }
       expect(state.tiles.every((t) => t.state === 2)).toBe(true);
     }
-  });
+    // 200 seeds x a full 75s round at 30Hz is 450k ticks, half again what it was at
+    // 20Hz (RD-036). The coverage is the point, so the budget moves, not the seeds.
+  }, 20_000);
 
   it("ends the round with zero input from anyone (R5, I8)", () => {
     for (let seed = 0; seed < 50; seed++) {

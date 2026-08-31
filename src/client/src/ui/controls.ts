@@ -17,7 +17,7 @@
  * drift from it (P1).
  */
 import type { InputController } from "../input.ts";
-import { UI } from "./kit.ts";
+import { UI, escapeHtml } from "./kit.ts";
 
 /** Present enough to be found, faint enough not to fight the arena. */
 export const STICK_REST_OPACITY = 0.35;
@@ -27,6 +27,9 @@ export const BUTTON_MIN_PX = 72;
 export const STICK_BASE_PX = 132;
 /** Where the resting stick sits, from the bottom-left corner. */
 export const STICK_HOME_PX = 96;
+
+/** Faint enough to ignore: a reminder, not a HUD element. */
+export const GUIDE_OPACITY = 0.4;
 
 export const CONTROLS_CSS = `
 #controls{position:fixed;inset:0;z-index:8;pointer-events:none}
@@ -57,6 +60,19 @@ export const CONTROLS_CSS = `
 #actionBtn[hidden]{display:none}
 #actionBtn.down{transform:translateY(${UI.shadowOffset - 2}px);box-shadow:0 2px 0 var(--ink)}
 
+/* The keyboard guide, for a player who has a keyboard. */
+#keyGuide{position:fixed;
+  left:calc(14px + env(safe-area-inset-left));
+  bottom:calc(12px + env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:10px;
+  opacity:${GUIDE_OPACITY};pointer-events:none;
+  font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;font-size:13px;
+  color:var(--ink)}
+#keyGuide[hidden]{display:none}
+#keyGuide kbd{display:inline-block;min-width:22px;padding:3px 6px;text-align:center;
+  background:var(--card);border:3px solid var(--ink);border-radius:7px;
+  box-shadow:0 2px 0 var(--ink);font:inherit;font-size:12px}
+
 /* Short landscape phones: keep the controls clear of the thumbs' own knuckles. */
 @media (max-height:430px){
   #stickBase{width:${Math.round(STICK_BASE_PX * 0.82)}px;height:${Math.round(STICK_BASE_PX * 0.82)}px}
@@ -69,6 +85,7 @@ export const CONTROLS_HTML = `
   <div id="stickBase"></div>
   <div id="stickKnob"></div>
   <button id="actionBtn" hidden></button>
+  <div id="keyGuide" hidden></div>
 </div>`;
 
 /**
@@ -78,11 +95,28 @@ export const CONTROLS_HTML = `
  * region are the same region (P2) — the old "right 40% of the screen" was an invisible
  * slab no drawn circle could honestly represent.
  */
+/** Which controls the player is actually using (touch-controls T8, R6). */
+export type Surface = "touch" | "keyboard";
+
+/**
+ * The initial guess, from what the device says about itself.
+ *
+ * Only a guess: a touchscreen laptop reports a coarse pointer and is usually driven
+ * with a keyboard, and an iPad with a Magic Keyboard is the same story inverted. The
+ * first real input settles it.
+ */
+export function guessSurface(matches: (q: string) => boolean): Surface {
+  return matches("(pointer: coarse)") ? "touch" : "keyboard";
+}
+
 export class Controls {
   private readonly root: HTMLElement;
   private readonly base: HTMLElement;
   private readonly knob: HTMLElement;
   private readonly button: HTMLButtonElement;
+  private readonly guide: HTMLElement;
+  private surface: Surface;
+  private label = "";
 
   constructor(host: HTMLElement, private readonly input: InputController) {
     const wrap = document.createElement("div");
@@ -92,21 +126,55 @@ export class Controls {
     this.base = wrap.querySelector("#stickBase") as HTMLElement;
     this.knob = wrap.querySelector("#stickKnob") as HTMLElement;
     this.button = wrap.querySelector("#actionBtn") as HTMLButtonElement;
+    this.guide = wrap.querySelector("#keyGuide") as HTMLElement;
     this.input.attachButton(this.button);
+
+    this.surface = guessSurface((q) =>
+      typeof window.matchMedia === "function" && window.matchMedia(q).matches);
+
+    // Whatever the device claims, the first REAL input decides. `isTrusted` matters:
+    // a synthetic event — a test, an extension, our own dispatch — must not flip the
+    // controls out from under a player.
+    const settle = (next: Surface) => (e: Event): void => {
+      if (!e.isTrusted || this.surface === next) return;
+      this.surface = next;
+      this.paint();
+    };
+    window.addEventListener("touchstart", settle("touch"), { passive: true, capture: true });
+    window.addEventListener("keydown", settle("keyboard"), { capture: true });
+
     this.home();
   }
 
   /** Show the controls for a round. No label means `stick`: no button exists (P3). */
   show(buttonLabel?: string): void {
+    this.label = buttonLabel ?? "";
     this.root.hidden = false;
-    if (buttonLabel) {
-      this.button.textContent = buttonLabel;
-      this.button.hidden = false;
-    } else {
-      this.button.textContent = "";
-      this.button.hidden = true;
-    }
+    this.paint();
     this.home();
+  }
+
+  /**
+   * Draw whichever surface the player is on (T8, T9, R6).
+   *
+   * Switching is silent and may happen mid-round: someone who picks up a keyboard
+   * halfway through a match should simply see the keys, with no announcement.
+   */
+  private paint(): void {
+    const touch = this.surface === "touch";
+    this.base.hidden = !touch;
+    this.knob.hidden = !touch;
+    this.button.hidden = !touch || this.label === "";
+    this.button.textContent = this.label;
+
+    this.guide.hidden = touch;
+    // The word comes from the round, never from a minigame id (RD-009).
+    const action = this.label
+      ? ` <kbd>space</kbd> ${escapeHtml(this.label.toLowerCase())}`
+      : "";
+    this.guide.innerHTML = touch
+      ? ""
+      : `<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows${action}`;
   }
 
   hide(): void {
@@ -142,6 +210,7 @@ export class Controls {
    * does not force a reflow per frame.
    */
   update(): void {
+    if (this.surface !== "touch") return; // nothing to draw on a keyboard
     const view = this.input.stickView;
     if (!view) {
       this.home();
