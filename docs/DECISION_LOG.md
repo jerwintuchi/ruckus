@@ -1669,3 +1669,36 @@ noun.
 remembering to clear a flag. That is the same shape as the fix above: put the state
 where the lifecycle already destroys it, instead of adding a cleanup step that a future
 round can skip.
+
+## RD-050 — The characters were rebuilt; the data feeding them was not (2026-08-31)
+
+Reported after RD-049: dead players from a previous round were still invisible in the
+next one, and after the match ended.
+
+**The snapshot buffer is per-round state and nothing emptied it.** `ROUND_START` threw
+away the characters, but `SnapshotBuffer` still held the previous round's frames —
+including `alive: false` for everyone who had died. So the new round's characters were
+built fresh, immediately marked eliminated from *last round's* data, blinked out, and
+stayed gone for the whole round. Clearing the objects while keeping the stream that
+writes to them fixes nothing.
+
+**A second leak found looking for the first.** `setArena` clears `statics`, but a tile
+grid lives in `dynamics` — so a previous round's floor survived into the next minigame.
+`ROUND_START` now clears the whole world before building the new one, and so do
+`matchEnd` and the return to the lobby. Without the `matchEnd` clear, the last round's
+bodies stood behind the result card until somebody happened to walk back to the lobby,
+which is the "even when the game has ended" half of the report.
+
+**The lesson is the one RD-049 already stated, applied one layer further out.** That
+entry said: put state where the lifecycle already destroys it. The blink obeyed that —
+it lives on the `Character`, which `ROUND_START` rebuilds. The *buffer* did not, and
+neither did the tiles, and both were invisible to me because I was looking at the thing
+being reset rather than at everything that could write to it afterwards. The question
+worth asking at a boundary is not "did I clear the objects" but "what else still holds
+data from before it".
+
+**One test had to be worked around rather than relaxed.** My comment explaining the tile
+leak named the minigame that had the grid, and the RD-009 guard scans `main.ts` for
+minigame ids without stripping comments. The precedent from RD-020 is that the guard
+stays maximally strict and the code works around it, so the comment is reworded. A guard
+loosened to accommodate an explanation stops being a guard.

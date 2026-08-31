@@ -113,3 +113,30 @@ describe("the buffer covers more than one late packet (responsiveness T2, R2, P2
     expect(again[0]!.z).toBe(held[0]!.z);
   });
 });
+
+describe("the buffer is per-round state and is emptied like it (RD-050)", () => {
+  const frame = (alive: boolean): SnapPlayer[] =>
+    [{ slot: 0, x: quantPos(1), y: 0, z: quantPos(2), a: 0, alive }];
+
+  it("forgets the previous round's frames", () => {
+    // The bug: a round boundary threw away the characters but kept the frames feeding
+    // them, so a new round's characters were marked eliminated from the OLD round's
+    // alive:false and blinked out for the whole round.
+    const b = new SnapshotBuffer();
+    b.push(frame(false), {}, 0);
+    b.push(frame(false), {}, 50);
+    expect(b.size).toBeGreaterThan(0);
+    b.clear();
+    expect(b.size).toBe(0);
+    expect(b.newest).toBeUndefined();
+    expect(b.sample(1000)).toEqual([]);
+  });
+
+  it("takes new frames normally afterwards", () => {
+    const b = new SnapshotBuffer();
+    b.push(frame(false), {}, 0);
+    b.clear();
+    b.push(frame(true), {}, 0);
+    expect(b.sample(0)[0]?.alive).toBe(true);
+  });
+});

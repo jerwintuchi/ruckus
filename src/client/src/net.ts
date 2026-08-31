@@ -42,6 +42,19 @@ export class SnapshotBuffer {
     if (this.frames.length > BUFFER) this.frames.shift();
   }
 
+  /**
+   * Forget everything (round-lifecycle R4).
+   *
+   * A round boundary throws away the characters but used to keep the frames that feed
+   * them. So a new round's characters were built, then immediately marked eliminated
+   * from the PREVIOUS round's `alive: false` — and blinked out for the whole round.
+   * Anything holding per-round state has to be emptied at the boundary, and a buffer
+   * of positions is per-round state (RD-050).
+   */
+  clear(): void {
+    this.frames = [];
+  }
+
   get newest(): Frame | undefined {
     return this.frames[this.frames.length - 1];
   }

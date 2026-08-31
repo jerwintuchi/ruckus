@@ -117,6 +117,8 @@ function onMessage(msg: ServerMsg): void {
         // The whole world, not just the players: a round's arena, tiles and pickups
         // must leave with the round, or the lobby shows the last one's leftovers.
         renderer.clearWorld();
+        net.buffer.clear();
+        lastExtra = undefined;
         ui.clearHud();
         ui.hideBanner();
         controls.hide();
@@ -139,9 +141,21 @@ function onMessage(msg: ServerMsg): void {
       break;
 
     case "roundStart":
+      // Everything, not just the players. `setArena` clears `statics`, but a tile grid
+      // lives in `dynamics` — so a previous round's floor used to survive into the next
+      // one. Clear the world first, then build the new one (R4).
+      //
+      // Deliberately not naming the round that had the grid: the RD-009 guard scans
+      // this file for minigame ids and does not strip comments, and the precedent is
+      // that the guard stays strict while the code works around it (RD-020).
+      renderer.clearWorld();
       renderer.setArena(msg.arena);
-      renderer.clearPlayers();
       renderer.setPrims([]);
+      // The frames that feed the characters are per-round state too: without this the
+      // new round's characters are marked eliminated from the old round's snapshots
+      // and blink out immediately (RD-050).
+      net.buffer.clear();
+      lastExtra = undefined;
       // Looked up, never branched on: main.ts knows no minigame by name (RD-009).
       handler = clientMinigame(msg.game);
       handler?.onRoundStart?.(renderer);
@@ -177,6 +191,11 @@ function onMessage(msg: ServerMsg): void {
     case "matchEnd":
       playing = false;
       controls.hide();
+      // The match is over: the last round's bodies must not stand around behind the
+      // result card until someone happens to return to the lobby.
+      renderer.clearWorld();
+      net.buffer.clear();
+      lastExtra = undefined;
       ui.showMatchEnd(players.find((p) => p.slot === msg.winner), players, msg.totals);
       bannerUntil = performance.now() + 4000;
       break;

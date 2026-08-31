@@ -124,7 +124,9 @@ describe("nothing survives ROUND_START (round-lifecycle T4, R4)", () => {
   const roundStart = main.slice(main.indexOf('case "roundStart"'), main.indexOf("break;", main.indexOf('case "roundStart"')));
 
   it("replaces the arena, the tiles, the prims and the characters", () => {
-    for (const call of ["setArena", "clearPlayers", "setPrims"]) {
+    // `clearWorld` rather than `clearPlayers`: the players were only part of what a
+    // previous round left behind (RD-050).
+    for (const call of ["setArena", "clearWorld", "setPrims"]) {
       expect(roundStart, call).toContain(call);
     }
   });
@@ -135,5 +137,34 @@ describe("nothing survives ROUND_START (round-lifecycle T4, R4)", () => {
 
   it("clears the banner, so an intro or a scoreboard does not sit over the round", () => {
     expect(roundStart).toContain("hideBanner");
+  });
+});
+
+describe("a round boundary empties everything that holds round state (RD-050)", () => {
+  const main = readFileSync(
+    join(dirname(new URL(import.meta.url).pathname), "main.ts"), "utf8");
+  const between = (from: string, to: string): string =>
+    main.slice(main.indexOf(from), main.indexOf(to, main.indexOf(from)));
+
+  it("clears the whole world at roundStart, not only the players", () => {
+    // setArena clears `statics`, but the tile grid lives in `dynamics` — so
+    // falling-floor's floor used to survive into the next minigame.
+    const roundStart = between('case "roundStart"', "break;");
+    expect(roundStart).toContain("clearWorld");
+    expect(roundStart).toContain("buffer.clear");
+  });
+
+  it("clears them at the end of a match too", () => {
+    // Otherwise the last round's bodies stand behind the result card until someone
+    // happens to walk back to the lobby.
+    const matchEnd = between('case "matchEnd"', "break;");
+    expect(matchEnd).toContain("clearWorld");
+    expect(matchEnd).toContain("buffer.clear");
+  });
+
+  it("clears them on returning to the lobby", () => {
+    const lobby = between('if (msg.state === "LOBBY")', "} else if");
+    expect(lobby).toContain("clearWorld");
+    expect(lobby).toContain("buffer.clear");
   });
 });
