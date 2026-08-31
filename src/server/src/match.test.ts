@@ -322,3 +322,39 @@ describe("players are solid, and the shell is what makes them so (player-collisi
     expect(offences).toEqual([]);
   });
 });
+
+describe("a player who arrives mid-match plays the next round (I8)", () => {
+  // Asserted rather than assumed: a playtester joined a running match and reported
+  // seeing only bots. They were in fact in the room the whole time — but nothing here
+  // proved a late arrival is dealt into the NEXT round, so now something does.
+  it("is not in the round already running, and is in the one after", () => {
+    const { room, match } = setup([stub("a", 3) as Minigame<never>, stub("b", 3) as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + TICK_DT * 1000);
+
+    const before = room.connected.length;
+    room.join("latecomer");
+    // Still mid-round: the roster the round is playing with does not change under it.
+    expect(room.state).toBe("ROUND_PLAY");
+
+    // Run to the end of this round and into the next one.
+    pump(match, 12_000);
+    expect(room.connected.length).toBe(before + 1);
+    const playing = room.connected.map((p) => p.runtime);
+    const late = playing.find((r) => r.slot === before);
+    expect(late, "the late arrival has a runtime in the round").toBeDefined();
+    expect(late!.alive, "and is alive in it").toBe(true);
+  });
+
+  it("keeps their score across the rounds they were present for", () => {
+    const { room, match } = setup([stub("a", 3) as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + TICK_DT * 1000);
+    room.join("latecomer");
+    pump(match, 12_000);
+    // Whatever they scored, they still have — a late arrival is not reset each round.
+    const late = [...room.players.values()].find((p) => p.name === "latecomer");
+    expect(late).toBeDefined();
+    expect(typeof late!.score).toBe("number");
+  });
+});
