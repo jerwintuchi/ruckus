@@ -16,6 +16,7 @@ import {
   quantAngle,
   quantPos,
   type ErrCode,
+  type InputScheme,
   type ServerMsg,
   type SnapPlayer,
 } from "@ruckus/shared";
@@ -123,13 +124,22 @@ export class GameServer {
         });
         this.broadcastRoom(room);
       },
-      onRoundStart: (game: { id: string; arena: (s: never) => unknown }, state: unknown) => {
+      onRoundStart: (
+        game: { id: string; input: InputScheme; buttonLabel?: string; arena: (s: never) => unknown },
+        state: unknown,
+      ) => {
         this.broadcast(room, {
           t: "roundStart",
           game: game.id,
           arena: game.arena(state as never) as never,
           roster: room.connected.map((p) => p.slot),
           endsAt: Date.now() + 60_000,
+          // The client draws its controls from these, and never from the id.
+          input: game.input,
+          // Spread rather than assigned: `exactOptionalPropertyTypes` distinguishes an
+          // absent key from one explicitly set to undefined, and a `stick` minigame has
+          // no label at all.
+          ...(game.buttonLabel === undefined ? {} : { buttonLabel: game.buttonLabel }),
         });
       },
       onSnapshot: (extra: unknown) => this.sendSnapshot(room, extra),

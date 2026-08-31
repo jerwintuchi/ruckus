@@ -9,7 +9,7 @@ import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
 import { Renderer } from "./render.ts";
-import { FONT_LINK, UI_CSS, Ui } from "./ui/index.ts";
+import { CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui } from "./ui/index.ts";
 
 // The two typefaces are a runtime CDN dependency, not an asset file, with a declared
 // fallback in the stylesheet for a cold load on a bad connection (RD-021).
@@ -19,7 +19,7 @@ font.href = FONT_LINK;
 document.head.append(font);
 
 const style = document.createElement("style");
-style.textContent = UI_CSS;
+style.textContent = UI_CSS + CONTROLS_CSS;
 document.head.append(style);
 
 const canvas = document.createElement("canvas");
@@ -30,6 +30,9 @@ document.body.append(overlay);
 
 const renderer = new Renderer(canvas);
 const input = new InputController(document.body);
+// The stick and button, drawn at last: `stickView` had been computing exactly where to
+// put them since it was written, and nothing read it (touch-controls T3).
+const controls = new Controls(document.body, input);
 
 let mySlot = -1;
 let host = -1;
@@ -104,6 +107,7 @@ function onMessage(msg: ServerMsg): void {
         renderer.clearWorld();
         ui.clearHud();
         ui.hideBanner();
+        controls.hide();
       } else if (!playing) {
         // Mid-match arrival: `roundStart` has already been and gone, so there is no
         // arena to draw and nothing to say for it. Say it (I8).
@@ -125,6 +129,8 @@ function onMessage(msg: ServerMsg): void {
       handler = clientMinigame(msg.game);
       handler?.onRoundStart?.(renderer);
       playing = true;
+      // The round says which controls it needs; the shell never asks which game it is.
+      controls.show(msg.buttonLabel);
       ui.hideBanner();
       break;
 
@@ -139,6 +145,7 @@ function onMessage(msg: ServerMsg): void {
 
     case "roundEnd":
       playing = false;
+      controls.hide();
       ui.clearHud();
       ui.showRoundEnd(msg.scores, players);
       bannerUntil = performance.now() + 4000;
@@ -146,6 +153,7 @@ function onMessage(msg: ServerMsg): void {
 
     case "matchEnd":
       playing = false;
+      controls.hide();
       ui.showMatchEnd(players.find((p) => p.slot === msg.winner));
       bannerUntil = performance.now() + 4000;
       break;
@@ -172,6 +180,9 @@ function frame(now: number): void {
     const i = input.read();
     net.send({ t: "input", ax: i.ax, ay: i.ay, btn: i.btn });
   }
+
+  // The drawn stick is a function of the input state, every frame (P1).
+  controls.update();
 
   if (bannerUntil && now > bannerUntil) {
     bannerUntil = 0;

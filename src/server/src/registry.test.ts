@@ -60,6 +60,24 @@ describe("registry contract (T11, R6)", () => {
     }
   });
 
+  it("gives every stick+button minigame a word for its button (touch-controls T1, P4)", () => {
+    // "ACTION" tells a stranger at a party nothing, and the UI choosing the word itself
+    // would mean the UI knowing which minigame is running (RD-009). So the minigame
+    // declares it — and this test is what stops the next one forgetting.
+    for (const m of MINIGAMES) {
+      if (m.input === "stick+button") {
+        expect(m.buttonLabel, m.id).toBeDefined();
+        expect(m.buttonLabel!.length, m.id).toBeGreaterThan(0);
+        // Short enough to fit inside a round button at phone size.
+        expect(m.buttonLabel!.length, m.id).toBeLessThanOrEqual(6);
+        expect(m.buttonLabel, m.id).toBe(m.buttonLabel!.toUpperCase());
+      } else {
+        // A stick-only round draws no button, so a label would be a lie about it.
+        expect(m.buttonLabel, m.id).toBeUndefined();
+      }
+    }
+  });
+
   it("makes every arena declare the size it needs on screen (arena-framing T1, R2)", () => {
     for (const m of MINIGAMES) {
       const { extent } = m.arena(m.init(stubCtx())).camera;

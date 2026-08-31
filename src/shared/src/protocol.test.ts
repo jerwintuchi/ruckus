@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CODE_ALPHABET } from "./constants.ts";
-import { normalizeCode, parseClientMsg, sanitizeName } from "./protocol.ts";
+import { normalizeCode, parseClientMsg, sanitizeName, type ServerMsg } from "./protocol.ts";
 
 describe("parseClientMsg (T6, R10, I2)", () => {
   it("accepts each well-formed client tag", () => {
@@ -127,5 +129,47 @@ describe("create (lobby-flow T1, R1)", () => {
   it("carries no code - the client never invents one (R1)", () => {
     const m = parseClientMsg({ t: "create", name: "x", code: "ZZZZ" }) as Record<string, unknown>;
     expect(m.code).toBeUndefined();
+  });
+});
+
+describe("roundStart carries what the controls need (touch-controls T2, R3)", () => {
+  it("round-trips the input scheme and the button's word", () => {
+    const msg: ServerMsg = {
+      t: "roundStart",
+      game: "hot-potato",
+      arena: { camera: { eye: [0, 1, 1], look: [0, 0, 0], fov: 45 }, solids: [], statics: [], sky: "#fff" },
+      roster: [0, 1],
+      endsAt: 1000,
+      input: "stick+button",
+      buttonLabel: "PASS",
+    };
+    const back = JSON.parse(JSON.stringify(msg)) as typeof msg;
+    expect(back.input).toBe("stick+button");
+    expect(back.buttonLabel).toBe("PASS");
+  });
+
+  it("carries no label for a stick-only round", () => {
+    const msg: ServerMsg = {
+      t: "roundStart",
+      game: "falling-floor",
+      arena: { camera: { eye: [0, 1, 1], look: [0, 0, 0], fov: 45 }, solids: [], statics: [], sky: "#fff" },
+      roster: [0],
+      endsAt: 1000,
+      input: "stick",
+    };
+    expect(JSON.parse(JSON.stringify(msg)).buttonLabel).toBeUndefined();
+  });
+
+  it("says nothing about which minigame it is, beyond the id the client looks up", () => {
+    // The client draws its controls from `input` and `buttonLabel`; it never branches
+    // on `game` (RD-009). The id exists only for the client-handler lookup.
+    const src = readFileSync(
+      join(dirname(new URL(import.meta.url).pathname), "..", "..", "client", "src", "main.ts"),
+      "utf8",
+    );
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    for (const id of ["hot-potato", "sweepers", "scramble", "falling-floor"]) {
+      expect(code, id).not.toContain(id);
+    }
   });
 });

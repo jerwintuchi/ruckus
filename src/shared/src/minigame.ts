@@ -95,6 +95,16 @@ export interface Minigame<S = unknown> {
   /** ONE sentence — the entire explanation the party gets (vision pillar 1). */
   rule: string;
   input: InputScheme;
+  /**
+   * The word on the action button — JUMP, PASS, GRAB. Required when `input` is
+   * `stick+button`, meaningless otherwise.
+   *
+   * A generic word fails the five-second legibility pillar: "ACTION" tells a stranger
+   * at a party nothing. The alternative — the UI knowing which minigame is running and
+   * choosing the word itself — is what RD-009 forbids, so the minigame declares it and
+   * the shell just renders the string (touch-controls R3).
+   */
+  buttonLabel?: string;
   /** Hard stop. The shell enforces it; a round always ends (R5, I8). */
   maxDurationMs: number;
 

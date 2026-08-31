@@ -1066,3 +1066,38 @@ twenty lines it costs.
 call at the top of the function instead of the one at the bottom of the file. With
 `?debug=1` it appended a DOM node and started a `setInterval` every frame. Fixed the
 same session; noted because an anchor that appears twice is a trap worth naming.
+
+## RD-034 — The controls are drawn, and the button never worked standing still (2026-08-31)
+
+**`specs/touch-controls/` T1–T6.** The stick and button now exist on screen. `stickView`
+had been computing exactly where to put them since the day it was written and nothing
+ever read it — dead code, and the reason the first playtester moved and passed the bomb
+by discovering unmarked screen regions.
+
+**The button is an element now, not a screen fraction.** It was "everything right of
+`innerWidth * 0.6`": a 40% invisible slab that no drawn circle could honestly represent,
+and which quietly meant *the right-hand side of the arena could not drive the stick at
+all*. The element owns its own touches, so the region you press and the region you see
+are the same region by construction, and the whole screen plants the stick again.
+
+**A real bug fell out of writing the first test for it.** `read()` returned early on the
+stick's path and fell through to the keyboard path otherwise, and the keyboard path
+knows only about the space bar — so `buttonHeld` was dropped whenever no thumb was on
+the stick. **Pressing the button while standing still did nothing.** Hot Potato hid it
+almost perfectly: you are normally running when you pass. It is now `keys.btn ||
+this.buttonHeld`, with a test that presses the button and nothing else.
+
+That is the second time today that writing the test named in a task found a defect the
+task was not about, after `flow.test.ts`'s assertion overhead. Naming the test before
+the implementation keeps earning its place.
+
+**The label comes from the minigame** (`Minigame.buttonLabel`: PASS, JUMP, GRAB) and
+travels on `roundStart` beside the input scheme. The shell renders the string and never
+branches on the id — asserted by a test that strips comments from `main.ts` and looks
+for any minigame name (RD-009). A registry test makes it impossible for the next
+`stick+button` minigame to ship without a word, and equally impossible for a `stick`
+round to claim one it will never draw.
+
+**Still open: T7**, the only question that matters — hand the phone to someone who has
+never played and see whether they find the stick without being told and know what the
+button does before pressing it. No unit test answers either half.

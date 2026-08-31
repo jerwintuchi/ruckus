@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DEAD_ZONE_PX, InputController, STICK_RADIUS, keyVector, stickVector } from "./input.ts";
 
@@ -85,14 +87,70 @@ function surfaceStub() {
   return { el, fire, touch, control, bare };
 }
 
-describe("touches on a control belong to the control (T19)", () => {
-  // The controller binds the keyboard to `window` and splits the screen by
-  // `innerWidth`. A stub is enough, and keeps these tests out of a DOM environment.
-  const g = globalThis as { window?: unknown };
-  beforeAll(() => {
-    g.window = { addEventListener: () => {}, innerWidth: 800, innerHeight: 400 };
+// The controller binds the keyboard to `window`. A stub is enough, and keeps these
+// tests out of a DOM environment.
+const g = globalThis as { window?: unknown };
+beforeAll(() => {
+  g.window = { addEventListener: () => {}, innerWidth: 800, innerHeight: 400 };
+});
+afterAll(() => { delete g.window; });
+
+function elementStub() {
+  const listeners: Record<string, ((e: unknown) => void)[]> = {};
+  const el = {
+    addEventListener(ev: string, fn: (e: unknown) => void) {
+      (listeners[ev] ??= []).push(fn);
+    },
+    classList: { add: () => {}, remove: () => {} },
+  } as unknown as HTMLElement;
+  const fire = (ev: string, changedTouches: unknown[]): void => {
+    const e = { changedTouches, target: el, preventDefault: () => {} };
+    for (const fn of listeners[ev] ?? []) fn(e);
+  };
+  return { el, fire };
+}
+
+describe("the button is an element, not a screen fraction (touch-controls T5)", () => {
+  it("keeps no innerWidth fraction in the touch source", () => {
+    // The button used to be "everything right of innerWidth * 0.6" — a 40% invisible
+    // slab that no drawn circle could honestly represent. Comments are stripped first:
+    // the explanation above legitimately names what the code must not do.
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "input.ts"), "utf8");
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(code).not.toMatch(/innerWidth\s*\*/);
   });
-  afterAll(() => { delete g.window; });
+
+  it("sets the button from a touch on the element it was handed", () => {
+    const s = surfaceStub();
+    const input = new InputController(s.el);
+    const btn = elementStub();
+    input.attachButton(btn.el);
+    expect(input.read().btn).toBe(false);
+    btn.fire("touchstart", [s.touch(700, 380, 9)]);
+    expect(input.read().btn).toBe(true);
+    btn.fire("touchend", [s.touch(700, 380, 9)]);
+    expect(input.read().btn).toBe(false);
+  });
+
+  it("does not plant the stick when the button is pressed", () => {
+    const s = surfaceStub();
+    const input = new InputController(s.el);
+    const btn = elementStub();
+    input.attachButton(btn.el);
+    btn.fire("touchstart", [s.touch(700, 380, 9)]);
+    expect(input.stickView).toBeNull();
+  });
+
+  it("plants the stick on the right of the screen too, now nothing is reserved", () => {
+    // The old 40% slab meant the right of the arena could not drive the stick at all.
+    const s = surfaceStub();
+    const input = new InputController(s.el);
+    s.fire("touchstart", [s.touch(760, 300)], s.bare);
+    expect(input.stickView).not.toBeNull();
+  });
+});
+
+describe("touches on a control belong to the control (T19)", () => {
 
   it("does not swallow a tap that lands on a button", () => {
     // preventDefault on touchstart cancels the synthesized tap on iOS. Swallowing it

@@ -142,6 +142,7 @@ export const sweepers: Minigame<SweepersState> = {
   displayName: "Sweepers",
   rule: "Jump the sweepers.",
   input: "stick+button",
+  buttonLabel: "JUMP",
   maxDurationMs: MAX_DURATION_MS,
 
   init(ctx: InitCtx): SweepersState {

@@ -1,0 +1,117 @@
+/**
+ * The stick and the button (touch-controls T3, T4, T6, R1–R5).
+ *
+ * The thing being pinned is that these are *drawn at all*. `stickView` computed exactly
+ * where to put the stick from the day it was written and nothing ever read it, so the
+ * first playtester moved and passed the bomb by discovering unmarked screen regions.
+ * A control nobody can see is not a control.
+ */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+  BUTTON_MIN_PX, CONTROLS_CSS, CONTROLS_HTML, STICK_BASE_PX, STICK_REST_OPACITY,
+} from "./controls.ts";
+import { STICK_RADIUS } from "../input.ts";
+import { UI } from "./kit.ts";
+
+/**
+ * One rule body out of the stylesheet, so a claim can be made about it.
+ *
+ * Anchored to a line start: `#stickKnob{` also occurs inside `#stickBase,#stickKnob{`,
+ * and a plain indexOf silently returns the wrong rule.
+ */
+const rule = (selector: string): string => {
+  const i = CONTROLS_CSS.indexOf("\n" + selector + "{");
+  if (i < 0) throw new Error(`no rule for ${selector}`);
+  return CONTROLS_CSS.slice(i, CONTROLS_CSS.indexOf("}", i));
+};
+
+describe("the stick is visible before it is touched (T3, R1)", () => {
+  it("draws a resting base and knob, not just a live one", () => {
+    // A first-time player at a party has no idea the left half is a stick unless
+    // something is there to see. This is the whole point of the task.
+    expect(CONTROLS_HTML).toContain('id="stickBase"');
+    expect(CONTROLS_HTML).toContain('id="stickKnob"');
+    expect(rule("#stickBase")).toContain(`opacity:${STICK_REST_OPACITY}`);
+  });
+
+  it("is translucent at rest and solid once held", () => {
+    expect(STICK_REST_OPACITY).toBeGreaterThan(0.2); // findable
+    expect(STICK_REST_OPACITY).toBeLessThan(0.6); // not fighting the arena
+    expect(CONTROLS_CSS).toContain("#controls.live #stickBase");
+    expect(rule("#controls.live #stickBase,#controls.live #stickKnob")).toContain("opacity:1");
+  });
+
+  it("is big enough for the throw the input actually uses", () => {
+    // The base has to contain STICK_RADIUS of travel or the picture lies about the
+    // range: the knob would leave its own base before the axis reached full tilt.
+    expect(STICK_BASE_PX / 2).toBeGreaterThanOrEqual(STICK_RADIUS);
+  });
+
+  it("belongs to the game's own ink-and-paper vocabulary (R2)", () => {
+    // Same outline width and palette tokens as a card, so it reads as one world.
+    expect(rule("#stickBase,#stickKnob")).toContain("var(--outline) solid var(--ink)");
+    expect(rule("#stickBase")).toContain("var(--card)");
+    expect(rule("#stickKnob")).toContain("var(--highlight)");
+    // No hex literals anywhere: colours come from the palette (kit-rules.md).
+    expect(CONTROLS_CSS).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+  });
+});
+
+describe("the button says what it does, and only exists when there is one (T4, R3, R4)", () => {
+  it("renders a button element, hidden until a round asks for it", () => {
+    expect(CONTROLS_HTML).toContain('id="actionBtn"');
+    expect(CONTROLS_HTML).toContain("hidden");
+    expect(rule("#actionBtn[hidden]")).toContain("display:none");
+  });
+
+  it("is comfortably over the tap floor — it is pressed under pressure (R5)", () => {
+    expect(BUTTON_MIN_PX).toBeGreaterThanOrEqual(UI.minTarget);
+    expect(BUTTON_MIN_PX).toBeGreaterThanOrEqual(64);
+    const btn = rule("#actionBtn");
+    expect(btn).toContain(`min-width:${BUTTON_MIN_PX}px`);
+    expect(btn).toContain(`min-height:${BUTTON_MIN_PX}px`);
+  });
+
+  it("takes its own touches, so drawn region and hit region are one region (P2)", () => {
+    // The controls layer is inert; only the button itself accepts input. That is what
+    // makes the honest hit area possible — see input.ts's attachButton.
+    expect(rule("#controls")).toContain("pointer-events:none");
+    expect(rule("#actionBtn")).toContain("pointer-events:auto");
+  });
+});
+
+describe("controls sit inside the safe area (T6, R5)", () => {
+  it("keeps the button clear of the home indicator and the notch", () => {
+    const btn = rule("#actionBtn");
+    expect(btn).toContain("env(safe-area-inset-right)");
+    expect(btn).toContain("env(safe-area-inset-bottom)");
+  });
+
+  it("homes the resting stick inside the safe area too", () => {
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+    const home = src.slice(src.indexOf("private home()"), src.indexOf("\n  }", src.indexOf("private home()")));
+    expect(home).toContain("safe-area-inset-");
+  });
+});
+
+describe("the drawn stick is stickView, verbatim (P1)", () => {
+  const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+
+  it("positions from the input's own view, with no second opinion", () => {
+    // A control that lies about where it is, is worse than no control. The update path
+    // reads stickView and writes those numbers; it computes no geometry of its own.
+    const update = src.slice(src.indexOf("update(): void {"), src.indexOf("\n  }", src.indexOf("update(): void {")));
+    expect(update).toContain("this.input.stickView");
+    expect(update).toContain("view.ox");
+    expect(update).toContain("view.kx");
+    // No trigonometry, no radius maths — that all lives in stickVector.
+    expect(update).not.toMatch(/Math\.(cos|sin|hypot|atan2)/);
+  });
+
+  it("returns the stick home when nothing is touching it", () => {
+    const update = src.slice(src.indexOf("update(): void {"), src.indexOf("\n  }", src.indexOf("update(): void {")));
+    expect(update).toContain("this.home()");
+  });
+});

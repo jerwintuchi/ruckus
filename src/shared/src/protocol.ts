@@ -6,7 +6,7 @@
  * too: the server must validate every client message (I2), and keeping the validator
  * beside the type is what stops them drifting apart.
  */
-import type { ArenaDescriptor, MinigameSnapshot } from "./minigame.ts";
+import type { ArenaDescriptor, InputScheme, MinigameSnapshot } from "./minigame.ts";
 
 export type MatchState = "LOBBY" | "ROUND_INTRO" | "ROUND_PLAY" | "ROUND_RESULT" | "MATCH_RESULT";
 
@@ -54,7 +54,16 @@ export type ServerMsg =
       round: number;
       of: number;
     }
-  | { t: "roundStart"; game: string; arena: ArenaDescriptor; roster: number[]; endsAt: number }
+  | {
+      t: "roundStart";
+      game: string;
+      arena: ArenaDescriptor;
+      roster: number[];
+      endsAt: number;
+      /** How to draw the controls: the input scheme, and the button's word if it has one. */
+      input: InputScheme;
+      buttonLabel?: string;
+    }
   | { t: "snap"; seq: number; players: SnapPlayer[]; extra: MinigameSnapshot }
   | { t: "roundEnd"; scores: Record<number, number>; totals: Record<number, number> }
   | { t: "matchEnd"; totals: Record<number, number>; winner: number }

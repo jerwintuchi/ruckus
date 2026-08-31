@@ -64,6 +64,9 @@ export class InputController {
   private origin = { x: 0, y: 0 };
   private current = { x: 0, y: 0 };
   private buttonHeld = false;
+  /** The drawn action button, once the UI has one. See `attachButton`. */
+  private button: HTMLElement | null = null;
+  private buttonTouch: number | null = null;
 
   constructor(private readonly surface: HTMLElement) {
     this.bindKeyboard();
@@ -88,7 +91,14 @@ export class InputController {
   read(): InputState {
     const touch = this.readTouch();
     if (touch) return touch;
-    return this.readKeys();
+    // The button is independent of the stick.
+    //
+    // `readTouch` returns null when no thumb is on the stick, and the keyboard path
+    // knows only about the space bar — so pressing the on-screen button while standing
+    // still reported nothing at all. You had to be moving for the button to work,
+    // which in Hot Potato usually hid it: you are normally running when you pass.
+    const keys = this.readKeys();
+    return { ...keys, btn: keys.btn || this.buttonHeld };
   }
 
   private readTouch(): InputState | null {
@@ -112,6 +122,40 @@ export class InputController {
     window.addEventListener("blur", () => this.keys.clear());
   }
 
+  /**
+   * Hand the input the button the player can actually see (touch-controls T5, P2).
+   *
+   * The button used to be "everything right of `innerWidth * 0.6`" — a 40% invisible
+   * slab that no drawn circle could honestly represent, and which meant the region you
+   * pressed and the region you saw were different things. Now the element is the
+   * region: it owns its own touches, and its hit area is its drawn area by definition.
+   */
+  attachButton(el: HTMLElement): void {
+    this.button = el;
+    const press = (e: TouchEvent): void => {
+      for (const t of Array.from(e.changedTouches)) {
+        if (this.buttonTouch === null) this.buttonTouch = t.identifier;
+      }
+      this.buttonHeld = true;
+      el.classList.add("down");
+      // The button owns this gesture: stop it becoming a page scroll or a synthetic
+      // click, but do it here rather than globally (RD-029).
+      e.preventDefault();
+    };
+    const release = (e: TouchEvent): void => {
+      for (const t of Array.from(e.changedTouches)) {
+        if (t.identifier === this.buttonTouch) this.buttonTouch = null;
+      }
+      if (this.buttonTouch === null) {
+        this.buttonHeld = false;
+        el.classList.remove("down");
+      }
+    };
+    el.addEventListener("touchstart", press, { passive: false });
+    el.addEventListener("touchend", release);
+    el.addEventListener("touchcancel", release);
+  }
+
   /** True when the touch started on a control, which then owns it. */
   private onControl(e: TouchEvent): boolean {
     const target = e.target as Element | null;
@@ -130,11 +174,8 @@ export class InputController {
       (e) => {
         if (this.onControl(e)) return; // let the tap through, untouched
         for (const t of Array.from(e.changedTouches)) {
-          // Right half is the button, left half plants the stick. No camera to drive.
-          if (t.clientX > window.innerWidth * 0.6) {
-            this.buttonHeld = true;
-            continue;
-          }
+          // Anywhere not on a control plants the stick. The button is an element now
+          // and handles its own touches, so there is no screen fraction to reserve.
           if (this.touchId === null) {
             this.touchId = t.identifier;
             this.origin = { x: t.clientX, y: t.clientY };
@@ -163,7 +204,6 @@ export class InputController {
     const end = (e: TouchEvent): void => {
       for (const t of Array.from(e.changedTouches)) {
         if (t.identifier === this.touchId) this.touchId = null;
-        else if (t.clientX > window.innerWidth * 0.6) this.buttonHeld = false;
       }
     };
     el.addEventListener("touchend", end);

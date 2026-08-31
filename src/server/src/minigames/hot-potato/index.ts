@@ -120,6 +120,7 @@ export const hotPotato: Minigame<HotPotatoState> = {
   displayName: "Hot Potato",
   rule: "Pass the bomb before it goes off.",
   input: "stick+button",
+  buttonLabel: "PASS",
   maxDurationMs: MAX_DURATION_MS,
 
   init(ctx: InitCtx): HotPotatoState {
