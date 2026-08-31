@@ -19,6 +19,7 @@ import {
   TUMBLE_COOLDOWN_MS,
   TUMBLE_MS,
   THROW_MS,
+  HOLD_TO_THROW_MS,
   TUMBLE_SPEED_MUL,
   FUSE_MIN_MS,
   FUSE_START_MS,
@@ -525,8 +526,12 @@ describe("the throw (action-button T4, R3, P3)", () => {
     holder.facing = 0; // +z
     const other = players.find((p) => p.slot !== state.holder);
     if (other && catcherAt) other.body.pos = vec(catcherAt.x, catcherAt.z);
-    // Past the pass lock so the throw is allowed, then press.
-    step(state, players, PASS_LOCK_MS + TICK_MS, () => ({ ...IDLE_INPUT, btn: true }));
+    // Past the pass lock, then HOLD: a tap would tumble now, not throw (RD-043).
+    let t = PASS_LOCK_MS;
+    for (let h = 0; h <= HOLD_TO_THROW_MS + TICK_MS; h += TICK_MS) {
+      t += TICK_MS;
+      step(state, players, t, () => ({ ...IDLE_INPUT, btn: true }));
+    }
     return { state, players, holder, other };
   };
 
@@ -552,7 +557,11 @@ describe("the throw (action-button T4, R3, P3)", () => {
       const state = hotPotato.init({ rng: makeRng(seed), players });
       const holder = players.find((p) => p.slot === state.holder)!;
       holder.facing = (seed / 60) * Math.PI * 2;
-      step(state, players, PASS_LOCK_MS + TICK_MS, () => ({ ...IDLE_INPUT, btn: true }));
+      let th = PASS_LOCK_MS;
+      for (let h = 0; h <= HOLD_TO_THROW_MS + TICK_MS; h += TICK_MS) {
+        th += TICK_MS;
+        step(state, players, th, () => ({ ...IDLE_INPUT, btn: true }));
+      }
       for (let i = 2; i * TICK_MS <= PASS_LOCK_MS + THROW_MS + 600; i++) {
         step(state, players, PASS_LOCK_MS + i * TICK_MS);
       }
@@ -588,5 +597,59 @@ describe("the throw (action-button T4, R3, P3)", () => {
   it("does not let the holder tumble instead of throwing", () => {
     const { state } = thrown({ x: 0, z: 6 });
     expect(state.tumbleUntil.get(state.flight!.from) ?? 0).toBe(0);
+  });
+});
+
+describe("tap tumbles, hold throws (action-button T8, R7)", () => {
+  /** Drive one player's button for a given number of ticks, then release. */
+  const press = (state: HotPotatoState, players: PlayerRuntime[], slot: number, ms: number) => {
+    let t = PASS_LOCK_MS;
+    for (let held = 0; held < ms; held += TICK_MS) {
+      t += TICK_MS;
+      step(state, players, t, (who) => (who === slot ? { ...IDLE_INPUT, btn: true } : IDLE_INPUT));
+    }
+    t += TICK_MS;
+    step(state, players, t, () => IDLE_INPUT); // release
+    return t;
+  };
+
+  it("lets the HOLDER tumble on a tap — they need the escape most", () => {
+    // The first version was role-based and took the tumble away from the one player
+    // being chased, which is why it felt broken.
+    const players = mkPlayers(2);
+    const state = hotPotato.init({ rng: makeRng(2), players });
+    const holder = state.holder;
+    press(state, players, holder, TICK_MS); // a tap: one tick, then release
+    expect(state.flight).toBeNull();
+    expect(state.tumbleReadyAt.get(holder) ?? 0).toBeGreaterThan(0);
+  });
+
+  it("throws when the holder keeps it pressed", () => {
+    const players = mkPlayers(2);
+    const state = hotPotato.init({ rng: makeRng(2), players });
+    const holder = state.holder;
+    players.find((p) => p.slot !== holder)!.body.pos = vec(0, 40); // far away, no catch yet
+    press(state, players, holder, HOLD_TO_THROW_MS + TICK_MS * 2);
+    expect(state.tumbleReadyAt.get(holder) ?? 0).toBe(0); // it threw instead
+  });
+
+  it("never turns one press into two actions", () => {
+    // A hold that throws must not also tumble on release, and vice versa.
+    const players = mkPlayers(2);
+    const state = hotPotato.init({ rng: makeRng(5), players });
+    const holder = state.holder;
+    players.find((p) => p.slot !== holder)!.body.pos = vec(0, 40);
+    press(state, players, holder, HOLD_TO_THROW_MS + TICK_MS * 3);
+    expect(state.tumbleReadyAt.get(holder) ?? 0).toBe(0);
+  });
+
+  it("tumbles a non-holder however long they press", () => {
+    // Only the holder has a second meaning; for everyone else a hold is just a tap.
+    const players = mkPlayers(2);
+    const state = hotPotato.init({ rng: makeRng(2), players });
+    const other = players.find((p) => p.slot !== state.holder)!.slot;
+    press(state, players, other, HOLD_TO_THROW_MS * 2);
+    expect(state.flight).toBeNull();
+    expect(state.tumbleReadyAt.get(other) ?? 0).toBeGreaterThan(0);
   });
 });

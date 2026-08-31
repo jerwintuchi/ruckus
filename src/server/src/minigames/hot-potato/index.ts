@@ -54,6 +54,17 @@ export const TUMBLE_COOLDOWN_MS = 1400;
  * nearest when it lands — because a bomb nobody can reach is not a fuse anyone can
  * beat, and a round that waits on one would never end (I8).
  */
+/**
+ * How long the button must be held before the holder throws (action-button R7).
+ *
+ * A tap tumbles, a hold throws. The first version made the button purely role-based —
+ * the holder could ONLY throw — which took the escape move away from the one player
+ * being chased. Press duration gives them both without a second button
+ * (non-negotiable 2). Short enough that a hold feels immediate, long enough that a
+ * panicked jab is unambiguously a tumble (RD-043).
+ */
+export const HOLD_TO_THROW_MS = 250;
+
 export const THROW_SPEED = 14;
 export const THROW_MS = 700;
 /** How close the flying bomb must pass to a player to be caught. */
@@ -100,6 +111,10 @@ export interface HotPotatoState {
   tumbleUntil: Map<number, number>;
   tumbleReadyAt: Map<number, number>;
   prevBtn: Set<number>;
+  /** When the current press began, per player, for telling a tap from a hold. */
+  pressedAt: Map<number, number>;
+  /** Presses whose action has already fired, so one press is never two actions. */
+  spent: Set<number>;
   /** The bomb in flight, or null when someone is holding it. */
   flight: { pos: Vec2; dir: Vec2; endsAt: number; from: number } | null;
   alive: Set<number>;
@@ -178,6 +193,8 @@ export const hotPotato: Minigame<HotPotatoState> = {
       lockUntil: 0,
       tumbleUntil: new Map(),
       tumbleReadyAt: new Map(),
+      pressedAt: new Map(),
+      spent: new Set(),
       flight: null,
       prevBtn: new Set(),
       alive: new Set(roster),
@@ -202,20 +219,44 @@ export const hotPotato: Minigame<HotPotatoState> = {
       if (!s.alive.has(p.slot)) continue;
       const held = ctx.input(p.slot).btn;
       const wasHeld = s.prevBtn.has(p.slot);
-      const pressed = held && !wasHeld;
 
-      if (pressed && p.slot === s.holder && s.flight === null && s.elapsed >= s.lockUntil) {
-        // Throw along the facing. The bomb leaves the hand, so there is no holder
-        // until it is caught or it lands.
+      if (held && !wasHeld) {
+        // A new press. Nothing happens yet — what it becomes depends on how long it
+        // lasts, so the decision waits for the hold threshold or the release.
+        s.pressedAt.set(p.slot, s.elapsed);
+        s.spent.delete(p.slot);
+      }
+
+      const heldFor = held ? s.elapsed - (s.pressedAt.get(p.slot) ?? s.elapsed) : 0;
+      const canThrow = p.slot === s.holder && s.flight === null && s.elapsed >= s.lockUntil;
+
+      // Only the holder's button is ambiguous, so only the holder's press has to wait
+      // to find out what it meant. Everyone else tumbles the instant they press —
+      // making every player wait for a release they do not need would trade a real
+      // 250 ms of responsiveness for a distinction that does not apply to them.
+      if (held && !wasHeld && !canThrow) {
+        if (s.elapsed >= (s.tumbleReadyAt.get(p.slot) ?? 0)) {
+          s.tumbleUntil.set(p.slot, s.elapsed + TUMBLE_MS);
+          s.tumbleReadyAt.set(p.slot, s.elapsed + TUMBLE_COOLDOWN_MS);
+        }
+        s.spent.add(p.slot);
+      } else if (held && !s.spent.has(p.slot) && canThrow && heldFor >= HOLD_TO_THROW_MS) {
+        // Fires at the threshold rather than on release, so a hold feels immediate.
         s.flight = {
           pos: vec(p.body.pos.x, p.body.pos.z),
           dir: vec(Math.sin(p.facing), Math.cos(p.facing)),
           endsAt: s.elapsed + THROW_MS,
           from: p.slot,
         };
-      } else if (pressed && s.elapsed >= (s.tumbleReadyAt.get(p.slot) ?? 0)) {
-        s.tumbleUntil.set(p.slot, s.elapsed + TUMBLE_MS);
-        s.tumbleReadyAt.set(p.slot, s.elapsed + TUMBLE_COOLDOWN_MS);
+        s.spent.add(p.slot);
+      } else if (!held && wasHeld && !s.spent.has(p.slot)) {
+        // Released before the threshold: a tap, which always tumbles — including for
+        // the holder, who needs the escape more than anyone.
+        if (s.elapsed >= (s.tumbleReadyAt.get(p.slot) ?? 0)) {
+          s.tumbleUntil.set(p.slot, s.elapsed + TUMBLE_MS);
+          s.tumbleReadyAt.set(p.slot, s.elapsed + TUMBLE_COOLDOWN_MS);
+        }
+        s.spent.add(p.slot);
       }
 
       if (held) s.prevBtn.add(p.slot);

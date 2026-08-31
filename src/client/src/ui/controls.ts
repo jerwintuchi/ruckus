@@ -69,16 +69,34 @@ export const CONTROLS_CSS = `
   pointer-events:auto;touch-action:none;-webkit-user-select:none;user-select:none}
 #actionBtn[hidden]{display:none}
 #actionBtn.down{transform:translateY(${UI.shadowOffset - 2}px);box-shadow:0 2px 0 var(--ink)}
-#actionBtn svg{width:30px;height:30px;fill:none;stroke:var(--ink);stroke-width:2.2;
+/* The icon fills the button: it is the whole content, so it should read across a room. */
+#actionIconSvg{width:60%;height:60%;fill:none;stroke:var(--ink);stroke-width:2.6;
   stroke-linecap:round;stroke-linejoin:round}
-/* The cooldown ring sweeps around the button as the move recharges (R6). */
-#cooldownRing{position:absolute;inset:-4px;width:auto;height:auto;transform:rotate(-90deg)}
-#cooldownRing circle{fill:none;stroke:var(--ink);stroke-width:3;opacity:.45;
+
+/*
+ * The cooldown ring, sized EXPLICITLY (R6).
+ *
+ * inset:0 with width:auto does not stretch an SVG — it is a replaced element and
+ * takes its intrinsic size, so the ring rendered small and off in a corner. Exactly the
+ * mistake the canvas made in RD-031, in a different element.
+ */
+#cooldownRing{position:absolute;left:0;top:0;width:100%;height:100%;
+  transform:rotate(-90deg);pointer-events:none}
+#cooldownRing circle{fill:none;stroke:var(--ink);stroke-width:3.5;opacity:.5;
   stroke-dasharray:126;stroke-dashoffset:0}
-#cooldownNum{position:absolute;font-family:Fredoka,ui-rounded,system-ui,sans-serif;
-  font-weight:700;font-size:13px;color:var(--ink);
-  transform:translateY(20px);font-variant-numeric:tabular-nums}
-#actionBtn.cooling svg:first-of-type{opacity:.35}
+
+/* The number sits UNDER the button, clear of the icon rather than across it. */
+#cooldownNum{position:absolute;left:0;right:0;top:calc(100% + 4px);text-align:center;
+  font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:13px;
+  color:var(--ink);font-variant-numeric:tabular-nums;pointer-events:none}
+
+/* A hint for the holder, whose button does something else if they keep pressing. */
+#actionHint{position:absolute;left:0;right:0;bottom:calc(100% + 4px);text-align:center;
+  font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:11px;
+  letter-spacing:.08em;color:var(--ink);opacity:.75;pointer-events:none}
+#actionHint[hidden]{display:none}
+
+#actionBtn.cooling #actionIconSvg{opacity:.35}
 
 /* The keyboard guide, for a player who has a keyboard. */
 #keyGuide{position:fixed;
@@ -105,9 +123,10 @@ export const CONTROLS_HTML = `
   <div id="stickBase"></div>
   <div id="stickKnob"></div>
   <button id="actionBtn" hidden>
-    <svg viewBox="0 0 ${ICON_BOX} ${ICON_BOX}" aria-hidden="true" focusable="false">
+    <svg id="actionIconSvg" viewBox="0 0 ${ICON_BOX} ${ICON_BOX}" aria-hidden="true" focusable="false">
       <path id="actionIcon" d=""></path>
     </svg>
+    <span id="actionHint" hidden></span>
     <svg id="cooldownRing" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
       <circle cx="22" cy="22" r="20"></circle>
     </svg>
@@ -146,6 +165,7 @@ export class Controls {
   private readonly icon: SVGPathElement;
   private readonly ring: SVGCircleElement;
   private readonly num: HTMLElement;
+  private readonly hint: HTMLElement;
   private surface: Surface;
   private label = "";
   private verb: ActionVerb = "tumble";
@@ -162,6 +182,7 @@ export class Controls {
     this.icon = wrap.querySelector("#actionIcon") as unknown as SVGPathElement;
     this.ring = wrap.querySelector("#cooldownRing circle") as unknown as SVGCircleElement;
     this.num = wrap.querySelector("#cooldownNum") as HTMLElement;
+    this.hint = wrap.querySelector("#actionHint") as HTMLElement;
     this.input.attachButton(this.button);
 
     this.surface = guessSurface((q) =>
@@ -198,6 +219,11 @@ export class Controls {
       this.button.setAttribute("aria-label", iconLabel(verb));
       this.button.setAttribute("title", iconLabel(verb));
     }
+
+    // The holder's button does two things, and a control with a hidden second meaning
+    // has to say so (RD-043). Everyone else's does one, and says nothing.
+    this.hint.hidden = verb !== "pass";
+    this.hint.textContent = verb === "pass" ? "HOLD" : "";
 
     const readyIn = action.r ?? 0;
     const cooling = readyIn > 0;

@@ -30,6 +30,16 @@
   number shows one decimal and disappears at zero; the client runs no timer of its own,
   asserted against the source
 
+- [x] T8 [R7] — Tap tumbles, hold throws, in `hot-potato`
+  Test: `hot-potato.test.ts` — a tap tumbles even for the holder; a hold throws; one
+  press is never two actions; a non-holder tumbles however long they press, and does so
+  on the press rather than waiting for a release
+
+- [x] T9 [R6] — The button reads at arm's length
+  Test: `controls.test.ts` — the ring carries an explicit width and height rather than
+  relying on `inset` (RD-031's mistake, in a smaller element); the number is positioned
+  clear of the icon; the icon fills a majority of the button
+
 - [ ] T7 — Played, on a phone
   Test: manual. Does the holder understand their button changed? That is the whole risk
   of a contextual control, and no test answers it.

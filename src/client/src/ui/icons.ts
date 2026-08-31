@@ -15,12 +15,13 @@ import type { ActionVerb } from "@ruckus/shared";
 export const ICON_BOX = 24;
 
 const PATHS: Record<ActionVerb, string> = {
-  // A body curling through a roll: an arc with an arrowhead coming back on itself.
-  tumble: "M7 8a6 6 0 1 1-1.5 5.5 M7 8l-3 .6 M7 8l.8 3",
-  // A ball leaving the hand along an arc.
-  pass: "M4 17c4-8 10-11 16-11 M20 6l-4.5.4 M20 6l-.6 4.4 M6 19.5a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2",
+  // A closed loop with an arrowhead: a roll. Drawn heavy and simple, because it is read
+  // at arm's length on a phone rather than in a toolbar.
+  tumble: "M18 12a6 6 0 1 1-3.2-5.3 M15.4 3.4l-.6 3.6 3.6.6",
+  // A ball on a rising arc.
+  pass: "M3 18c5-9 12-12 18-12 M6.5 19.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4",
   // Straight up, off the ground.
-  jump: "M12 4v11 M7.5 8.5 12 4l4.5 4.5 M5 20h14",
+  jump: "M12 3.5v10 M7.5 8 12 3.5 16.5 8 M4 20.5h16",
 };
 
 /** The word a screen reader gets, and the fallback if a verb is ever unknown. */

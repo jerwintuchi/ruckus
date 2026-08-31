@@ -249,3 +249,33 @@ describe("the button keeps its icon (RD-042)", () => {
     expect(paint).toContain("aria-label");
   });
 });
+
+describe("the button reads at arm's length (action-button T9, R6, R7)", () => {
+  it("sizes the ring explicitly, because inset does not stretch an SVG", () => {
+    // RD-031's mistake in a smaller element: an SVG is a replaced element and takes
+    // its intrinsic size under `inset`, so the ring rendered small and off in a corner.
+    const ring = rule("#cooldownRing");
+    expect(ring).toContain("width:100%");
+    expect(ring).toContain("height:100%");
+    expect(ring).not.toContain("width:auto");
+  });
+
+  it("keeps the number clear of the icon rather than across it", () => {
+    expect(rule("#cooldownNum")).toContain("top:calc(100%");
+  });
+
+  it("gives the icon most of the button", () => {
+    const icon = rule("#actionIconSvg");
+    expect(icon).toContain("width:60%");
+    expect(icon).toContain("height:60%");
+  });
+
+  it("tells the holder their button has a second meaning (R7)", () => {
+    // A hidden second action is not a feature. Everyone else's button does one thing
+    // and says nothing, which is why the hint is conditional.
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+    const setAction = src.slice(src.indexOf("setAction("), src.indexOf("\n  }", src.indexOf("setAction(")));
+    expect(setAction).toContain('verb !== "pass"');
+    expect(setAction).toContain("HOLD");
+  });
+});

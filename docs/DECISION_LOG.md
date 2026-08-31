@@ -1397,3 +1397,44 @@ server change.** The client half hot-reloads and is safe; the server half is not
 and `hot-potato` `"PASS"` after RD-041 renamed the mechanic — the snapshot's live verb
 was right, but the round-start fallback still carried the old word. Both now say
 `TUMBLE`, which is what the button does before the first snapshot arrives.
+
+## RD-043 — Tap tumbles, hold throws; and a ring that would not stretch (2026-08-31)
+
+`specs/action-button/` R6, R7, T8, T9. All three findings came off one phone, none
+were visible from here.
+
+**The role-based button took the tumble away from the player being chased.** RD-041
+made `hot-potato`'s button contextual by *role*: the holder throws, everyone else
+tumbles. Which means the holder — the one person actively fleeing — lost their escape
+move entirely. That is why it played as broken rather than as clever.
+
+It is press duration now: **a tap tumbles, a hold throws.** One button, both actions,
+budget unchanged (non-negotiable 2). The throw fires at the threshold rather than on
+release so a hold feels immediate.
+
+**Only the holder waits.** A first attempt made every press wait for a release to see
+what it meant, which cost 250 ms of responsiveness for everyone whose button has only
+one meaning. Now a press with no second meaning acts instantly, and only the holder's
+press is deferred — the ambiguity is theirs alone, so the delay should be too. The
+pre-existing tumble tests caught this immediately: they press without releasing, and
+under the first version nothing happened at all.
+
+**The holder's button says HOLD.** A control with a hidden second meaning is not a
+feature.
+
+**The cooldown ring never stretched, and it is RD-031 again.** `#cooldownRing` was
+`position:absolute; inset:-4px; width:auto` — and an SVG is a *replaced element*, so
+under `width:auto` it takes its intrinsic size rather than stretching to the inset box.
+It rendered as a small arc off the button's corner. Exactly the canvas bug from RD-031,
+in a smaller element, three weeks of session-time later. Explicit `width:100%;
+height:100%` now, with a test naming the trap.
+
+The number sat across the icon at `translateY(20px)`; it sits under the button now. The
+icons were thin toolbar squiggles at 30 px; they are heavier paths filling 60% of the
+button, which is the size they are actually read at.
+
+**A trap that has now bitten twice in one session.** `CONTROLS_CSS` is a template
+literal, so a backtick in a CSS comment ends the string — RD-036 recorded it, I did it
+again writing the comment above. Worth more than a note: code-quoting an identifier is
+reflex, and inside these two stylesheets it is a syntax error forty lines away from
+where it looks like one.

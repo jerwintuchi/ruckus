@@ -33,12 +33,29 @@ what `btn` does — my error, in `touch-controls` T1 (RD-034).*
 - AC: the shell still knows no minigame by name (RD-009): the round sends a verb, the
       UI renders it
 
+**R7**: One button, two actions, told apart by how long it is pressed.
+- AC: a **tap** tumbles — for everyone, the holder included. The player being chased
+      needs the escape more than anyone, and a purely role-based button took it away
+- AC: a **hold** throws, for the holder only, firing at the threshold rather than on
+      release so it feels immediate
+- AC: one press is never two actions
+- AC: **a press with no second meaning acts instantly.** Only the holder's button is
+      ambiguous, so only the holder waits to find out what their press meant; making
+      everyone wait for a release would cost real responsiveness for a distinction that
+      does not apply to them
+- AC: the holder's button says it has a second meaning — a hidden one is not a feature
+
 **R5**: An icon, not a word.
 - AC: the button carries an icon with an accessible label, in the game's ink vocabulary
 - AC: **no icon files and no icon dependency.** Icons are SVG paths written in code,
       the same argument as the procedural textures (RD-020, RD-001)
 
-**R6**: The cooldown is visible.
+**R6**: The cooldown is visible, and legible.
+- AC: the icon fills the button and reads at arm's length, not at toolbar size
+- AC: the ring is **sized explicitly**, not by `inset` — an SVG is a replaced element
+      and does not stretch to an inset box, which is the RD-031 mistake in a smaller
+      element
+- AC: the number sits clear of the icon rather than across it
 - AC: a ring sweeps as the tumble recharges, with the remaining seconds to one decimal
 - AC: at zero the ring is full and the number is gone — a ready button shows no clutter
 - AC: the cooldown comes from the snapshot; the client never counts it independently
