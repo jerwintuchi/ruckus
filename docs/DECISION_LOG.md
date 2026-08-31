@@ -1479,3 +1479,36 @@ intent.
 guard is the structural answer for this class; the general answer is that the phone is
 the only place UI correctness is decided here, and changes to it should arrive in small
 verifiable batches rather than in a pile.
+
+## RD-045 — A leaderboard you are not on (2026-08-31)
+
+`specs/lobby-flow/` R13, T17, T18. Reported from a real match: "when the game ends I
+only see bots names and not my name in the leaderboard."
+
+**Both result cards were worse than the report.**
+
+- The **round** card filtered to `points > 0`, so a player who had a bad round was
+  simply absent from it.
+- The **match** card showed *only the winner*. Seven players could finish a ten-minute
+  match without ever seeing their own name.
+
+Both now list everyone, ranked, zeros included, with the local player's row marked so a
+board of eight is readable at a glance. A disconnected player is still listed, because
+they were still in the match.
+
+**This one was not a slip — it was a decision, with a test defending it.** `shell` T18
+had an assertion named *"leaves nobody who scored zero on the round card"*, and the
+reasoning was sound on paper: eight rows where six say `+0` is noise. What that reasoning
+could not see is that the six rows saying `+0` include *yours*, and a leaderboard you are
+never on stops being a leaderboard. Vision pillar 3 says losing stays watchable; being
+absent is the opposite of watchable.
+
+The test is reversed rather than deleted, and says so in its name, because the previous
+behaviour was intentional and the reversal should be legible to whoever reads it next.
+
+**The pattern worth keeping.** Today produced two kinds of wrong test: ones that encoded
+a bug I had just written (RD-044's `width:60%`), and this one, which encoded a
+considered choice that only play could falsify. The first kind is a discipline problem.
+The second is not a mistake at all — it is what a spec-driven project looks like when
+the specification meets a room with people in it, and the honest response is to reverse
+it loudly rather than quietly.

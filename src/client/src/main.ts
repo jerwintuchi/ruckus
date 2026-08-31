@@ -177,7 +177,7 @@ function onMessage(msg: ServerMsg): void {
     case "matchEnd":
       playing = false;
       controls.hide();
-      ui.showMatchEnd(players.find((p) => p.slot === msg.winner));
+      ui.showMatchEnd(players.find((p) => p.slot === msg.winner), players, msg.totals);
       bannerUntil = performance.now() + 4000;
       break;
 

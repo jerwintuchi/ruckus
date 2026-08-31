@@ -25,7 +25,7 @@ These are disagreements between what a spec says and what the tree contains.
 | `shell` | 🟡 dormant | 18 | 1 | 0 | 2026-08-31 | MISSING |
 | `arena-framing` | 🟢 active | 5 | 1 | 0 | 2026-08-31 | — |
 | `action-button` | 🟡 dormant | 9 | 1 | 0 | 2026-08-31 | — |
-| `lobby-flow` | 🟡 dormant | 15 | 1 | 0 | 2026-08-31 | — |
+| `lobby-flow` | 🟡 dormant | 17 | 1 | 0 | 2026-08-31 | — |
 | `player-collision` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
 | `responsiveness` | 🟡 dormant | 3 | 1 | 1 | 2026-08-31 | — |
 | `touch-controls` | 🟡 dormant | 8 | 1 | 0 | 2026-08-31 | — |

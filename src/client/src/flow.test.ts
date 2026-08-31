@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ERROR_TEXT, NAME_MAX, createState, initialState, joinState, nameState, reduce, rosterChange, shouldShowWaiting, startState, type FlowEvent, type FlowState } from "./flow.ts";
+import { ERROR_TEXT, NAME_MAX, createState, standings, initialState, joinState, nameState, reduce, rosterChange, shouldShowWaiting, startState, type FlowEvent, type FlowState } from "./flow.ts";
 import { makeRng, type ErrCode, type PlayerView } from "@ruckus/shared";
 
 const SCREENS = ["MENU", "CREATING", "JOINING", "LOBBY", "IN_MATCH"];
@@ -313,5 +313,46 @@ describe("the lobby notices who came and went (lobby-flow T15, R11)", () => {
     const snapshot = JSON.stringify([before, after]);
     rosterChange(before, after);
     expect(JSON.stringify([before, after])).toBe(snapshot);
+  });
+});
+
+describe("everyone is on the board (lobby-flow T17, R13)", () => {
+  const p = (slot: number, name: string, connected = true): PlayerView =>
+    ({ slot, name, colour: "#1ab0ff", score: 0, connected });
+  const roster = [p(0, "a"), p(1, "b"), p(2, "c")];
+
+  it("ranks players who scored nothing rather than dropping them", () => {
+    // The bug: the round card filtered to points > 0, so a bad round removed you from
+    // the leaderboard entirely — the opposite of "losing is still watchable".
+    const rows = standings(roster, { 0: 3, 1: 0 });
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.player.name)).toEqual(["a", "b", "c"]);
+    expect(rows.map((r) => r.points)).toEqual([3, 0, 0]);
+  });
+
+  it("orders by points, and breaks ties by slot so it is stable", () => {
+    const rows = standings(roster, { 0: 1, 1: 5, 2: 1 });
+    expect(rows.map((r) => r.player.name)).toEqual(["b", "a", "c"]);
+  });
+
+  it("gives tied players the same place", () => {
+    const rows = standings(roster, { 0: 4, 1: 4, 2: 1 });
+    expect(rows.map((r) => r.place)).toEqual([1, 1, 3]);
+  });
+
+  it("still lists a player who dropped, because they were in the match", () => {
+    const withGone = [p(0, "a"), p(1, "gone", false)];
+    expect(standings(withGone, { 0: 2 }).map((r) => r.player.name)).toEqual(["a", "gone"]);
+  });
+
+  it("is a pure function of its arguments", () => {
+    const points = { 0: 3 };
+    const snapshot = JSON.stringify([roster, points]);
+    standings(roster, points);
+    expect(JSON.stringify([roster, points])).toBe(snapshot);
+  });
+
+  it("handles an empty roster without inventing a row", () => {
+    expect(standings([], {})).toEqual([]);
   });
 });

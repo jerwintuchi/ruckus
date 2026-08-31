@@ -250,3 +250,40 @@ export function rosterChange(
   const left = [...was].filter(([slot]) => !is.has(slot)).map(([, name]) => name);
   return { joined, left };
 }
+
+export interface Standing {
+  player: PlayerView;
+  points: number;
+  /** 1-based, with ties sharing a place. */
+  place: number;
+}
+
+/**
+ * Everyone, ranked (lobby-flow R13).
+ *
+ * **Including the players who scored nothing.** The round card used to filter to
+ * `points > 0`, so a player who had a bad round simply vanished from the board — which
+ * is the exact opposite of "losing is still watchable" (vision pillar 3). A leaderboard
+ * that omits you is not a leaderboard you are in.
+ *
+ * Ties share a place and break by slot, so the order is stable across renders and
+ * across clients: two players on the same points always appear in the same order.
+ */
+export function standings(
+  players: readonly PlayerView[],
+  points: Record<number, number>,
+): Standing[] {
+  const ranked = [...players]
+    .map((player) => ({ player, points: points[player.slot] ?? 0 }))
+    .sort((a, b) => b.points - a.points || a.player.slot - b.player.slot);
+
+  let place = 0;
+  let previous = Number.NaN;
+  return ranked.map((row, i) => {
+    if (row.points !== previous) {
+      place = i + 1;
+      previous = row.points;
+    }
+    return { ...row, place };
+  });
+}

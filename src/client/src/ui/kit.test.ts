@@ -211,3 +211,19 @@ describe("the count is emphasis, not the message (round-brief R3)", () => {
     expect(rule(".count")).toContain("min-height");
   });
 });
+
+describe("eight rows fit a landscape phone (lobby-flow T18, R13)", () => {
+  it("bounds the card and scrolls inside it rather than growing off screen", () => {
+    // A results card now lists everyone, so on a short landscape phone it is eight
+    // rows rather than two. The card must stay on screen and scroll within itself.
+    const short = UI_CSS.slice(UI_CSS.indexOf("@media (max-height:430px)"));
+    const card = short.slice(short.indexOf(".card{"), short.indexOf("}", short.indexOf(".card{")));
+    expect(card).toContain("max-height");
+    expect(card).toContain("overflow-y:auto");
+  });
+
+  it("marks the local player's row distinctly from a disconnected one", () => {
+    expect(rule(".row.me")).toContain("var(--card-dim)");
+    expect(rule(".row.gone")).toContain("opacity");
+  });
+});

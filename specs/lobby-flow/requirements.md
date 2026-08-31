@@ -61,6 +61,18 @@ what happens, that one says what it looks like.
 - AC: the room returns to the lobby after the match result, with round and scores reset
 - AC: the match-result card says so, so nobody is left wondering whether it is over
 
+## Results
+
+**R13**: Every result names every player, including the ones who scored nothing.
+- AC: the round result lists **all connected players**, ranked by points that round,
+      with zeros shown rather than dropped. Filtering to scorers meant a player who had
+      a bad round vanished from the board entirely
+- AC: the match result shows **final standings**, not only the winner. Losing is
+      supposed to stay watchable (vision pillar 3); being absent is the opposite
+- AC: **you can find yourself at a glance** — the local player's row is marked
+- AC: a disconnected player is still listed, because they were still in the match
+- AC: eight rows fit a landscape phone without the card leaving the screen
+
 ## Joining
 
 **R3**: As a player, I join an existing room by its code.

@@ -7,7 +7,7 @@
  */
 import type { PlayerView } from "@ruckus/shared";
 import type { FlowEvent, FlowState } from "../flow.ts";
-import { createState, joinState, startState } from "../flow.ts";
+import { createState, joinState, standings, startState, type Standing } from "../flow.ts";
 import { colourFor, escapeHtml } from "./kit.ts";
 import { renderHud, roundLabel, type HudData } from "./hud.ts";
 
@@ -28,6 +28,8 @@ export class Ui {
   private readonly hud: HTMLElement;
   private readonly toastEl: HTMLElement;
   private toastTimer = 0;
+  /** Whose row to mark as "you" on a results card. */
+  private mySlot = -1;
   /** Kept so the share button can build a link without being handed state again. */
   private code = "";
 
@@ -107,6 +109,7 @@ export class Ui {
     (this.q("#createBtn") as HTMLButtonElement).disabled = !create.canCreate;
     this.q("#nameNote").textContent = create.note;
 
+    this.mySlot = state.mySlot;
     if (state.screen === "LOBBY") {
       this.code = state.code;
       this.q("#roomCode").textContent = state.code;
@@ -243,27 +246,48 @@ export class Ui {
     if (text) el.classList.add("pulse");
   }
 
-  showRoundEnd(scores: Record<number, number>, players: PlayerView[]): void {
-    const rows = players
-      .map((p) => ({ p, pts: scores[p.slot] ?? 0 }))
-      .filter((e) => e.pts > 0)
-      .sort((a, b) => b.pts - a.pts || a.p.slot - b.p.slot)
-      .map(
-        (e) => `<div class="row"><span class="dot" style="background:${colourFor(e.p.slot)}"></span>
-             <span class="nm">${escapeHtml(e.p.name)}</span><span class="sc">+${e.pts}</span></div>`,
-      )
+  /**
+   * One row per player, ranked, with the local player marked (R13).
+   *
+   * `you` is what makes a board usable at a glance in a room of eight; without it you
+   * are reading names looking for your own.
+   */
+  private standingRows(rows: Standing[], prefix: string): string {
+    return rows
+      .map((r) => {
+        const me = r.player.slot === this.mySlot ? " me" : "";
+        const gone = r.player.connected ? "" : " gone";
+        return `<div class="row${me}${gone}">` +
+          `<span class="dot" style="background:${colourFor(r.player.slot)}"></span>` +
+          `<span class="nm">${escapeHtml(r.player.name)}</span>` +
+          `<span class="sc">${prefix}${r.points}</span></div>`;
+      })
       .join("");
+  }
+
+  showRoundEnd(scores: Record<number, number>, players: PlayerView[]): void {
+    // Everyone, not just the scorers. Filtering to `points > 0` meant a player who had
+    // a bad round vanished from the board entirely (R13).
+    const rows = this.standingRows(standings(players, scores), "+");
     this.banner.innerHTML = `<div class="card tilt"><div class="big">round over</div>${rows}</div>`;
     this.banner.style.display = "flex";
   }
 
-  showMatchEnd(winner: PlayerView | undefined): void {
+  showMatchEnd(
+    winner: PlayerView | undefined,
+    players: PlayerView[] = [],
+    totals: Record<number, number> = {},
+  ): void {
     const dot = winner
       ? `<span class="dot" style="background:${colourFor(winner.slot)}"></span> `
       : "";
+    // Final standings, not only the winner. Showing one name meant seven players
+    // finished a ten-minute match without seeing their own (R13).
+    const rows = this.standingRows(standings(players, totals), "");
     this.banner.innerHTML =
       `<div class="card tilt"><div class="dim">winner</div>` +
       `<div class="big">${dot}${winner ? escapeHtml(winner.name) : "nobody"}</div>` +
+      `${rows}` +
       // Nobody should be left wondering whether that was the end of the evening (R12).
       `<p class="rule">back to the lobby — start again whenever you like</p></div>`;
     this.banner.style.display = "flex";

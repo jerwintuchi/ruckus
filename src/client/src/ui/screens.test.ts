@@ -272,13 +272,18 @@ describe("the round card and results (shell T18)", () => {
     expect(order[1]).toBeLessThan(order[2]!);
   });
 
-  it("leaves nobody who scored zero on the round card", () => {
+  it("keeps a player who scored zero on the round card (REVERSED, RD-045)", () => {
+    // This test used to assert the opposite: that a zero-scorer was left OFF the card.
+    // That was a deliberate choice — a round card of eight rows where six say +0 is
+    // noise — and it survived until someone played a real match and could not find
+    // their own name on any leaderboard. Vision pillar 3 says losing stays watchable,
+    // and being absent from the board is the opposite of watchable.
     const { root } = stubDom();
     const ui = new Ui(root, noop);
     ui.showRoundEnd({ 0: 3, 1: 0 }, players(2));
     const html = at(root, "#banner").innerHTML;
     expect(html).toContain("p0");
-    expect(html).not.toContain("p1");
+    expect(html).toContain("p1");
   });
 
   it("names the winner at the end of a match", () => {
@@ -476,5 +481,48 @@ describe("a deep link can actually be joined (RD-042)", () => {
       const field = screen === "MENU" ? "#name" : "#joinName";
       expect(at(root, field), screen).toBeTruthy();
     }
+  });
+});
+
+describe("the results cards name everyone, including you (lobby-flow T17, R13)", () => {
+  const roster: PlayerView[] = [
+    { slot: 0, name: "bot-1", colour: "#1ab0ff", score: 5, connected: true },
+    { slot: 1, name: "bot-2", colour: "#ff3f18", score: 3, connected: true },
+    { slot: 4, name: "jerwin", colour: "#ffef14", score: 0, connected: true },
+  ];
+
+  it("lists a player who scored nothing this round", () => {
+    // The reported bug: only bot names appeared, because the card filtered to scorers.
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render({ ...initialState(), screen: "LOBBY", mySlot: 4, players: roster });
+    ui.showRoundEnd({ 0: 3, 1: 1 }, roster);
+    expect(at(root, "#banner").innerHTML).toContain("jerwin");
+  });
+
+  it("marks your own row so you can find yourself at a glance", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render({ ...initialState(), screen: "LOBBY", mySlot: 4, players: roster });
+    ui.showRoundEnd({ 0: 3 }, roster);
+    expect(at(root, "#banner").innerHTML).toContain('class="row me"');
+  });
+
+  it("shows final standings at the end of the match, not just a winner", () => {
+    // Showing one name meant seven players finished a ten-minute match without ever
+    // seeing their own.
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render({ ...initialState(), screen: "LOBBY", mySlot: 4, players: roster });
+    ui.showMatchEnd(roster[0], roster, { 0: 9, 1: 4, 4: 2 });
+    const html = at(root, "#banner").innerHTML;
+    for (const name of ["bot-1", "bot-2", "jerwin"]) expect(html, name).toContain(name);
+    expect(html).toContain("start again");
+  });
+
+  it("still works with no roster at all", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    expect(() => ui.showMatchEnd(undefined)).not.toThrow();
   });
 });

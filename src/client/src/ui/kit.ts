@@ -126,6 +126,9 @@ input::placeholder{color:var(--text-dim)}
 
 .row{display:flex;align-items:center;gap:10px;padding:5px 2px}
 .row.gone{opacity:.42}
+/* Your own row, so a board of eight is readable at a glance (R13). */
+.row.me{background:var(--card-dim);border-radius:10px;padding-left:6px;padding-right:6px}
+.row.me .nm{font-weight:800}
 .dot{width:15px;height:15px;border-radius:5px;border:2px solid var(--ink);
   display:inline-block;flex:0 0 auto}
 .nm{flex:1;text-align:left;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

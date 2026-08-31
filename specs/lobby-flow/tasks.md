@@ -87,6 +87,16 @@ inventing a second one.
   match can start; `match.test.ts` already proves round and scores reset, and this
   task adds no server behaviour
 
+- [x] T17 [R13] — `standings` in `src/client/src/flow.ts`, and the two result cards
+  Test: `flow.test.ts` — `standings` ranks every player including zero-scorers, breaks
+  ties by slot so it is stable, and is a pure function; `screens.test.ts` — the round
+  card lists a player who scored nothing, the match card lists every player and not
+  just the winner, and the local player's row is marked in both
+
+- [x] T18 [R13] — Eight rows fit a short landscape phone
+  Test: `kit.test.ts` — the result card is bounded and scrolls internally rather than
+  growing past the viewport, under the short-viewport query T17 already establishes
+
 - [ ] T12 — Played for real: create a room on one device, join it from another by the
   link, play a round, and have someone leave and come back
   Test: manual, via `pnpm playtest`. The questions are whether the code is readable
