@@ -151,17 +151,17 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
     </div>
     <div class="stamp">
       <span class="badge ok">all green</span><br>
-      <b>2026-08-31 04:47 UTC</b><br>
-      <code>14298cd</code> fix(client): the phone build was unusable and the suite was green — T19
+      <b>2026-08-31 05:01 UTC</b><br>
+      <code>e020c35</code> docs: two specs out of the first phone playtest — arena-framing, touch-controls
     </div>
   </header>
 
   <div class="metrics">
     <div class="metric"><b>4</b><span>Minigames shipped</span></div>
-    <div class="metric"><b>83</b><span>Tasks done <em>/ 3 open</em></span></div>
+    <div class="metric"><b>83</b><span>Tasks done <em>/ 16 open</em></span></div>
     <div class="metric"><b>463</b><span>Tests</span></div>
-    <div class="metric"><b>2,980</b><span>Eager context tokens</span></div>
-    <div class="metric"><b>29</b><span>Decisions logged</span></div>
+    <div class="metric"><b>3,000</b><span>Eager context tokens</span></div>
+    <div class="metric"><b>30</b><span>Decisions logged</span></div>
   </div>
 
   <section>
@@ -172,7 +172,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
       <li class="guard guard--ok">
           <span class="guard__state">pass</span>
           <span class="guard__label">Eager context under budget</span>
-          <span class="guard__detail">context budget OK — ~2,980 eager tokens</span>
+          <span class="guard__detail">context budget OK — ~3,000 eager tokens</span>
         </li>
 <li class="guard guard--ok">
           <span class="guard__state">pass</span>
@@ -182,7 +182,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
 <li class="guard guard--ok">
           <span class="guard__state">pass</span>
           <span class="guard__label">Spec registry matches the tree</span>
-          <span class="guard__detail">spec registry OK — 7 spec(s), 1 flagged</span>
+          <span class="guard__detail">spec registry OK — 9 spec(s), 3 flagged</span>
         </li>
     </ul>
   </section>
@@ -240,6 +240,14 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
         <thead><tr><th>Spec</th><th>Status</th><th class="num">Done</th><th class="num">Open</th><th>Progress</th><th>Flags</th></tr></thead>
         <tbody>
         <tr>
+          <td><code>arena-framing</code></td>
+          <td><span class="chip chip--active">active</span></td>
+          <td class="num">0</td>
+          <td class="num">6</td>
+          <td class="bar"><span style="--pct:0%"></span></td>
+          <td class="flags"><span class="flag">MISSING</span><span class="flag">LIKELY-SHIPPED</span></td>
+        </tr>
+<tr>
           <td><code>shell</code></td>
           <td><span class="chip chip--dormant">dormant</span></td>
           <td class="num">18</td>
@@ -248,8 +256,16 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
           <td class="flags"><span class="flag">MISSING</span></td>
         </tr>
 <tr>
+          <td><code>touch-controls</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">0</td>
+          <td class="num">7</td>
+          <td class="bar"><span style="--pct:0%"></span></td>
+          <td class="flags"><span class="flag">MISSING</span><span class="flag">LIKELY-SHIPPED</span></td>
+        </tr>
+<tr>
           <td><code>lobby-flow</code></td>
-          <td><span class="chip chip--active">active</span></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
           <td class="num">11</td>
           <td class="num">1</td>
           <td class="bar"><span style="--pct:92%"></span></td>
@@ -305,7 +321,8 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
     <p class="lead">Append-only. Newest first. Each records what was decided, the context
     that forced it, and what follows.</p>
     <ol class="decisions">
-      <li><span class="rd">RD-029</span><span class="rd__t">The desktop build was perfect and the phone build was unusable</span><time>2026-08-31</time></li>
+      <li><span class="rd">RD-030</span><span class="rd__t">Two specs out of one playtest</span><time>2026-08-31</time></li>
+<li><span class="rd">RD-029</span><span class="rd__t">The desktop build was perfect and the phone build was unusable</span><time>2026-08-31</time></li>
 <li><span class="rd">RD-028</span><span class="rd__t">The outline is free per fragment and is not free per draw</span><time>2026-08-31</time></li>
 <li><span class="rd">RD-027</span><span class="rd__t">The world is paper now</span><time>2026-08-31</time></li>
 <li><span class="rd">RD-026</span><span class="rd__t">Procedural paper, and a guard that had to be worked around rather than weakened</span><time>2026-08-31</time></li>

@@ -869,3 +869,51 @@ connection was attempted" when the server only ever logs its startup line, and t
 two fixes chased the join path the symptom named. The screenshot settled it — a *text
 input* that will not focus was never a join-flow bug. Trust the artefact over the
 report of it.
+
+## RD-030 — Two specs out of one playtest (2026-08-31)
+
+**Decision.** `specs/arena-framing/` and `specs/touch-controls/`, both written straight
+out of the first phone playtest that got far enough to play a round (RD-029 is what got
+it that far).
+
+**Split rather than merged**, though they came from one session, because each ships
+alone: one is a rendering change, the other an input change, and neither needs the
+other to be worth having. The workflow's test for a spec is "one shippable thing", not
+"one afternoon's findings".
+
+**What the playtest found that no test could.**
+
+*The camera fits at one aspect ratio.* Every arena declares `fov: 45`, which in Three.js
+is the **vertical** field of view, so the horizontal extent is whatever the viewport's
+aspect makes it. At a portrait phone's 0.46 that is about 21° across, and a 24 m arena
+arrived as one enormous character. `resize()` updates `camera.aspect` correctly and
+never re-frames — so it fits on the desktop it was authored on and nowhere else. A fixed
+camera is a promise that everyone sees everything (vision pillar 3); it held at exactly
+one screen shape.
+
+*The controls have never been drawn.* `InputController` has worked all along — left half
+plants a stick, right 40% is the button — and `stickView` computes precisely where to
+draw it. **Nothing reads `stickView`.** It is dead code, and has been since it was
+written. The playtester moved and passed the bomb by discovering unmarked screen
+regions, which is the exact inverse of "anyone can be handed a phone mid-match and play
+the next round without instruction".
+
+**Two consequences worth naming now.**
+
+`ArenaDescriptor` gains an `extent` in metres, because the client cannot infer arena size:
+`falling-floor` ships `statics: []` and its grid arrives later via `setTiles`. An extent
+is a dimension, not a camera instruction — the server states how big the arena is and
+still learns nothing about 3D, so non-negotiable 1 holds.
+
+`Minigame` gains an optional `buttonLabel`, so the button can read JUMP in `sweepers` and
+PASS in `hot-potato`. The alternative — a generic word — fails the five-second
+legibility pillar, and the alternative to *that* is the UI knowing minigame ids, which
+RD-009 forbids. The label travels beside `rule`, and a registry test makes it impossible
+for the next `stick+button` minigame to forget one.
+
+**The input budget is unchanged.** One stick, at most one button, no camera control.
+These specs draw the budget that already exists; they do not widen it.
+
+**Note on the registry.** Both specs report `LIKELY-SHIPPED` on their first few tasks,
+because those name files that already exist. That is the heuristic working as designed
+on a spec written before its work starts, and it will clear as the boxes are ticked.

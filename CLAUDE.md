@@ -30,14 +30,16 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 <!-- Max 20 lines. Pointer + next actions only. No history. -->
 
-Phase: **Growing the minigame roster.**
+Phase: **Making it playable on a phone.**
 
-Four minigames ship: `falling-floor`, `hot-potato`, `sweepers`, `scramble`. The plugin
-contract holds — the last three each needed one line in the server registry and no
-client code. `scramble` is the first non-elimination round.
+Four minigames ship and the paper look is in. The first phone playtest reached a round
+and found the build is not yet playable on the device it is designed for (RD-029,
+RD-030).
 
-Next: `specs/lobby-flow/` T11 (theme the menu/lobby) and T12 (play it for real), then
-`specs/visual-direction/` — paper world, party UI, procedural textures.
+Next: `specs/arena-framing/` — the camera fits one aspect ratio and no other — then
+`specs/touch-controls/` — the stick and button have never been drawn. `specs/
+visual-direction/` T19 stays open behind both; its two questions cannot be answered
+until a phone can play a round properly.
 
 ## Trust Boundary
 
