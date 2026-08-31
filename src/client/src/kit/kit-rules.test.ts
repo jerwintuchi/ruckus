@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { withGuardLock } from "../../../../tools/guard-lock.mjs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { checker, stock } from "./textures.ts";
@@ -36,35 +37,41 @@ describe("the Kit stays closed with textures in play (T2, R1)", () => {
     expect(r.code, r.out).toBe(0);
   });
 
-  it("still rejects an image file", () => {
-    const stray = join(ROOT, "src", "client", "src", "kit", "__probe.png");
-    try {
-      writeFileSync(stray, "not really a png");
-      const r = run();
-      expect(r.code).toBe(1);
-      expect(r.out).toContain("KIT VIOLATION");
-    } finally {
-      rmSync(stray, { force: true });
-    }
-    expect(run().code).toBe(0);
+  it("still rejects an image file", async () => {
+    // Under the lock: check.test.ts seeds this same shared tree from another worker,
+    // and either file's "green again" assertion could otherwise see the other's seed.
+    await withGuardLock(() => {
+      const stray = join(ROOT, "src", "client", "src", "kit", "__probe.png");
+      try {
+        writeFileSync(stray, "not really a png");
+        const r = run();
+        expect(r.code).toBe(1);
+        expect(r.out).toContain("KIT VIOLATION");
+      } finally {
+        rmSync(stray, { force: true });
+      }
+      expect(run().code).toBe(0);
+    });
   });
 
-  it("still rejects a loader", () => {
+  it("still rejects a loader", async () => {
     // Assembled at runtime rather than written literally: kit_check scans this very
     // file, and naming the forbidden thing in source would make the test a violation
     // of the rule it is testing. Weakening the guard to allow it would be the wrong
     // trade — the guard should stay maximally strict and the test should work around it.
     const forbidden = ["Texture", "Loader"].join("");
-    const stray = join(ROOT, "src", "client", "src", "kit", "__probe_loader.ts");
-    try {
-      writeFileSync(stray, `const t = new ${forbidden}().load("x");\nexport default t;\n`);
-      const r = run();
-      expect(r.code).toBe(1);
-      expect(r.out).toMatch(/asset loader/);
-    } finally {
-      rmSync(stray, { force: true });
-    }
-    expect(run().code).toBe(0);
+    await withGuardLock(() => {
+      const stray = join(ROOT, "src", "client", "src", "kit", "__probe_loader.ts");
+      try {
+        writeFileSync(stray, `const t = new ${forbidden}().load("x");\nexport default t;\n`);
+        const r = run();
+        expect(r.code).toBe(1);
+        expect(r.out).toMatch(/asset loader/);
+      } finally {
+        rmSync(stray, { force: true });
+      }
+      expect(run().code).toBe(0);
+    });
   });
 
   it("does not mistake DataTexture for a loader", () => {

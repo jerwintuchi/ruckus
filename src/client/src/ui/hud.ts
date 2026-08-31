@@ -65,3 +65,22 @@ export function myCount(extra: HudData | undefined, slot: number): number | null
 export function roundLabel(displayName: string, round: number, of: number): string {
   return `<div class="gauge"><span>${escapeHtml(displayName)} · ${round}/${of}</span></div>`;
 }
+
+/** The count shown before a round: 3, 2, 1, then nothing. */
+export const COUNT_FROM = 3;
+
+/**
+ * The number to draw before a round starts, or 0 for none (round-brief T1, R1, P1).
+ *
+ * Derived from the server's absolute `endsAt`, never ticked locally. A client that
+ * receives `intro` a second late computes 2, not 3, so everyone counts to the same
+ * instant — a `setInterval` started on arrival would count each player to their own.
+ *
+ * Clamped at both ends: a clock far behind must not print 9, and one far ahead must
+ * not print a negative. Neither is hypothetical across a phone, a laptop and a server.
+ */
+export function countdownAt(endsAt: number, now: number): number {
+  const remaining = endsAt - now;
+  if (!Number.isFinite(remaining) || remaining <= 0) return 0;
+  return Math.min(COUNT_FROM, Math.ceil(remaining / 1000));
+}

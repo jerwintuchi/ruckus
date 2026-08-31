@@ -19,6 +19,13 @@ function stubDom() {
     disabled = false;
     id = "";
     className = "";
+    /** Enough of a classList for code that toggles a class; the set is inspectable. */
+    classes = new Set<string>();
+    classList = {
+      add: (c: string) => this.classes.add(c),
+      remove: (c: string) => this.classes.delete(c),
+      contains: (c: string) => this.classes.has(c),
+    };
     listeners: Record<string, (() => void)[]> = {};
     private html = "";
 
@@ -54,7 +61,7 @@ function stubDom() {
 
 /** The stub's elements, typed for the assertions below. */
 type Probe = { style: Record<string, string>; textContent: string; innerHTML: string;
-  value: string; disabled: boolean; readOnly: boolean; click(): void };
+  value: string; disabled: boolean; readOnly: boolean; classes: Set<string>; click(): void };
 const at = (root: HTMLElement, sel: string): Probe =>
   root.querySelector(sel) as unknown as Probe;
 
@@ -296,5 +303,47 @@ describe("arriving mid-match says so (arena-framing, I8)", () => {
     ui.showWaiting();
     ui.hideBanner();
     expect(at(root, "#banner").style.display).toBe("none");
+  });
+});
+
+describe("the count on the intro card (round-brief T2, T3, R1, R3)", () => {
+  const intro = (ui: Ui): void => ui.showIntro("Hot Potato", "Pass the bomb before it goes off.", 2, 5);
+
+  it("keeps the rule verbatim beside the number", () => {
+    // The count is an addition to the card, not a replacement for it: vision pillar 1
+    // gives the rule five seconds to land and the number must not crowd it out.
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    intro(ui);
+    ui.setCountdown(3);
+    expect(at(root, "#banner").innerHTML).toContain("Pass the bomb before it goes off.");
+  });
+
+  it("draws the number, and nothing at all at zero", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    intro(ui);
+    ui.setCountdown(3);
+    expect(at(root, "#count").textContent).toBe("3");
+    ui.setCountdown(1);
+    expect(at(root, "#count").textContent).toBe("1");
+    // The first second of the intro, and everything after the deadline.
+    ui.setCountdown(0);
+    expect(at(root, "#count").textContent).toBe("");
+  });
+
+  it("updates without a new message arriving (T3)", () => {
+    // The render loop drives it against the server's deadline; no per-second traffic.
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    intro(ui);
+    for (const n of [3, 3, 2, 1]) ui.setCountdown(n);
+    expect(at(root, "#count").textContent).toBe("1");
+  });
+
+  it("does nothing when no intro card is showing", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    expect(() => ui.setCountdown(2)).not.toThrow();
   });
 });

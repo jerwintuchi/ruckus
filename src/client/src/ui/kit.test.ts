@@ -192,3 +192,22 @@ describe("the canvas is sized by CSS, not by its drawing buffer (RD-031)", () =>
     expect(canvas).toContain("height:100%");
   });
 });
+
+describe("the count is emphasis, not the message (round-brief R3)", () => {
+  it("lands with the same overshoot the rest of the UI uses", () => {
+    expect(UI_CSS).toContain("@keyframes countIn");
+    expect(rule(".count.pulse")).toContain("countIn");
+  });
+
+  it("keeps the number under reduced motion, and drops only the movement", () => {
+    // The blanket rule removes every animation; the number itself is text and stays.
+    const reduced = UI_CSS.slice(UI_CSS.indexOf("@media (prefers-reduced-motion:reduce)"));
+    const block = reduced.slice(0, reduced.indexOf("\n}"));
+    expect(block).toContain("animation:none!important");
+    expect(block).not.toContain(".count{display:none");
+  });
+
+  it("reserves its line, so the card does not jump when the number appears", () => {
+    expect(rule(".count")).toContain("min-height");
+  });
+});

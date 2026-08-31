@@ -239,5 +239,3 @@ export const fallingFloor: Minigame<FallingFloorState> = {
   },
 };
 
-/** Exported for the determinism and termination tests. */
-export const TICK_SECONDS = TICK_DT;

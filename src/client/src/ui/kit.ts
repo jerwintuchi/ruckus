@@ -135,6 +135,17 @@ input::placeholder{color:var(--text-dim)}
 .big{font-family:Fredoka,sans-serif;font-weight:700;font-size:clamp(26px,6.5vw,34px);line-height:1.05}
 .rule{font-size:clamp(15px,4vw,18px);color:var(--text);max-width:26ch;margin:0 auto}
 
+/* The count before a round. Big enough to read across a room, quiet when empty. */
+.count{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;
+  font-size:clamp(34px,9vw,48px);line-height:1;min-height:1em;
+  font-variant-numeric:tabular-nums;color:var(--ink)}
+.count.pulse{animation:countIn .3s cubic-bezier(.2,.9,.3,1.2) both}
+@keyframes countIn{
+  0%{transform:scale(.7);opacity:0}
+  62%{transform:scale(1.08);opacity:1}
+  100%{transform:scale(1);opacity:1}
+}
+
 /* The HUD sits above the arena, out of both thumb corners (R11). */
 #hud{position:fixed;top:0;left:0;right:0;z-index:5;
   padding:calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))

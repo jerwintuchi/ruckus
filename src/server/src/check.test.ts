@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { withGuardLock } from "../../../tools/guard-lock.mjs";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -59,20 +60,24 @@ describe("repo guards (T19)", () => {
     }
   });
 
-  it("kit_check actually rejects an asset (RD-001)", () => {
-    const dir = mkdtempSync(join(tmpdir(), "ruckus-kit-"));
-    const stray = join(ROOT, "src", "client", "src", "__kitcheck_probe.png");
-    try {
-      writeFileSync(stray, "not really a png");
-      const r = run("kit_check.py", "--check");
-      expect(r.code).toBe(1);
-      expect(r.out).toContain("KIT VIOLATION");
-    } finally {
-      rmSync(stray, { force: true });
-      rmSync(dir, { recursive: true, force: true });
-    }
-    // And green again once it is gone, so the guard is not simply always red.
-    expect(run("kit_check.py", "--check").code).toBe(0);
+  it("kit_check actually rejects an asset (RD-001)", async () => {
+    // Under the lock: kit-rules.test.ts seeds the same shared tree from another worker,
+    // and either file's "green again" assertion could otherwise see the other's seed.
+    await withGuardLock(() => {
+      const dir = mkdtempSync(join(tmpdir(), "ruckus-kit-"));
+      const stray = join(ROOT, "src", "client", "src", "__kitcheck_probe.png");
+      try {
+        writeFileSync(stray, "not really a png");
+        const r = run("kit_check.py", "--check");
+        expect(r.code).toBe(1);
+        expect(r.out).toContain("KIT VIOLATION");
+      } finally {
+        rmSync(stray, { force: true });
+        rmSync(dir, { recursive: true, force: true });
+      }
+      // And green again once it is gone, so the guard is not simply always red.
+      expect(run("kit_check.py", "--check").code).toBe(0);
+    });
   });
 
   it("context_budget actually rejects history prose in Active Work (RD-002)", () => {

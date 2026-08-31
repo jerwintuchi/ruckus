@@ -1132,3 +1132,62 @@ instance today. Both were conditions and coordinates that *looked* obviously rig
 the diff and were only wrong in a state the diff does not show — a `room` broadcast at
 round end, an element of a different height. The mechanical guards this project is built
 on could not have caught either. The phone caught both inside ten minutes.
+
+## RD-036 — 30 Hz, and the tick rate turned out to be a gameplay constant (2026-08-31)
+
+**Decision.** `TICK_HZ` 20 -> 30, `INTERP_DELAY_MS` 100 -> 70, input sent at `TICK_MS`
+rather than a literal 50. About 55 ms off an input-to-picture path that was roughly
+150 ms plus RTT. `specs/responsiveness/`.
+
+**The two constants are one decision.** A 70 ms buffer at 20 Hz covers 1.4 snapshots —
+one late packet and the picture holds. At 30 Hz the same 70 ms covers 2.1, which is the
+safety the old 100 ms bought at 20 Hz. Shipping the shorter buffer alone would have
+traded a visible stall for the latency. `constants.test.ts` now pins the *ratio*, so
+the two can be retuned together and not apart.
+
+**Netcode-invariant I5 said 20 Hz and I6 said ~100 ms.** Both are updated in the same
+commit. An invariant that disagrees with the code is worse than either.
+
+**The finding: raising the tick rate changed the jump.** Vertical motion was
+semi-implicit Euler — `vy -= G·dt; y += vy·dt` — whose trajectory depends on `dt`. The
+same jump peaked at 1.335 m at 20 Hz and 1.411 m at 30 Hz. Sweepers is built on that
+arc; RD-012 measured it deliberately, precisely because deriving it had been wrong
+before. So the tick rate was a gameplay constant that nobody had declared, and a netcode
+change was quietly a balance change.
+
+Fixed rather than accommodated: `y += vy·dt - ½·G·dt²` integrates constant acceleration
+exactly, so the arc is identical at 20, 30, 60 and 144 Hz. With the old constants that
+gives the textbook 1.558 m — a 17% higher jump — so `GRAVITY` 26 -> 29.67 and
+`JUMP_SPEED` 9 -> 8.90, derived to reproduce the measured 1.335 m over 0.600 s exactly.
+**The jump feels exactly as it did, and no tick rate can retune it again.**
+
+Horizontal movement was already rate-independent: `moveToward(vel, wish, rate·dt)`
+approaches a target at a fixed rate per second, so only the vertical axis was affected.
+
+**Bandwidth, measured rather than called small.** Per client at 8 players:
+`hot-potato` 13.8 -> 20.7 KiB/s, `sweepers` 17.1 -> 25.7, `falling-floor` 17.7 -> 26.6,
+`scramble` 27.1 -> 40.6. Worst case **41 KiB/s down per client**, 325 KiB/s for a full
+lobby. Fine on WiFi and on real mobile data.
+
+**Three test-suite lessons fell out.**
+
+- **`50` meant "one tick" in four test files.** Every one now steps by `TICK_MS`. A
+  literal that silently encodes a constant is a trap that only springs when the
+  constant moves.
+- **`minThicknessFor` no longer "grows with the multiplier".** At 30 Hz a tick of
+  dashing is short enough that the global floor already covers it, so the old assertion
+  became false — correctly, because faster ticks make tunnelling *harder*. The test now
+  states the invariant that is actually true: never below the floor, never below a
+  tick of travel, monotone in speed.
+- **A pre-existing flake surfaced.** `kit-rules.test.ts` and `check.test.ts` both seed
+  a forbidden file into the shared working tree and run `kit_check.py`, in parallel
+  vitest workers — so either file's "green again once it is gone" assertion could
+  observe the other's seed. It failed about one run in three and was easy to blame on
+  whatever change had shifted the timing. Both now take a `mkdir`-based mutex
+  (`tools/guard-lock.mjs`). Two tests mutating shared global state concurrently is a
+  bug in the suite, not a fact of life.
+
+**Also in this pass:** `specs/round-brief/` T1-T3 — the intro card counts 3, 2, 1 over
+the last three seconds of its four, derived from the server's absolute `endsAt` so every
+client counts to the same instant. No new message and no per-second traffic; the whole
+feature is one subtraction.

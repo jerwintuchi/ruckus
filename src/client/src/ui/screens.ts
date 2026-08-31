@@ -158,8 +158,28 @@ export class Ui {
     this.banner.innerHTML =
       `<div class="card tilt"><div class="dim">round ${round} of ${of}</div>` +
       `<div class="big">${escapeHtml(displayName)}</div>` +
-      `<p class="rule">${escapeHtml(rule)}</p></div>`;
+      `<p class="rule">${escapeHtml(rule)}</p>` +
+      `<div id="count" class="count"></div></div>`;
     this.banner.style.display = "flex";
+  }
+
+  /**
+   * Tick the count on the intro card (round-brief T2, T3).
+   *
+   * Driven from the render loop against the server's deadline, so no new message and no
+   * per-second traffic: the whole feature is one subtraction. Only the text changes —
+   * the card, and the rule on it, stay exactly as they were.
+   */
+  setCountdown(n: number): void {
+    const el = this.banner.querySelector("#count") as HTMLElement | null;
+    if (!el) return;
+    const text = n > 0 ? String(n) : "";
+    if (el.textContent === text) return; // no needless restart of the animation
+    el.textContent = text;
+    // Retrigger the landing animation for each new number.
+    el.classList.remove("pulse");
+    void el.offsetWidth;
+    if (text) el.classList.add("pulse");
   }
 
   showRoundEnd(scores: Record<number, number>, players: PlayerView[]): void {

@@ -106,8 +106,15 @@ export function stepMovement(
   }
 
   const ground = groundHeight(body.pos);
+  // Exact for constant acceleration, and therefore identical at any tick rate.
+  //
+  // `vy -= G·dt; y += vy·dt` is semi-implicit Euler, whose trajectory depends on dt:
+  // the same jump peaked at 1.335m at 20Hz and 1.411m at 30Hz, which made the tick
+  // rate a gameplay constant nobody had declared. `y += vy·dt - ½·G·dt²` integrates
+  // constant acceleration exactly, so the arc is a physical fact rather than an
+  // artefact of how often the server runs (RD-036).
+  body.y += body.vy * dt - 0.5 * GRAVITY * dt * dt;
   body.vy -= GRAVITY * dt;
-  body.y += body.vy * dt;
 
   if (ground !== null && body.y <= ground && body.vy <= 0) {
     body.y = ground;

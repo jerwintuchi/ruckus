@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   IDLE_INPUT,
   TICK_DT,
+  TICK_MS,
   type InputState,
   type PlayerRuntime,
   type TickCtx,
@@ -83,16 +84,16 @@ describe("tile cracking (T1, R1, P1)", () => {
 
     let t = 0;
     p.body.pos = { ...home };
-    for (let i = 0; i < 5; i++) step((t += 50));
+    for (let i = 0; i < 5; i++) step((t += TICK_MS));
     const partial = state.tiles[cell]!.crack;
     expect(partial).toBeGreaterThan(0);
 
     p.body.pos = { ...away };
-    for (let i = 0; i < 5; i++) step((t += 50));
+    for (let i = 0; i < 5; i++) step((t += TICK_MS));
     expect(state.tiles[cell]!.crack).toBe(partial); // untouched while away
 
     p.body.pos = { ...home };
-    for (let i = 0; i < 5; i++) step((t += 50));
+    for (let i = 0; i < 5; i++) step((t += TICK_MS));
     expect(state.tiles[cell]!.crack).toBeGreaterThan(partial); // resumes, not restarts
   });
 
@@ -107,7 +108,7 @@ describe("tile cracking (T1, R1, P1)", () => {
     for (const p of [...one, ...two]) p.body.pos = { ...centre };
 
     for (let i = 1; i <= 4; i++) {
-      const e = i * 50;
+      const e = i * TICK_MS;
       fallingFloor.tick(s1, { dt: TICK_DT, elapsed: e, rng: makeRng(1), players: one, input: () => IDLE_INPUT });
       fallingFloor.tick(s2, { dt: TICK_DT, elapsed: e, rng: makeRng(1), players: two, input: () => IDLE_INPUT });
     }
@@ -123,7 +124,7 @@ describe("tile cracking (T1, R1, P1)", () => {
     const seen: number[] = [];
 
     for (let i = 1; i <= 80; i++) {
-      const e = i * 50;
+      const e = i * TICK_MS;
       // Pin the player in place; we are testing the tile, not the movement.
       players[0]!.body.pos = { ...tileCentre(4, 4) };
       fallingFloor.tick(state, { dt: TICK_DT, elapsed: e, rng: makeRng(1), players, input: () => IDLE_INPUT });
@@ -153,7 +154,7 @@ describe("elimination by absent ground (T2, R2, P3)", () => {
     // the tile under them, which is a different property (tested above).
     for (let i = 1; i <= 10; i++) {
       fallingFloor.tick(state, {
-        dt: TICK_DT, elapsed: i * 50, rng: makeRng(1), players, input: () => IDLE_INPUT,
+        dt: TICK_DT, elapsed: i * TICK_MS, rng: makeRng(1), players, input: () => IDLE_INPUT,
       });
     }
     expect(players[0]!.alive).toBe(true);
@@ -168,7 +169,7 @@ describe("elimination by absent ground (T2, R2, P3)", () => {
 
     for (let i = 1; i <= 200 && players[0]!.alive; i++) {
       fallingFloor.tick(state, {
-        dt: TICK_DT, elapsed: i * 50, rng: makeRng(1), players, input: () => IDLE_INPUT,
+        dt: TICK_DT, elapsed: i * TICK_MS, rng: makeRng(1), players, input: () => IDLE_INPUT,
       });
     }
     expect(players[0]!.alive).toBe(false);
@@ -185,7 +186,7 @@ describe("elimination by absent ground (T2, R2, P3)", () => {
 
     for (let i = 1; i <= 10; i++) {
       fallingFloor.tick(state, {
-        dt: TICK_DT, elapsed: i * 50, rng: makeRng(1), players, input: () => IDLE_INPUT,
+        dt: TICK_DT, elapsed: i * TICK_MS, rng: makeRng(1), players, input: () => IDLE_INPUT,
       });
     }
     expect(state.tiles[idx(2, 2)]!.crack).toBe(0);
@@ -206,10 +207,10 @@ describe("shrink terminates the round with nobody playing (T3, R4, P2)", () => {
     for (let seed = 0; seed < 200; seed++) {
       const players = mkPlayers(4);
       const state = fallingFloor.init({ rng: makeRng(seed), players });
-      for (let i = 1; i * 50 <= MAX_DURATION_MS; i++) {
+      for (let i = 1; i * TICK_MS <= MAX_DURATION_MS; i++) {
         for (const p of players) p.alive = true; // nobody is allowed to leave early
         fallingFloor.tick(state, {
-          dt: TICK_DT, elapsed: i * 50, rng: makeRng(seed), players, input: () => IDLE_INPUT,
+          dt: TICK_DT, elapsed: i * TICK_MS, rng: makeRng(seed), players, input: () => IDLE_INPUT,
         });
       }
       expect(state.tiles.every((t) => t.state === 2)).toBe(true);
@@ -349,7 +350,7 @@ describe("snapshot and arena (T6, R6, P5)", () => {
 
     for (let i = 1; i <= 1200; i++) {
       fallingFloor.tick(state, {
-        dt: TICK_DT, elapsed: i * 50, rng: makeRng(5), players, input: () => IDLE_INPUT,
+        dt: TICK_DT, elapsed: i * TICK_MS, rng: makeRng(5), players, input: () => IDLE_INPUT,
       });
       const snap = fallingFloor.snapshot(state) as { changed: (readonly [number, number])[] };
       for (const [idxChanged, st] of snap.changed) mirror[idxChanged] = st;

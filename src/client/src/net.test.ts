@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INTERP_DELAY_MS, quantAngle, quantPos, type SnapPlayer } from "@ruckus/shared";
+import { INTERP_DELAY_MS, TICK_MS, quantAngle, quantPos, type SnapPlayer } from "@ruckus/shared";
 import { SnapshotBuffer, lerpAngle } from "./net.ts";
 
 const snap = (slot: number, x: number, z: number, y = 0, a = 0): SnapPlayer => ({
@@ -85,5 +85,31 @@ describe("lerpAngle (T13)", () => {
   it("is the identity at t=0 and reaches the target at t=1", () => {
     expect(lerpAngle(1.2, 2.4, 0)).toBeCloseTo(1.2, 10);
     expect(lerpAngle(1.2, 2.4, 1)).toBeCloseTo(2.4, 10);
+  });
+});
+
+describe("the buffer covers more than one late packet (responsiveness T2, R2, P2)", () => {
+  it("holds at least two snapshots' worth, as a relationship not a number", () => {
+    // The buffer's job is to survive a late packet, and that is a COUNT of snapshots,
+    // not a duration. Pinning the ratio is what makes the two constants safe to retune
+    // together and unsafe to retune apart: 70ms alone at 20Hz covered only 1.4.
+    expect(INTERP_DELAY_MS / TICK_MS).toBeGreaterThanOrEqual(2);
+  });
+
+  it("does not buffer so far ahead that the input feels distant", () => {
+    // The other side of the same trade. Somewhere above three snapshots the latency
+    // costs more than the jitter tolerance is worth.
+    expect(INTERP_DELAY_MS / TICK_MS).toBeLessThanOrEqual(3);
+  });
+
+  it("still holds the newest frame when starved, and never extrapolates (P2)", () => {
+    const b = new SnapshotBuffer();
+    b.push([{ slot: 0, x: 100, y: 0, z: 200, facing: 0, speed: 0, vy: 0, alive: true }] as never, {}, 0);
+    const held = b.sample(10_000); // render clock far past everything we have
+    expect(held).toHaveLength(1);
+    const again = b.sample(50_000);
+    // A guess would keep moving; a hold does not.
+    expect(again[0]!.x).toBe(held[0]!.x);
+    expect(again[0]!.z).toBe(held[0]!.z);
   });
 });

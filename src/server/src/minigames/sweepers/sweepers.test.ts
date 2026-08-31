@@ -6,6 +6,7 @@ import {
   MAX_SPEED,
   PLAYER_RADIUS,
   TICK_DT,
+  TICK_MS,
   type InputState,
   type PlayerRuntime,
   type TickCtx,
@@ -117,7 +118,7 @@ describe("bars and the ramp (T3, R1, R3, P1)", () => {
     const bar = state.bars[0]!;
     const before = bar.angle;
     const speed = bar.speed;
-    step(state, players, 50);
+    step(state, players, TICK_MS);
     const TAU = Math.PI * 2;
     const expected = ((before + speed * TICK_DT) % TAU + TAU) % TAU;
     expect(state.bars[0]!.angle).toBeCloseTo(expected, 10);
@@ -127,7 +128,7 @@ describe("bars and the ramp (T3, R1, R3, P1)", () => {
     const players = mkPlayers(1);
     const state = sweepers.init({ rng: makeRng(3), players });
     for (let i = 1; i <= 2000; i++) {
-      step(state, players, i * 50);
+      step(state, players, i * TICK_MS);
       for (const b of state.bars) {
         expect(b.angle).toBeGreaterThanOrEqual(0);
         expect(b.angle).toBeLessThan(Math.PI * 2);
@@ -140,9 +141,9 @@ describe("bars and the ramp (T3, R1, R3, P1)", () => {
     const rng = makeRng(4);
     const state = sweepers.init({ rng, players });
     const counts: number[] = [];
-    for (let i = 1; i * 50 <= RAMP_MS * (BARS_MAX + 2); i++) {
+    for (let i = 1; i * TICK_MS <= RAMP_MS * (BARS_MAX + 2); i++) {
       sweepers.tick(state, {
-        dt: TICK_DT, elapsed: i * 50, rng, players, input: () => IDLE_INPUT,
+        dt: TICK_DT, elapsed: i * TICK_MS, rng, players, input: () => IDLE_INPUT,
       });
       counts.push(state.bars.length);
     }
@@ -156,9 +157,9 @@ describe("bars and the ramp (T3, R1, R3, P1)", () => {
     const players = mkPlayers(1);
     const rng = makeRng(5);
     const state = sweepers.init({ rng, players });
-    for (let i = 1; i * 50 <= RAMP_MS * BARS_MAX; i++) {
+    for (let i = 1; i * TICK_MS <= RAMP_MS * BARS_MAX; i++) {
       sweepers.tick(state, {
-        dt: TICK_DT, elapsed: i * 50, rng, players, input: () => IDLE_INPUT,
+        dt: TICK_DT, elapsed: i * TICK_MS, rng, players, input: () => IDLE_INPUT,
       });
     }
 
@@ -222,9 +223,11 @@ describe("the sweep hit test (T4, R1, P2)", () => {
     const { airborneTicks, peak } = jumpArc();
     const clear = clearanceTicks(BAR_HEIGHT);
 
-    expect(airborneTicks).toBe(12);
+    // The peak is the tuned quantity and is now exact at any rate; the tick COUNTS are
+    // not, because they are a sampling of it. Assert the height and the seconds, and
+    // let the counts be whatever the rate makes them (RD-036).
     expect(peak).toBeCloseTo(1.335, 3);
-    expect(clear).toBe(6);
+    expect(airborneTicks * TICK_DT).toBeCloseTo(0.6, 1);
 
     // Half the airtime, not most of it: mashing the button must not be a strategy.
     expect(clear / airborneTicks).toBeGreaterThan(0.3);
@@ -266,16 +269,21 @@ describe("the sweep hit test (T4, R1, P2)", () => {
 describe("jumping (T5, R4)", () => {
   const ground = (): number => 0;
 
-  it("flies the discrete arc, which is 17% lower than the textbook one (RD-012)", () => {
+  it("flies the analytic arc now, and the same one at any tick rate (RD-036)", () => {
     const analyticPeak = (JUMP_SPEED * JUMP_SPEED) / (2 * GRAVITY);
     const analyticAir = (2 * JUMP_SPEED) / GRAVITY;
     const { peak, airborneTicks } = jumpArc();
 
-    // The formula is not what the game does; semi-implicit Euler at 20Hz undershoots.
-    expect(peak).toBeLessThan(analyticPeak);
-    expect(analyticPeak / peak).toBeGreaterThan(1.15);
-    expect(airborneTicks * TICK_DT).toBeLessThan(analyticAir);
-    // And the real arc still clears the real bar.
+    // This assertion is the reverse of what it was. The old integration was
+    // semi-implicit Euler, which undershot the formula by 17% AT 20Hz — a different
+    // arc at every tick rate, which made TICK_HZ a gameplay constant nobody had
+    // declared. Integrating constant acceleration exactly makes the arc a physical
+    // fact, so the formula and the game now agree (RD-036).
+    expect(peak).toBeCloseTo(analyticPeak, 6);
+    // Airtime lands within one tick of the analytic value: the trajectory is exact,
+    // only the moment the landing is *noticed* falls on a tick boundary.
+    expect(Math.abs(airborneTicks * TICK_DT - analyticAir)).toBeLessThanOrEqual(TICK_DT);
+    // And the arc still clears the real bar, which is the point of it.
     expect(peak).toBeGreaterThan(BAR_HEIGHT);
   });
 
@@ -291,7 +299,7 @@ describe("jumping (T5, R4)", () => {
     // Keep the button down for the whole arc; height must come back down.
     let maxY = afterFirst;
     for (let i = 2; i <= 40; i++) {
-      step(state, players, i * 50, 1, () => held);
+      step(state, players, i * TICK_MS, 1, () => held);
       maxY = Math.max(maxY, players[0]!.body.y);
     }
     expect(maxY).toBeLessThan(jumpArc().peak + 0.01);
@@ -335,9 +343,9 @@ describe("no safe spot, and walls (T6, R2, R5, P3)", () => {
     const state = sweepers.init({ rng: makeRng(8), players });
     players[0]!.body.pos = vec(0, 0);
     // Past the opening grace: before it, nothing is lethal by design (RD-014).
-    for (let i = 1; i * 50 <= GRACE_MS + 200; i++) {
+    for (let i = 1; i * TICK_MS <= GRACE_MS + 200; i++) {
       players[0]!.body.pos = vec(0, 0);
-      step(state, players, i * 50);
+      step(state, players, i * TICK_MS);
     }
     expect(state.alive.has(0)).toBe(false);
   });
@@ -353,7 +361,7 @@ describe("no safe spot, and walls (T6, R2, R5, P3)", () => {
         // Keep them alive so the walls, not the bars, are what is under test.
         state.alive.add(0);
         players[0]!.alive = true;
-        step(state, players, i * 50, seed, () => ({ axis: dir, btn: i % 20 === 0 }));
+        step(state, players, i * TICK_MS, seed, () => ({ axis: dir, btn: i % 20 === 0 }));
         const { x, z } = players[0]!.body.pos;
         if (Math.abs(x) > HALF + 0.01 || Math.abs(z) > HALF + 0.01) escaped++;
       }
@@ -390,12 +398,12 @@ describe("scoring (T7, R6)", () => {
     const bar = state.bars[0]!;
     const along = (r: number) => vec(Math.cos(bar.angle) * r, Math.sin(bar.angle) * r);
     // Hold both on the line until the opening grace has passed (RD-014).
-    for (let i = 1; i * 50 <= GRACE_MS + 200 && state.alive.size > 0; i++) {
+    for (let i = 1; i * TICK_MS <= GRACE_MS + 200 && state.alive.size > 0; i++) {
       const b2 = state.bars[0]!;
       const on = (r: number) => vec(Math.cos(b2.angle) * r, Math.sin(b2.angle) * r);
       players[0]!.body.pos = on(3);
       players[1]!.body.pos = on(6);
-      step(state, players, i * 50);
+      step(state, players, i * TICK_MS);
     }
 
     expect(state.alive.size).toBe(0);
@@ -464,7 +472,7 @@ describe("snapshot and contract (T9, R8, P4)", () => {
   it("publishes one rotated prim per bar, matching the bar's angle (P4)", () => {
     const players = mkPlayers(2);
     const state = sweepers.init({ rng: makeRng(40), players });
-    step(state, players, 50);
+    step(state, players, TICK_MS);
 
     const snap = sweepers.snapshot(state) as {
       bars: { angle: number }[];
@@ -484,7 +492,7 @@ describe("snapshot and contract (T9, R8, P4)", () => {
     const players = mkPlayers(1);
     const state = sweepers.init({ rng: makeRng(41), players });
     const before = (sweepers.snapshot(state) as { prims: unknown[] }).prims.length;
-    for (let i = 1; i * 50 <= RAMP_MS + 200; i++) step(state, players, i * 50);
+    for (let i = 1; i * TICK_MS <= RAMP_MS + 200; i++) step(state, players, i * TICK_MS);
     const after = (sweepers.snapshot(state) as { prims: unknown[] }).prims.length;
     expect(after).toBe(before + 1);
   });

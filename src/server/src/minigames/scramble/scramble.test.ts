@@ -3,6 +3,7 @@ import {
   IDLE_INPUT,
   PLAYER_RADIUS,
   TICK_DT,
+  TICK_MS,
   minThicknessFor,
   type InputState,
   type PlayerRuntime,
@@ -81,7 +82,7 @@ describe("pickup spawning (T3, R2, P3)", () => {
     // Park the player in a corner so nothing is collected while we watch the cap.
     s.players[0]!.body.pos = vec(-HALF + 1, -HALF + 1);
     const counts: number[] = [];
-    for (let i = 0; i * 50 <= SPAWN_INTERVAL_MS * (MAX_PICKUPS + 10); i++) {
+    for (let i = 0; i * TICK_MS <= SPAWN_INTERVAL_MS * (MAX_PICKUPS + 10); i++) {
       s.players[0]!.body.pos = vec(-HALF + 1, -HALF + 1);
       s.step();
       counts.push(s.state.pickups.length);
@@ -434,7 +435,7 @@ describe("snapshot and contract (T10, R8)", () => {
 
   it("reports a countdown that never goes negative", () => {
     const s = session(2, 14);
-    for (let i = 0; i * 50 <= ROUND_MS + 2000; i++) {
+    for (let i = 0; i * TICK_MS <= ROUND_MS + 2000; i++) {
       s.step();
       expect((scramble.snapshot(s.state) as { remaining: number }).remaining).toBeGreaterThanOrEqual(0);
     }

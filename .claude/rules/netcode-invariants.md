@@ -27,17 +27,19 @@ collision resolution, RNG). No minigame rules, no room state, no side effects.
 A minigame's rules live in `src/server/src/minigames/<id>/`.
 
 ## I5 — Snapshots are small, fixed-shape, and rate-limited
-The server broadcasts at **20 Hz**. A snapshot carries only what the client must
-draw. Numbers are quantized before they go on the wire (positions to centimetres,
+The server broadcasts at **30 Hz** (raised from 20 — RD-036). A snapshot carries only
+what the client must draw. Numbers are quantized before they go on the wire (positions to centimetres,
 angles to a byte). No strings in a per-tick snapshot — ids are indices into the
 round's roster, sent once at `ROUND_START`.
 
 ## I6 — The client interpolates; it does not simulate
-The client renders ~100 ms behind the newest snapshot and interpolates between the
-two that straddle its render clock. It never advances game state itself. There is
-**no client-side prediction in v1** (RD-004): a party game at 20 Hz with interpolation
-feels fine, and prediction doubles the rules surface by putting a copy of every
-minigame in the client — which I1 forbids anyway.
+The client renders **~70 ms** behind the newest snapshot and interpolates between the
+two that straddle its render clock — a little over two snapshots at 30 Hz, which is the
+same safety 100 ms bought at 20 Hz (RD-036). It never advances game state itself, and
+on starvation it **holds** the newest frame rather than extrapolating. There is
+**no client-side prediction in v1** (RD-004): a party game at this rate with
+interpolation feels fine, and prediction doubles the rules surface by putting a copy of
+every minigame in the client — which I1 forbids anyway.
 
 ## I7 — Match state is ephemeral
 Nothing about a live match is persisted. Rooms live in server memory. A restart

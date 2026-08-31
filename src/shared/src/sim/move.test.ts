@@ -176,12 +176,25 @@ describe("stepMovement speedMul (hot-potato T1, R4)", () => {
     expect(runFor(20, 2.1)).toBeGreaterThan(runFor(20, 1) * 1.5);
   });
 
-  it("minThicknessFor grows the requirement with the multiplier", () => {
-    // At base speed the global floor is enough; a dash needs a thicker wall, which
-    // is exactly the thing a single global constant would have hidden.
-    expect(minThicknessFor(1)).toBe(MIN_SOLID_THICKNESS);
-    expect(minThicknessFor(2.1)).toBeGreaterThan(MIN_SOLID_THICKNESS);
-    expect(minThicknessFor(2.1)).toBeCloseTo((MAX_SPEED * 2.1) / TICK_HZ, 10);
+  it("minThicknessFor covers a tick of travel, and never less than the floor", () => {
+    // The invariant is "thick enough that nothing crosses it in one tick, and never
+    // below the global floor" — not "a dash always needs more". Those coincided at
+    // 20Hz and stopped coinciding at 30Hz, where a tick of dashing is short enough
+    // that the floor already covers it (RD-036). Faster ticks make tunnelling harder,
+    // which is the right direction; the test now says the thing that is actually true.
+    for (const mul of [1, 1.5, 2.1, 4, 10]) {
+      expect(minThicknessFor(mul), `mul ${mul}`).toBeGreaterThanOrEqual(MIN_SOLID_THICKNESS);
+      expect(minThicknessFor(mul), `mul ${mul}`).toBeGreaterThanOrEqual((MAX_SPEED * mul) / TICK_HZ);
+    }
+    // Monotone: a faster thing never needs a thinner wall.
+    let previous = 0;
+    for (const mul of [1, 1.5, 2.1, 4, 10]) {
+      const t = minThicknessFor(mul);
+      expect(t, `mul ${mul}`).toBeGreaterThanOrEqual(previous);
+      previous = t;
+    }
+    // And once a tick of travel exceeds the floor, it is the travel that decides.
+    expect(minThicknessFor(10)).toBeCloseTo((MAX_SPEED * 10) / TICK_HZ, 10);
   });
 
   it("still cannot tunnel a wall built to minThicknessFor its multiplier", () => {

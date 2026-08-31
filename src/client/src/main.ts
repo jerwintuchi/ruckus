@@ -3,13 +3,13 @@
  * one render loop. It holds no game state: everything drawn comes from a snapshot
  * (I1, I6), and everything sent is an intention.
  */
-import type { PlayerView, Prim, ServerMsg } from "@ruckus/shared";
+import { TICK_MS, type PlayerView, type Prim, type ServerMsg } from "@ruckus/shared";
 import { initialState, reduce, shouldShowWaiting, type FlowEvent } from "./flow.ts";
 import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
 import { Renderer } from "./render.ts";
-import { CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui } from "./ui/index.ts";
+import { CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui, countdownAt } from "./ui/index.ts";
 
 // The two typefaces are a runtime CDN dependency, not an asset file, with a declared
 // fallback in the stylesheet for a cold load on a bad connection (RD-021).
@@ -42,6 +42,8 @@ let playing = false;
 /** Have we seen a round begin since joining? False only for a mid-match arrival. */
 let roundSeen = false;
 let bannerUntil = 0;
+/** The server's deadline for the current intro, for the countdown (round-brief T3). */
+let introEndsAt = 0;
 let roundLabelInfo: { name: string; round: number; of: number } | null = null;
 let lastExtra: Record<string, unknown> | undefined;
 let handler: ClientMinigame | undefined;
@@ -120,6 +122,8 @@ function onMessage(msg: ServerMsg): void {
 
     case "intro":
       roundSeen = true;
+      // The server's absolute deadline, so every client counts to the same instant.
+      introEndsAt = msg.endsAt;
       ui.showIntro(msg.displayName, msg.rule, msg.round, msg.of);
       roundLabelInfo = { name: msg.displayName, round: msg.round, of: msg.of };
       bannerUntil = performance.now() + 4000;
@@ -136,6 +140,7 @@ function onMessage(msg: ServerMsg): void {
       roundSeen = true;
       // The round says which controls it needs; the shell never asks which game it is.
       controls.show(msg.buttonLabel);
+      introEndsAt = 0;
       ui.hideBanner();
       break;
 
@@ -179,8 +184,10 @@ function frame(now: number): void {
 
 
   // Send input at the tick rate, not the frame rate: at 120fps a phone would be
-  // sending six times more than the server can ever read (R10).
-  if (net.connected && now - lastSent >= 50) {
+  // sending four times more than the server can ever read (R10). Derived from TICK_MS
+  // rather than written as a literal, so the two cannot drift apart again — they did,
+  // at 50ms against a 33ms tick (responsiveness T3).
+  if (net.connected && now - lastSent >= TICK_MS) {
     lastSent = now;
     const i = input.read();
     net.send({ t: "input", ax: i.ax, ay: i.ay, btn: i.btn });
@@ -188,6 +195,9 @@ function frame(now: number): void {
 
   // The drawn stick is a function of the input state, every frame (P1).
   controls.update();
+
+  // The count is derived from the server's deadline, never ticked locally.
+  if (introEndsAt) ui.setCountdown(countdownAt(introEndsAt, Date.now()));
 
   if (bannerUntil && now > bannerUntil) {
     bannerUntil = 0;

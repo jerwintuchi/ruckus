@@ -3,6 +3,7 @@ import {
   IDLE_INPUT,
   MAX_SPEED,
   TICK_DT,
+  TICK_MS,
   minThicknessFor,
   type InputState,
   type PlayerRuntime,
@@ -85,7 +86,7 @@ describe("passing (T4, R1, R2, P1)", () => {
 
     held.body.pos = vec(0, 0);
     other.body.pos = vec(CONTACT * 0.5, 0);
-    step(state, players, 50);
+    step(state, players, TICK_MS);
     expect(state.holder).toBe(other.slot);
   });
 
@@ -97,11 +98,11 @@ describe("passing (T4, R1, R2, P1)", () => {
     a.body.pos = vec(0, 0);
     b.body.pos = vec(CONTACT * 0.5, 0);
 
-    step(state, players, 50);
+    step(state, players, TICK_MS);
     expect(state.holder).toBe(b.slot);
 
     // Still touching, well inside the lock: the bomb must stay put.
-    for (let t = 100; t < PASS_LOCK_MS; t += 50) {
+    for (let t = 100; t < PASS_LOCK_MS; t += TICK_MS) {
       a.body.pos = vec(0, 0);
       b.body.pos = vec(CONTACT * 0.5, 0);
       step(state, players, t);
@@ -118,7 +119,7 @@ describe("passing (T4, R1, R2, P1)", () => {
       let prevBlasts = state.blasts;
 
       for (let i = 1; i <= 400; i++) {
-        const t = i * 50;
+        const t = i * TICK_MS;
         // Herd everyone together so contacts are constant and the lock is stressed.
         for (const p of players) p.body.pos = vec((p.slot % 2) * 0.3, (p.slot >> 1) * 0.3);
         step(state, players, t);
@@ -154,7 +155,7 @@ describe("passing (T4, R1, R2, P1)", () => {
     others[1]!.body.pos = vec(CONTACT * 0.2, 0); // nearest
     others[2]!.body.pos = vec(CONTACT * 0.6, 0);
 
-    step(state, players, 50);
+    step(state, players, TICK_MS);
     expect(state.holder).toBe(others[1]!.slot);
   });
 
@@ -163,7 +164,7 @@ describe("passing (T4, R1, R2, P1)", () => {
       const players = mkPlayers(5);
       const state = hotPotato.init({ rng: makeRng(seed), players });
       for (let i = 1; i <= 1400; i++) {
-        step(state, players, i * 50);
+        step(state, players, i * TICK_MS);
         if (state.alive.size > 1) {
           expect(state.alive.has(state.holder), `seed ${seed} tick ${i}`).toBe(true);
         }
@@ -180,9 +181,9 @@ describe("the fuse (T5, R3)", () => {
     players.forEach((p, i) => (p.body.pos = vec(-6 + i * 6, i === 0 ? -6 : 6)));
     const victim = state.holder;
 
-    for (let i = 1; i * 50 <= FUSE_START_MS + 100; i++) {
+    for (let i = 1; i * TICK_MS <= FUSE_START_MS + 100; i++) {
       players.forEach((p, k) => (p.body.pos = vec(-6 + k * 6, k === 0 ? -6 : 6)));
-      step(state, players, i * 50);
+      step(state, players, i * TICK_MS);
     }
     expect(state.alive.has(victim)).toBe(false);
     expect(state.placement).toContain(victim);
@@ -205,7 +206,7 @@ describe("the fuse (T5, R3)", () => {
     const state = hotPotato.init({ rng: makeRng(2), players });
     let sawBlastWithSurvivors = false;
     for (let i = 1; i <= 800; i++) {
-      step(state, players, i * 50);
+      step(state, players, i * TICK_MS);
       if (state.blasts > 0 && state.alive.size > 1) sawBlastWithSurvivors = true;
       if (state.alive.size <= 1) break;
     }
@@ -219,11 +220,11 @@ describe("the fuse (T5, R3)", () => {
     players.forEach((p, i) => (p.body.pos = vec(-6 + i * 6, i === 0 ? -6 : 6)));
 
     // The holder drops: they contribute idle input but remain a valid bomb target.
-    for (let i = 1; i * 50 <= FUSE_START_MS + 100; i++) {
+    for (let i = 1; i * TICK_MS <= FUSE_START_MS + 100; i++) {
       players.forEach((p, k) => (p.body.pos = vec(-6 + k * 6, k === 0 ? -6 : 6)));
       hotPotato.tick(
         state,
-        ctxFor(players, i * 50, 1, (slot) => (slot === victim ? IDLE_INPUT : IDLE_INPUT)),
+        ctxFor(players, i * TICK_MS, 1, (slot) => (slot === victim ? IDLE_INPUT : IDLE_INPUT)),
       );
     }
     expect(state.alive.has(victim)).toBe(false);
@@ -241,7 +242,7 @@ describe("dashing (T6, R4, P2)", () => {
 
     step(state, players, 50, () => pressed);
     const firstReady = state.dashReadyAt.get(slot)!;
-    for (let i = 2; i <= 10; i++) step(state, players, i * 50, () => pressed);
+    for (let i = 2; i <= 10; i++) step(state, players, i * TICK_MS, () => pressed);
     // Still the same cooldown stamp: holding produced no second dash.
     expect(state.dashReadyAt.get(slot)).toBe(firstReady);
   });
@@ -272,7 +273,7 @@ describe("dashing (T6, R4, P2)", () => {
       players[0]!.body.pos = vec(-HALF + 2, 0);
       const start = players[0]!.body.pos.x;
       for (let i = 1; i <= 8; i++) {
-        const t = i * 50;
+        const t = i * TICK_MS;
         step(state, players, t, () => (btnAt !== null && t >= btnAt ? pressed : running));
       }
       return players[0]!.body.pos.x - start;
@@ -303,7 +304,7 @@ describe("the walled arena (T7, R5)", () => {
       let escaped = 0;
       for (let i = 1; i <= 200; i++) {
         // Mash the button too: the dash is the case most likely to punch through.
-        step(state, players, i * 50, () => ({ axis: dir, btn: i % 40 < 2 }));
+        step(state, players, i * TICK_MS, () => ({ axis: dir, btn: i % 40 < 2 }));
         const { x, z } = players[0]!.body.pos;
         if (Math.abs(x) > HALF + 0.01 || Math.abs(z) > HALF + 0.01) escaped++;
       }
@@ -428,7 +429,7 @@ describe("snapshot and contract (T10, R8)", () => {
   it("puts the bomb on the generic prims channel, tracking the holder (P5)", () => {
     const players = mkPlayers(3);
     const state = hotPotato.init({ rng: makeRng(4), players });
-    step(state, players, 50);
+    step(state, players, TICK_MS);
 
     const snap = hotPotato.snapshot(state) as {
       holder: number;
@@ -448,7 +449,7 @@ describe("snapshot and contract (T10, R8)", () => {
     const players = mkPlayers(2);
     const state = hotPotato.init({ rng: makeRng(6), players });
     for (let i = 1; i <= 400; i++) {
-      step(state, players, i * 50);
+      step(state, players, i * TICK_MS);
       const snap = hotPotato.snapshot(state) as { fuse: number };
       expect(snap.fuse).toBeGreaterThanOrEqual(0);
     }

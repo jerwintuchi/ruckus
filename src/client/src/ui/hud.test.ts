@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { myCount, renderHud, roundLabel } from "./hud.ts";
+import { myCount, renderHud, roundLabel, COUNT_FROM, countdownAt } from "./hud.ts";
 import { MINIGAMES } from "../../../server/src/minigames/index.ts";
 
 describe("the HUD draws known keys (visual-direction T16, R12)", () => {
@@ -83,5 +83,40 @@ describe("no minigame is named anywhere in the UI (R12, RD-009)", () => {
       }
     }
     expect(offences).toEqual([]);
+  });
+});
+
+describe("the countdown before a round (round-brief T1, R1, P1)", () => {
+  const ENDS = 10_000;
+
+  it("counts 3, 2, 1 across the last three seconds", () => {
+    expect(countdownAt(ENDS, ENDS - 2500)).toBe(3);
+    expect(countdownAt(ENDS, ENDS - 1500)).toBe(2);
+    expect(countdownAt(ENDS, ENDS - 500)).toBe(1);
+  });
+
+  it("draws nothing in the first second of a 4s intro", () => {
+    // The rule needs a beat to be read before a number starts pulling the eye.
+    expect(countdownAt(ENDS, ENDS - 3500)).toBe(COUNT_FROM);
+    expect(countdownAt(ENDS, ENDS - 3999)).toBe(COUNT_FROM); // capped, never 4
+  });
+
+  it("draws nothing once the deadline has passed", () => {
+    expect(countdownAt(ENDS, ENDS)).toBe(0);
+    expect(countdownAt(ENDS, ENDS + 5000)).toBe(0);
+  });
+
+  it("is clamped against clock skew in both directions", () => {
+    // A phone, a laptop and a server do not agree on the time, and the count must not
+    // print 47 or -3 when they disagree.
+    expect(countdownAt(ENDS, ENDS - 60_000)).toBe(COUNT_FROM);
+    expect(countdownAt(ENDS, ENDS + 60_000)).toBe(0);
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(countdownAt(ENDS, bad), String(bad)).toBe(0);
+    }
+  });
+
+  it("is a pure function of its two arguments", () => {
+    expect(countdownAt(ENDS, ENDS - 1500)).toBe(countdownAt(ENDS, ENDS - 1500));
   });
 });

@@ -50,6 +50,19 @@ instruction."
       "the right 40% of the screen", which no drawn circle would honestly represent
 - AC: controls sit inside `env(safe-area-inset-*)`, clear of the home indicator
 
+## The device it is actually on
+
+**R6**: The controls suit the thing being held.
+- AC: a phone or tablet gets the stick and the button; a desktop gets neither
+- AC: a desktop instead gets a faint guide to the keys that already work — WASD or the
+      arrows to move, space for the action — carrying the same word the button would
+      have shown
+- AC: the guide is quiet enough to ignore: it is a reminder, not a HUD element
+- AC: a hybrid — a touchscreen laptop, an iPad with a keyboard — is decided by **what
+      the player actually uses**, not by what the device could theoretically do. The
+      first real touch shows the stick; the first real key press shows the guide.
+- AC: switching costs nothing and is not announced; it is allowed to happen mid-round
+
 ## Not this spec
 
 Camera framing, safe-area insets for the HUD, and the portrait prompt are

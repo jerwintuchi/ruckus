@@ -25,8 +25,12 @@ describe("FixedLoop (T10, R8, P8)", () => {
   it("accumulates sub-tick frames instead of dropping them", () => {
     const loop = new FixedLoop();
     let steps = 0;
-    // 5 ms frames: no single frame is a whole tick, but ten of them are one.
+    // Ten sub-tick frames: no single one is a whole tick, but together they are.
     for (let i = 0; i < 10; i++) steps += loop.advance(TICK_MS / 10);
+    // TICK_MS is 33.333… at 30Hz, so ten tenths can accumulate a hair under one tick
+    // in floating point. Nudge past the boundary rather than asserting that ten
+    // divisions of an irrational number sum exactly.
+    steps += loop.advance(1e-6);
     expect(steps).toBe(1);
   });
 
