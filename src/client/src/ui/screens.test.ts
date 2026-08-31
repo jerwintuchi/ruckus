@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { ERROR_TEXT, initialState, type FlowState } from "../flow.ts";
 import type { PlayerView } from "@ruckus/shared";
@@ -62,6 +64,8 @@ function stubDom() {
 /** The stub's elements, typed for the assertions below. */
 type Probe = { style: Record<string, string>; textContent: string; innerHTML: string;
   value: string; disabled: boolean; readOnly: boolean; classes: Set<string>; click(): void };
+const SRC_DIR = dirname(new URL(import.meta.url).pathname);
+
 const at = (root: HTMLElement, sel: string): Probe =>
   root.querySelector(sel) as unknown as Probe;
 
@@ -161,7 +165,8 @@ describe("the menu offers create and join (lobby-flow T7, R1)", () => {
     const ui = new Ui(root, noop);
     ui.render({ ...initialState(), screen: "JOINING", code: "AB" });
     expect(at(root, "#joinBtn").disabled).toBe(true);
-    ui.render({ ...initialState(), screen: "JOINING", code: "ABCD" });
+    // A name is required now too (R9), so a whole code alone is no longer enough.
+    ui.render({ ...initialState(), screen: "JOINING", name: "jerwin", code: "ABCD" });
     expect(at(root, "#joinBtn").disabled).toBe(false);
   });
 
@@ -345,5 +350,86 @@ describe("the count on the intro card (round-brief T2, T3, R1, R3)", () => {
     const { root } = stubDom();
     const ui = new Ui(root, noop);
     expect(() => ui.setCountdown(2)).not.toThrow();
+  });
+});
+
+describe("copying the invite is one tap (lobby-flow T14, R10)", () => {
+  const src = readFileSync(join(SRC_DIR, "screens.ts"), "utf8");
+
+  it("is an icon button carrying an accessible label", () => {
+    // An icon with no name is a mystery to a screen reader and to anyone who has not
+    // seen a clipboard glyph before.
+    const { root } = stubDom();
+    new Ui(root, noop);
+    expect(src).toContain('id="shareBtn"');
+    expect(src).toContain('aria-label="copy invite link"');
+    expect(src).toContain("<svg");
+  });
+
+  it("tries the clipboard, then execCommand, then selectable text — in that order", () => {
+    // The order is the whole point and cannot be exercised in a unit test, because a
+    // secure context cannot be faked. navigator.clipboard needs one and a phone on a
+    // LAN over plain http does not have one, so execCommand is the path that actually
+    // runs on the device this game is played on. If it were removed, or moved after
+    // the link box, one-tap copy would silently stop existing.
+    const share = src.slice(src.indexOf("private async share()"), src.indexOf("private copyByExecCommand"));
+    const clipboard = share.indexOf("navigator.clipboard");
+    const legacy = share.indexOf("copyByExecCommand");
+    const box = share.indexOf("#linkBox");
+    expect(clipboard).toBeGreaterThan(-1);
+    expect(legacy).toBeGreaterThan(clipboard);
+    expect(box).toBeGreaterThan(legacy);
+  });
+
+  it("copies from an off-screen element, not a hidden one", () => {
+    // display:none cannot be selected and iOS will not copy from it. Off-screen can.
+    const legacy = src.slice(src.indexOf("private copyByExecCommand"));
+    expect(legacy).toContain("-9999px");
+    expect(legacy).not.toContain("display: none");
+    expect(legacy).toContain("setSelectionRange"); // iOS needs the explicit range
+  });
+
+  it("confirms with a banner that never has to be dismissed", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.toast("invite link copied");
+    expect(at(root, "#toast").textContent).toBe("invite link copied");
+    expect(at(root, "#toast").classes.has("show")).toBe(true);
+  });
+});
+
+describe("the match result says the room stays open (lobby-flow T16, R12)", () => {
+  it("names the winner and says another match can start", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.showMatchEnd({ slot: 0, name: "jerwin", colour: "#1ab0ff", score: 9, connected: true });
+    const html = at(root, "#banner").innerHTML;
+    expect(html).toContain("jerwin");
+    expect(html).toContain("start again");
+  });
+
+  it("says it even when nobody won", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.showMatchEnd(undefined);
+    expect(at(root, "#banner").innerHTML).toContain("start again");
+  });
+});
+
+describe("the name field explains itself (lobby-flow T14, R9)", () => {
+  it("disables Create and says why until a name is typed", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render(initialState());
+    expect(at(root, "#createBtn").disabled).toBe(true);
+    expect(at(root, "#nameNote").textContent.length).toBeGreaterThan(0);
+  });
+
+  it("enables it and clears the note once the name is usable", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render({ ...initialState(), name: "jerwin" });
+    expect(at(root, "#createBtn").disabled).toBe(false);
+    expect(at(root, "#nameNote").textContent).toBe("");
   });
 });

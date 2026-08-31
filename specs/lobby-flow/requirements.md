@@ -33,6 +33,34 @@ what happens, that one says what it looks like.
 - AC: where the clipboard is unavailable — a phone on a LAN over plain http is not a
       secure context — the link is offered selectable instead of failing silently
 
+## Getting in without being told off
+
+**R9**: A player needs a name, and the controls say so before they are pressed.
+- AC: `create` and `join` are unavailable until a name of 2–12 characters is entered,
+      and each says *why* rather than sitting dead (the treatment `joinState` already
+      gives Join — no control in this game is ever silently disabled)
+- AC: the note updates as the player types, not on submit
+- AC: **the server keeps sanitizing regardless** (I2). The client rule is a courtesy to
+      the player; the server rule is the trust boundary, and neither replaces the other.
+- AC: two characters, so initials work
+
+**R10**: Copying the invite is one tap, and the player is told it worked.
+- AC: the control is an icon, not a sentence, and carries an accessible label
+- AC: a transient banner confirms the copy; no link text is shown in the normal case
+- AC: **it works over plain http.** `navigator.clipboard` needs a secure context and a
+      phone on a LAN does not have one, so the legacy `execCommand` path is not a
+      nicety — it is the path that runs. Showing selectable text survives only as the
+      last resort when both fail.
+
+**R11**: The lobby says who arrived and who left.
+- AC: a transient line names a player joining or dropping, so the roster is not a
+      silent list that mutates while you look away
+- AC: it never interrupts: no dialog, nothing to dismiss, nothing that blocks Start
+
+**R12**: A match can be played again without leaving the room.
+- AC: the room returns to the lobby after the match result, with round and scores reset
+- AC: the match-result card says so, so nobody is left wondering whether it is over
+
 ## Joining
 
 **R3**: As a player, I join an existing room by its code.

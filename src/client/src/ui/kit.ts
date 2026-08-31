@@ -135,6 +135,31 @@ input::placeholder{color:var(--text-dim)}
 .big{font-family:Fredoka,sans-serif;font-weight:700;font-size:clamp(26px,6.5vw,34px);line-height:1.05}
 .rule{font-size:clamp(15px,4vw,18px);color:var(--text);max-width:26ch;margin:0 auto}
 
+/* An icon button: the same slab, sized for a thumb rather than a sentence. */
+.iconbtn{width:${UI.minTarget}px;height:${UI.minTarget}px;min-height:${UI.minTarget}px;
+  padding:0;display:inline-flex;align-items:center;justify-content:center;
+  background:var(--card);border:var(--outline) solid var(--ink);border-radius:14px;
+  box-shadow:0 ${UI.shadowOffset}px 0 var(--ink);cursor:pointer}
+.iconbtn:active:not(:disabled){transform:translateY(${UI.shadowOffset - 2}px);
+  box-shadow:0 2px 0 var(--ink)}
+.iconbtn svg{width:22px;height:22px;fill:none;stroke:var(--ink);stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/*
+ * The toast: it confirms, it never asks.
+ *
+ * Pinned top-centre and pointer-events:none, so it can never sit over a control or
+ * need dismissing — a copy confirmation that blocks Start would be worse than silence.
+ */
+.toast{position:fixed;z-index:20;left:50%;transform:translate(-50%,-16px);
+  top:calc(12px + env(safe-area-inset-top));
+  background:var(--ink);color:var(--card);
+  border-radius:999px;padding:9px 18px;
+  font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;font-size:14px;
+  opacity:0;pointer-events:none;
+  transition:opacity .16s ease-out,transform .16s ease-out}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
 /* The count before a round. Big enough to read across a room, quiet when empty. */
 .count{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;
   font-size:clamp(34px,9vw,48px);line-height:1;min-height:1em;

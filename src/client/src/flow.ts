@@ -153,6 +153,41 @@ export function reduce(state: FlowState, event: FlowEvent): FlowState {
   }
 }
 
+/** A name has to be typed, and short enough to fit a lobby row. */
+export const NAME_MIN = 2;
+export const NAME_MAX = 12;
+
+/**
+ * Is this name usable, and if not, what should the player be told? (R9)
+ *
+ * A courtesy to the player, not a security boundary. `sanitizeName` on the server is
+ * the boundary and still runs on everything (I2) — it strips control characters and
+ * truncates, and it always will, because a client is untrusted no matter how polite
+ * this function is.
+ */
+export function nameState(raw: string): { valid: boolean; note: string } {
+  const name = raw.trim();
+  if (name.length === 0) return { valid: false, note: "Type a name so people know who you are." };
+  if (name.length < NAME_MIN) {
+    const short = NAME_MIN - name.length;
+    return { valid: false, note: `${short} more character${short === 1 ? "" : "s"}.` };
+  }
+  return { valid: true, note: "" };
+}
+
+/**
+ * Can this player press Create, and if not, why not? (R9)
+ *
+ * Start has always explained itself and Join learned to (RD-029). Create was the last
+ * control that could sit dead with nothing said.
+ */
+export function createState(state: FlowState): { canCreate: boolean; note: string } {
+  if (state.screen === "CREATING" || state.connecting) {
+    return { canCreate: false, note: "Creating…" };
+  }
+  return { canCreate: nameState(state.name).valid, note: nameState(state.name).note };
+}
+
 /**
  * Should the "joining in" card show for this room update?
  *
@@ -175,6 +210,9 @@ export const shouldShowWaiting = (state: MatchState, roundSeen: boolean): boolea
  */
 export function joinState(state: FlowState): { canJoin: boolean; note: string } {
   if (state.connecting) return { canJoin: false, note: "Connecting…" };
+  // A name first: joining without one puts another "player" in the lobby (R9).
+  const named = nameState(state.name);
+  if (!named.valid) return { canJoin: false, note: named.note };
   if (state.code.length === 0) {
     return { canJoin: false, note: "Type the room's four-character code." };
   }
@@ -193,4 +231,22 @@ export function startState(state: FlowState): { canStart: boolean; label: string
   if (!isHost) return { canStart: false, label: "", note: `Waiting for ${hostName} to start` };
   if (connected.length < 2) return { canStart: false, label: "Waiting for one more", note: "" };
   return { canStart: true, label: "Start", note: "" };
+}
+
+/**
+ * Who arrived and who left between two rosters (R11).
+ *
+ * Pure and order-independent: the server sends whole rosters, not deltas, so the
+ * client works out the change itself. Comparing by slot rather than by name, because
+ * two players may legitimately share one.
+ */
+export function rosterChange(
+  before: readonly PlayerView[],
+  after: readonly PlayerView[],
+): { joined: string[]; left: string[] } {
+  const was = new Map(before.map((p) => [p.slot, p.name]));
+  const is = new Map(after.map((p) => [p.slot, p.name]));
+  const joined = [...is].filter(([slot]) => !was.has(slot)).map(([, name]) => name);
+  const left = [...was].filter(([slot]) => !is.has(slot)).map(([, name]) => name);
+  return { joined, left };
 }

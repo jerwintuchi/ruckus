@@ -4,7 +4,9 @@
  * (I1, I6), and everything sent is an intention.
  */
 import { TICK_MS, type PlayerView, type Prim, type ServerMsg } from "@ruckus/shared";
-import { initialState, reduce, shouldShowWaiting, type FlowEvent } from "./flow.ts";
+import {
+  initialState, reduce, rosterChange, shouldShowWaiting, type FlowEvent,
+} from "./flow.ts";
 import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
@@ -99,7 +101,11 @@ function onMessage(msg: ServerMsg): void {
       history.replaceState(null, "", `?room=${msg.code}`);
       break;
 
-    case "room":
+    case "room": {
+      // Who arrived and who left, worked out from whole rosters (R11).
+      const { joined, left } = rosterChange(players, msg.players);
+      for (const name of joined) ui.toast(`${name} joined`);
+      for (const name of left) ui.toast(`${name} left`);
       players = msg.players;
       host = msg.host;
       colours = new Map(players.map((p) => [p.slot, p.colour]));
@@ -119,6 +125,7 @@ function onMessage(msg: ServerMsg): void {
         ui.showWaiting();
       }
       break;
+    }
 
     case "intro":
       roundSeen = true;

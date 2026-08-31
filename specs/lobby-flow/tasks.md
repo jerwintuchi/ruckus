@@ -64,6 +64,29 @@ inventing a second one.
 
 ## Phase E — close
 
+- [x] T13 [R9] — `nameState` and `createState` in `src/client/src/flow.ts`, and a live
+  listener on the name field
+  Test: `flow.test.ts` — a name under 2 characters is rejected with a note saying what
+  is missing; 2 and 12 are accepted and 13 is trimmed; `createState` and `joinState`
+  both refuse without a valid name; every refusal carries a non-empty note, asserted
+  over the whole space rather than at one example
+
+- [x] T14 [R10] — One-tap copy in `src/client/src/ui/screens.ts`
+  Test: `screens.test.ts` — the control is an icon button with an accessible label; a
+  successful copy shows a transient banner and no link text; the **fallback order** is
+  clipboard, then `execCommand`, then selectable text, asserted against the source
+  because a secure context cannot be faked in a unit test and the order is the part
+  that matters over plain http
+
+- [x] T15 [R11] — Arrivals and departures in `src/client/src/main.ts`
+  Test: `flow.test.ts` — `rosterChange(before, after)` names who joined and who left,
+  is empty when nothing changed, and is a pure function of the two rosters
+
+- [x] T16 [R12] — The match result says the room stays open
+  Test: `screens.test.ts` — the match-result card names the winner and says another
+  match can start; `match.test.ts` already proves round and scores reset, and this
+  task adds no server behaviour
+
 - [ ] T12 — Played for real: create a room on one device, join it from another by the
   link, play a round, and have someone leave and come back
   Test: manual, via `pnpm playtest`. The questions are whether the code is readable

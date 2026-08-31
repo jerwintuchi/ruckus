@@ -1220,3 +1220,62 @@ forbidden list (RD-009).
 450k ticks at the new rate, half again what it ran at 20 Hz, and crossed vitest's 5 s
 default. The budget moved rather than the seed count: the coverage is the reason the
 test exists.
+
+## RD-038 — Lobby polish, and the copy button that never could have worked (2026-08-31)
+
+`specs/lobby-flow/` R9–R12, T13–T16.
+
+**A name is required now, and every control says why it is unavailable.** Create was
+the last one that could sit dead with nothing said — Start always explained itself and
+Join learned to in RD-029. `nameState` and `createState` are pure and tested over the
+whole space, and the note updates as the player types rather than on submit. Two
+characters minimum, so initials work.
+
+**The server still sanitizes everything.** `sanitizeName` strips control characters and
+truncates regardless of what the client thinks. The client rule is a courtesy to the
+player; the server rule is the trust boundary (I2), and neither substitutes for the
+other. Worth stating because "we validate on the client now" is exactly how that
+distinction gets lost.
+
+**The copy button could never have worked on the device this game is played on.**
+`navigator.clipboard` requires a secure context. The playtest runs over plain http on a
+tailnet address, which is not one — so the API threw every time and the visible link box
+was not a fallback, it was *the* behaviour. lobby-flow R2 had even documented the
+constraint; what was missing was the middle rung.
+
+The order is now clipboard → `document.execCommand("copy")` → selectable text.
+`execCommand` is deprecated and universally supported, and it works in a non-secure
+context, which makes it the path that actually runs on the phone. It copies from an
+off-screen textarea rather than a hidden one, because `display:none` cannot be selected
+and iOS will not copy from it; the explicit `setSelectionRange` is an iOS requirement
+too. A test pins the *order*, since a secure context cannot be faked in a unit test and
+the order is the whole of the behaviour.
+
+The control is an icon with an `aria-label`, and a transient toast confirms — pinned,
+`pointer-events:none`, never needing dismissal. A confirmation that can cover Start
+would be worse than silence.
+
+**The lobby narrates arrivals and departures.** `rosterChange` diffs two whole rosters
+by slot rather than by name, because two players may legitimately share one, and a swap
+should read as a departure and an arrival rather than as nothing.
+
+**Play again already worked.** `MATCH_RESULT` returns to `LOBBY` after `RESULT_MS`, and
+Start resets round and scores. Verified rather than assumed; the only change is that the
+match-result card now says so, so nobody wonders whether the evening is over.
+
+## RD-039 — Audio is specced, not built (2026-08-31)
+
+`specs/audio/` exists with requirements, design and tasks, and nothing implemented. The
+game is silent, and that was omission rather than decision.
+
+**The constraint is the interesting part.** `kit_check` rejects `.mp3/.wav/.ogg` on
+RD-001's grounds: an asset pipeline is what stalled the previous project, and a sound
+library is an asset pipeline in a hat. So audio must be **generated in code** —
+oscillators, envelopes, filtered noise — which is the same argument that produced the
+procedural textures (RD-020). It rules out recorded and licensed sound entirely. What it
+buys is that no round is ever blocked on finding a noise.
+
+Specced now rather than built so the shape is agreed before anyone starts, and so it
+appears in the registry instead of living in a conversation. The four moments worth
+hearing are the countdown, an elimination, a round ending and a match ending — the ones
+a player currently has to be watching the screen to notice.

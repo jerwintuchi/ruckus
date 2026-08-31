@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ERROR_TEXT, initialState, joinState, reduce, shouldShowWaiting, startState, type FlowEvent, type FlowState } from "./flow.ts";
+import { ERROR_TEXT, NAME_MAX, createState, initialState, joinState, nameState, reduce, rosterChange, shouldShowWaiting, startState, type FlowEvent, type FlowState } from "./flow.ts";
 import { makeRng, type ErrCode, type PlayerView } from "@ruckus/shared";
 
 const SCREENS = ["MENU", "CREATING", "JOINING", "LOBBY", "IN_MATCH"];
@@ -145,25 +145,28 @@ describe("the join control explains itself (T19, P5)", () => {
   // Start has always done this; Join did not, and on a phone a disabled button with
   // nothing said is indistinguishable from a broken game. Found in a playtest.
   it("says what is missing rather than being silently dead", () => {
-    expect(joinState({ ...initialState(), code: "" }))
+    // A name first (R9), so these start from a named player: without one the note is
+    // about the name, which is the more urgent thing missing.
+    const named = { ...initialState(), name: "jerwin" };
+    expect(joinState({ ...named, code: "" }))
       .toMatchObject({ canJoin: false, note: "Type the room's four-character code." });
-    expect(joinState({ ...initialState(), code: "GKL" }))
+    expect(joinState({ ...named, code: "GKL" }))
       .toMatchObject({ canJoin: false, note: "1 more character." });
-    expect(joinState({ ...initialState(), code: "GK" }).note).toBe("2 more characters.");
+    expect(joinState({ ...named, code: "GK" }).note).toBe("2 more characters.");
   });
 
   it("allows the join once the code is whole", () => {
-    expect(joinState({ ...initialState(), code: "GKLR" }))
+    expect(joinState({ ...initialState(), name: "jerwin", code: "GKLR" }))
       .toEqual({ canJoin: true, note: "" });
   });
 
   it("reports a join in flight, so a tap always has a visible consequence", () => {
-    const s = reduce({ ...initialState(), code: "GKLR" }, { t: "connecting" });
+    const s = reduce({ ...initialState(), name: "jerwin", code: "GKLR" }, { t: "connecting" });
     expect(joinState(s)).toMatchObject({ canJoin: false, note: "Connecting…" });
   });
 
   it("never leaves the note stuck after the attempt resolves", () => {
-    const trying = reduce({ ...initialState(), code: "GKLR" }, { t: "connecting" });
+    const trying = reduce({ ...initialState(), name: "jerwin", code: "GKLR" }, { t: "connecting" });
     for (const ending of [
       { t: "err", code: "NO_ROOM" } as const,
       { t: "welcome", slot: 0, code: "GKLR", host: 0 } as const,
@@ -239,5 +242,76 @@ describe("the joining-in card is for arrivals only (RD-035)", () => {
   it("never shows in the lobby, where the lobby card belongs", () => {
     expect(shouldShowWaiting("LOBBY", false)).toBe(false);
     expect(shouldShowWaiting("LOBBY", true)).toBe(false);
+  });
+});
+
+describe("a player needs a name, and is told so (lobby-flow T13, R9)", () => {
+  it("refuses an empty or one-character name, and says what is missing", () => {
+    expect(nameState("")).toEqual({ valid: false, note: "Type a name so people know who you are." });
+    expect(nameState("   ")).toMatchObject({ valid: false });
+    expect(nameState("j")).toMatchObject({ valid: false, note: "1 more character." });
+  });
+
+  it("accepts a name at the boundary, and trims before judging", () => {
+    expect(nameState("jo").valid).toBe(true);
+    expect(nameState("  jo  ").valid).toBe(true);
+    expect(nameState("a".repeat(NAME_MAX)).valid).toBe(true);
+    // Over-length is the SERVER's business to truncate; the client does not refuse it.
+    expect(nameState("a".repeat(NAME_MAX + 5)).valid).toBe(true);
+  });
+
+  it("never refuses without saying why, across the whole space", () => {
+    // The property behind every control in this game: nothing is silently dead.
+    for (const raw of ["", " ", "a", "ab", "abc", "  x  ", "a".repeat(30)]) {
+      const r = nameState(raw);
+      if (!r.valid) expect(r.note.length, JSON.stringify(raw)).toBeGreaterThan(0);
+      else expect(r.note).toBe("");
+    }
+  });
+
+  it("blocks Create and Join alike until the name is usable", () => {
+    const noName = { ...initialState(), code: "ABCD" };
+    expect(createState(noName).canCreate).toBe(false);
+    expect(joinState(noName).canJoin).toBe(false);
+    expect(joinState(noName).note).toBe(createState(noName).note);
+
+    const named = { ...noName, name: "jerwin" };
+    expect(createState(named).canCreate).toBe(true);
+    expect(joinState(named).canJoin).toBe(true);
+  });
+
+  it("says it is working while a create is in flight", () => {
+    const s = reduce({ ...initialState(), name: "jerwin" }, { t: "connecting" });
+    expect(createState(s)).toMatchObject({ canCreate: false, note: "Creating…" });
+  });
+});
+
+describe("the lobby notices who came and went (lobby-flow T15, R11)", () => {
+  const p = (slot: number, name: string): PlayerView =>
+    ({ slot, name, colour: "#1ab0ff", score: 0, connected: true });
+
+  it("names an arrival and a departure", () => {
+    expect(rosterChange([p(0, "a")], [p(0, "a"), p(1, "b")])).toEqual({ joined: ["b"], left: [] });
+    expect(rosterChange([p(0, "a"), p(1, "b")], [p(0, "a")])).toEqual({ joined: [], left: ["b"] });
+  });
+
+  it("is empty when nothing changed, however the order arrives", () => {
+    const before = [p(0, "a"), p(1, "b")];
+    expect(rosterChange(before, [p(1, "b"), p(0, "a")])).toEqual({ joined: [], left: [] });
+    expect(rosterChange([], [])).toEqual({ joined: [], left: [] });
+  });
+
+  it("compares by slot, because two players may share a name", () => {
+    // Same name, different person: a swap is a departure and an arrival, not silence.
+    expect(rosterChange([p(0, "sam")], [p(1, "sam")]))
+      .toEqual({ joined: ["sam"], left: ["sam"] });
+  });
+
+  it("is a pure function of the two rosters", () => {
+    const before = [p(0, "a")];
+    const after = [p(0, "a"), p(1, "b")];
+    const snapshot = JSON.stringify([before, after]);
+    rosterChange(before, after);
+    expect(JSON.stringify([before, after])).toBe(snapshot);
   });
 });
