@@ -358,3 +358,32 @@ describe("a player who arrives mid-match plays the next round (I8)", () => {
     expect(typeof late!.score).toBe("number");
   });
 });
+
+describe("a round is played with the roster it started with (RD-046)", () => {
+  it("does not deal a mid-round joiner into the running round", () => {
+    // They used to appear in ctx.players and in every snapshot the instant they
+    // connected — a body at the arena's centre that the minigame's own alive set had
+    // never heard of, so it could not move and did not belong to the round it stood in.
+    const { room, match } = setup([stub("a", 999) as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + TICK_DT * 1000);
+    const during = match.roster.length;
+
+    room.join("latecomer");
+    match.update();
+    expect(match.roster.length, "the running round's roster is unchanged").toBe(during);
+    expect(match.roster.some((r) => r.slot === during)).toBe(false);
+  });
+
+  it("still ends a round whose players have all left (R5, I8)", () => {
+    // The roster must stop ADDING people mid-round without stopping REMOVALS, or a
+    // round nobody is playing never ends.
+    const { room, match } = setup([stub("a", 999) as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + TICK_DT * 1000);
+    expect(room.state).toBe("ROUND_PLAY");
+    for (const p of [...room.players.values()]) room.leave(p.slot);
+    match.update();
+    expect(room.state).not.toBe("ROUND_PLAY");
+  });
+});

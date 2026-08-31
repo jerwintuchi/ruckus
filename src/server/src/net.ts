@@ -174,13 +174,18 @@ export class GameServer {
   }
 
   private sendSnapshot(room: Room, extra: unknown): void {
-    const players: SnapPlayer[] = room.connected.map((p) => ({
+    // The round's own roster, not everyone connected. A mid-round joiner is not in the
+    // simulation, so putting them in the snapshot drew a body the round had never dealt
+    // in — standing at the arena's centre, unable to move (RD-046).
+    const entry = this.rooms.get(room.code);
+    const roster = entry ? entry.match.roster : room.connected.map((p) => p.runtime);
+    const players: SnapPlayer[] = roster.map((p) => ({
       slot: p.slot,
-      x: quantPos(p.runtime.body.pos.x),
-      z: quantPos(p.runtime.body.pos.z),
-      y: quantPos(p.runtime.body.y),
-      a: quantAngle(p.runtime.facing),
-      alive: p.runtime.alive,
+      x: quantPos(p.body.pos.x),
+      z: quantPos(p.body.pos.z),
+      y: quantPos(p.body.y),
+      a: quantAngle(p.facing),
+      alive: p.alive,
     }));
     this.broadcast(room, { t: "snap", seq: Date.now() & 0xffff, players, extra: extra as never });
   }

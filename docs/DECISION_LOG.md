@@ -1512,3 +1512,32 @@ considered choice that only play could falsify. The first kind is a discipline p
 The second is not a mistake at all — it is what a spec-driven project looks like when
 the specification meets a room with people in it, and the honest response is to reverse
 it loudly rather than quietly.
+
+## RD-046 — A round is played with the roster it started with (2026-08-31)
+
+Reported from a rejoin: the view was wrong, and in `hot-potato` the player could see the
+bomb but not their own character.
+
+**Cause.** `tickPlay` and `sendSnapshot` both read `room.connected` — live, every tick.
+So a player who joined mid-round entered `ctx.players` and every snapshot the instant
+they connected, at position (0,0), while the minigame's own `alive` set had been built
+at `init` and had never heard of them. They were a body standing at the arena's centre
+that the round did not know it had: unable to move, not eliminated, not really there.
+
+I8 already said a rejoining player waits for the next `ROUND_START`. The shell just was
+not doing it. The roster is now fixed at `beginPlay` and the round is played with that.
+
+**The half that is easy to get wrong.** Freezing the roster must stop *additions* without
+stopping *removals* — otherwise a round whose players have all disconnected never ends,
+which is R5 and I8 in the other direction. The first version filtered on "still in the
+room" and broke exactly that; the test for it failed immediately, which is the one piece
+of luck in this entry. It filters on "still connected" now, and both properties have
+their own test.
+
+**Also fixed: the cooldown ring was off-centre by exactly the border width.** An
+absolutely positioned child is placed against its container's *padding* box, so `left:0`
+sits inside the button's 4 px border and a ring sized to the whole button hangs off the
+bottom-right by 4 px. Pulled back by the border width, it is concentric. That is the
+fourth distinct way an element in this button has been mis-sized, and unlike the other
+three it is not the replaced-element trap — it is the box model, which the RD-044 guard
+does not and cannot catch.

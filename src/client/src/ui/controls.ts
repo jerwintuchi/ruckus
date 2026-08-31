@@ -91,7 +91,16 @@ export const CONTROLS_CSS = `
  * takes its intrinsic size, so the ring rendered small and off in a corner. Exactly the
  * mistake the canvas made in RD-031, in a different element.
  */
-#cooldownRing{position:absolute;left:0;top:0;
+/*
+ * Offset by the border, not by zero.
+ *
+ * An absolutely positioned child is placed against its container's PADDING box, so
+ * left:0 sits inside the 4px border — a ring sized to the whole button then hangs off
+ * the bottom-right by exactly the border width, which is the off-centre sweep. Pulling
+ * it back by the border width lands it concentric with the button.
+ */
+#cooldownRing{position:absolute;
+  left:calc(0px - ${UI.outline}px);top:calc(0px - ${UI.outline}px);
   width:${BUTTON_MIN_PX}px;height:${BUTTON_MIN_PX}px;
   transform:rotate(-90deg);pointer-events:none}
 #cooldownRing circle{fill:none;stroke:var(--ink);stroke-width:3.5;opacity:.5;

@@ -14,6 +14,7 @@
 import {
   INTRO_MS,
   resolvePlayerOverlaps,
+  type PlayerRuntime,
   type Solid,
   MIN_PLAYERS_TO_START,
   RESULT_MS,
@@ -51,6 +52,17 @@ export class Match {
   private roundElapsed = 0;
   /** The round's static geometry, for pushing players back out of it. */
   private roundSolids: readonly Solid[] = [];
+  /**
+   * The roster this round is being played with, fixed at `beginPlay` (I8).
+   *
+   * Not `room.connected`, which changes underneath a running round. A player who joins
+   * mid-round used to appear in `ctx.players` and in every snapshot immediately — a
+   * body at the arena's centre that the minigame's own `alive` set had never heard of,
+   * so it could not move and did not belong to the round it was standing in. They wait
+   * for the next `ROUND_START`, which is what I8 says, and now what the code does
+   * (RD-046).
+   */
+  private roundRoster: PlayerRuntime[] = [];
   /**
    * The round's RNG, created ONCE at beginPlay and advanced across every tick.
    *
@@ -131,6 +143,11 @@ export class Match {
     }
   }
 
+  /** Who this round is being played with, for the snapshot (RD-046). */
+  get roster(): readonly PlayerRuntime[] {
+    return this.roundRoster;
+  }
+
   private beginIntro(): void {
     this.room.round += 1;
     this.game = this.bag.next();
@@ -147,6 +164,7 @@ export class Match {
       return p.runtime;
     });
     this.roundRng = makeRng(seedFrom(this.room.code, this.room.round));
+    this.roundRoster = players;
     this.gameState = game.init({ rng: this.roundRng, players });
     // Captured once: the contract already says an ArenaDescriptor is sent once at
     // ROUND_START, so its solids are static for the round and rebuilding them every
@@ -164,7 +182,13 @@ export class Match {
     const state = this.gameState as never;
     this.roundElapsed += TICK_DT * 1000;
 
-    const players = this.room.connected.map((p) => p.runtime);
+    // The roster the round began with, minus anyone who has since dropped.
+    //
+    // Not `room.connected`: that ADDS people mid-round, which is the bug. But it must
+    // still REMOVE them, or a round whose players have all left never ends (R5, I8).
+    const players = this.roundRoster.filter(
+      (r) => this.room.players.get(r.slot)?.connected === true,
+    );
 
     // R5: a round with nobody in it ends at once and scores nothing.
     if (players.length === 0) {
