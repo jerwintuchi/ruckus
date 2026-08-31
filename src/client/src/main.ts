@@ -156,6 +156,24 @@ let lastSent = 0;
 function frame(now: number): void {
   requestAnimationFrame(frame);
 
+// `?debug=1`: the device reports its own camera state. A phone has no console, and
+// every question about what it is actually doing otherwise costs a round trip to
+// whoever is holding it.
+if (new URLSearchParams(location.search).has("debug")) {
+  const box = document.createElement("pre");
+  Object.assign(box.style, {
+    position: "fixed", left: "0", bottom: "0", margin: "0", padding: "8px 10px",
+    font: "11px/1.45 ui-monospace, Menlo, monospace", background: "rgba(0,0,0,.75)",
+    color: "#fff", zIndex: "30", pointerEvents: "none", whiteSpace: "pre",
+  });
+  document.body.append(box);
+  setInterval(() => {
+    box.textContent = Object.entries(renderer.debug())
+      .map(([k, v]) => `${k.padEnd(9)} ${v}`)
+      .join("\n");
+  }, 250);
+}
+
   // Send input at the tick rate, not the frame rate: at 120fps a phone would be
   // sending six times more than the server can ever read (R10).
   if (net.connected && now - lastSent >= 50) {

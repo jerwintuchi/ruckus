@@ -917,3 +917,49 @@ These specs draw the budget that already exists; they do not widen it.
 **Note on the registry.** Both specs report `LIKELY-SHIPPED` on their first few tasks,
 because those name files that already exist. That is the heuristic working as designed
 on a spec written before its work starts, and it will clear as the boxes are ticked.
+
+## RD-031 — The camera was never wrong; the canvas was twice its size (2026-08-31)
+
+**What happened.** Three separate "the view is off" reports across two playtests — a
+portrait shot with one character filling the frame, a landscape shot with the arena in
+the bottom-right corner, and a third after the whole `arena-framing` camera fit had
+landed. I attributed the first two to camera framing, wrote a spec about it, and shipped
+T1–T5. The symptom did not move.
+
+**Cause.** `canvas{display:block;position:fixed;inset:0}` set no CSS width or height. A
+canvas is a *replaced element*: with `width:auto` its layout size comes from its
+**intrinsic** size — the drawing-buffer attributes the renderer writes — and `inset:0`
+does not stretch it. `setSize(w, h, false)` deliberately never writes a style, so
+nothing else set one either.
+
+On a DPR-1 desktop the buffer equals the CSS size and the page is pixel-perfect. At the
+capped 2x pixel ratio the canvas laid out at **twice the viewport, anchored top-left**.
+The arena, correctly centred in the rendered image, sat at CSS (402, 714) inside a
+402x874 visible region — the right edge, 82% down. Which is exactly where the
+screenshots show it.
+
+A second, independent error was hiding in the same function: `resize()` measured
+`window.innerWidth/innerHeight`, which exclude the browser's chrome, while the fixed
+`inset:0` canvas spans the visual viewport underneath it. On the phone that found this
+they differed by 160 px — the scene was projected at aspect 0.56 into a box whose real
+aspect was 0.46. The element knows its own size, so it is now asked; `window.*` survives
+only as a fallback for a zero-sized element.
+
+**What found it.** A `?debug=1` readout that makes the device report its own camera
+state, added after I had guessed wrong twice. It printed `viewport 402x714 dpr3` beside
+a screenshot that was plainly 2622 device pixels tall, and the contradiction between
+those two numbers was the whole answer. There is no console on a phone; a mobile-first
+project needs the device to be able to answer questions about itself, so the readout
+stays.
+
+**Was `arena-framing` wasted?** No, and this is worth being precise about. The fixed
+`fov: 45` really is a vertical field of view and really does frame only one aspect
+ratio; portrait genuinely did not fit, and T1–T3 are what make it fit. But that was not
+what the screenshots were showing, and I read them as confirming a diagnosis they never
+supported. The spec is sound; the attribution was not.
+
+**The lesson, stated for next time.** Two of my three wrong turns in this session —
+"nothing reached the server" from an empty log that logs nothing, and "the camera is
+mis-framed" from a canvas that was mis-sized — came from reasoning forward from a
+plausible cause instead of backward from a measurement. The measurement was cheap both
+times. Take it first.

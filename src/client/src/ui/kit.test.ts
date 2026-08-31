@@ -179,3 +179,16 @@ describe("portrait says what to do and blocks nothing (arena-framing T5, R5, P4)
     expect(block).not.toContain("#rotate{display:none");
   });
 });
+
+describe("the canvas is sized by CSS, not by its drawing buffer (RD-031)", () => {
+  it("gives the canvas an explicit width and height", () => {
+    // A canvas is a replaced element: with width:auto its layout size is its INTRINSIC
+    // size — the drawing-buffer attributes the renderer writes — and inset:0 does not
+    // stretch it. At a 2x pixel ratio that laid the canvas out at twice the viewport,
+    // anchored top-left, putting the arena's centre off the right edge. It looked like
+    // a camera bug for three rounds of investigation; the camera was never wrong.
+    const canvas = rule("canvas");
+    expect(canvas).toContain("width:100%");
+    expect(canvas).toContain("height:100%");
+  });
+});

@@ -212,3 +212,18 @@ describe("the renderer fits on resize, never per frame (T3, P3)", () => {
     expect(src).toContain("fitCamera");
   });
 });
+
+describe("the viewport is measured from the canvas, not the window (RD-031)", () => {
+  const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "..", "render.ts"), "utf8");
+
+  it("sizes the drawing buffer from the element's own client box", () => {
+    // window.innerHeight excludes the browser's chrome; a fixed inset:0 canvas spans
+    // the visual viewport underneath it. On the phone that found this they differed by
+    // 160px, so the scene was projected at aspect 0.56 into a box whose real aspect
+    // was 0.46. window.* survives only as the fallback for a zero-sized element.
+    const resize = src.slice(src.indexOf("resize(): void {"), src.indexOf("\n  }", src.indexOf("resize(): void {")));
+    expect(resize).toContain("clientWidth");
+    expect(resize).toContain("clientHeight");
+    expect(resize).toContain("|| window.innerWidth");
+  });
+});

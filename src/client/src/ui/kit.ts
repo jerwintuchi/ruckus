@@ -53,7 +53,17 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--ground);color:va
   font-family:Nunito,ui-rounded,system-ui,-apple-system,sans-serif;
   -webkit-user-select:none;user-select:none;touch-action:none;
   -webkit-font-smoothing:antialiased}
-canvas{display:block;position:fixed;inset:0}
+/*
+ * The canvas MUST be given a CSS size.
+ *
+ * A canvas is a replaced element: with width:auto its layout size comes from its
+ * INTRINSIC size — the drawing-buffer attributes the renderer sets — not from inset:0.
+ * On a DPR-1 desktop the buffer equals the CSS size and it looks perfect; on a 3x phone
+ * the canvas laid out at twice the viewport, anchored top-left, so the arena's centre
+ * sat off the right edge and only its corner was visible. Every "the camera is off"
+ * report was this, and the camera was correct throughout (RD-031).
+ */
+canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 
 /*
  * Safe areas (arena-framing T4, R4).

@@ -64,8 +64,15 @@ export class Renderer {
   }
 
   resize(): void {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    // Measure the CANVAS, not the window.
+    //
+    // `window.innerHeight` excludes the browser's chrome, while a fixed inset:0 canvas
+    // spans the full visual viewport underneath it — on the phone that found this they
+    // differed by 160 px, so an aspect of 0.56 was used to render into a box whose real
+    // aspect was 0.46. The element knows its own size; ask it (RD-031).
+    const canvas = this.gl.domElement;
+    const w = canvas.clientWidth || window.innerWidth;
+    const h = canvas.clientHeight || window.innerHeight;
     this.gl.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -191,6 +198,29 @@ export class Renderer {
 
   render(): void {
     this.gl.render(this.scene, this.camera);
+  }
+
+  /**
+   * What the camera actually is, right now, for the `?debug=1` readout.
+   *
+   * There is no console on a phone. Mobile-first means the device has to be able to
+   * report its own state, or every question about it costs a round trip to whoever is
+   * holding it.
+   */
+  debug(): Record<string, string> {
+    const c = this.camera;
+    const cam = this.arenaCamera;
+    const n = (v: number): string => v.toFixed(2);
+    return {
+      viewport: `${window.innerWidth}x${window.innerHeight} dpr${window.devicePixelRatio}`,
+      aspect: n(c.aspect),
+      fov: n(c.fov),
+      eye: `${n(c.position.x)}, ${n(c.position.y)}, ${n(c.position.z)}`,
+      rot: `${n(c.rotation.x)}, ${n(c.rotation.y)}, ${n(c.rotation.z)}`,
+      arena: cam ? `extent ${cam.extent?.toFixed(2) ?? "none"} look ${cam.look.join(",")}` : "none",
+      authored: cam ? cam.eye.join(", ") : "none",
+      fitted: cam ? String(fitCamera(cam, c.aspect) !== null) : "n/a",
+    };
   }
 }
 
