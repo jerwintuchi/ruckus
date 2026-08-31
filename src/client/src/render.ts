@@ -14,10 +14,13 @@ import {
   Scene,
   WebGLRenderer,
   type Mesh,
+  type Texture,
 } from "three";
 import type { ArenaDescriptor, Prim } from "@ruckus/shared";
 import { Character } from "./kit/character.ts";
 import { PALETTE } from "./kit/palette.ts";
+import { PIXEL_RATIO_CAP, lit } from "./kit/paper.ts";
+import { crease, stock } from "./kit/textures.ts";
 import { box, cylinder, sphere } from "./kit/prims.ts";
 import type { LerpedPlayer } from "./net.ts";
 
@@ -33,19 +36,25 @@ export class Renderer {
   private tileStates: number[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
-    this.gl = new WebGLRenderer({ canvas, antialias: false });
-    // Cap the pixel ratio: a 3x phone display costs 9x the fragments for a look
+    // Antialiasing ON: the look is hard ink edges at native resolution, and jagged
+    // outlines are the one artefact that reads as cheap rather than as paper.
+    this.gl = new WebGLRenderer({ canvas, antialias: true });
+    // Cap the pixel ratio: a 3x phone display costs 2.25x the fragments for a look
     // nobody can tell apart at arm's length, and it is the first thing to blow the
     // 60fps budget on mid-range hardware.
-    this.gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.gl.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP));
+    // No shadow maps, ever — a blob shadow is geometry and costs nothing (R5).
+    this.gl.shadowMap.enabled = false;
     this.scene.background = new Color(PALETTE.sky);
 
     this.camera = new PerspectiveCamera(45, 1, 0.1, 200);
     this.scene.add(this.statics, this.dynamics, this.prims);
 
-    const key = new DirectionalLight(0xffffff, 2.1);
+    // One soft light so arena surfaces read as surfaces; characters are unlit and do
+    // not care about either of these (R5). Paper does not receive light.
+    const key = new DirectionalLight(0xffffff, 0.85);
     key.position.set(6, 14, 8);
-    this.scene.add(key, new AmbientLight(0xffffff, 1.1));
+    this.scene.add(key, new AmbientLight(0xffffff, 1.9));
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
@@ -67,6 +76,8 @@ export class Renderer {
     this.camera.fov = arena.camera.fov;
     this.camera.updateProjectionMatrix();
     this.scene.background = new Color(arena.sky);
+    // Never fog: it dissolves edges, and hard edges are the entire point (R6).
+    this.scene.fog = null;
     for (const p of arena.statics) this.statics.add(buildPrim(p));
   }
 
@@ -137,7 +148,7 @@ export class Renderer {
       seen.add(p.slot);
       let c = this.characters.get(p.slot);
       if (!c) {
-        c = new Character(colours.get(p.slot) ?? PALETTE.accent);
+        c = new Character(colours.get(p.slot) ?? PALETTE.accent, p.slot);
         this.characters.set(p.slot, c);
         this.dynamics.add(c.root);
       }
@@ -162,6 +173,21 @@ export class Renderer {
 }
 
 /**
+ * Which paper surface a static prim gets.
+ *
+ * Large flat surfaces take fibre and a fold, so a floor reads as a folded sheet rather
+ * than a painted plane (R6). Small props stay flat — fibre on a 0.3 m object is noise.
+ */
+function paperFor(p: Prim): Texture | undefined {
+  if (p.k !== "box") return undefined;
+  const [w, , d] = p.size;
+  const big = Math.max(w, d);
+  if (big >= 8) return crease(p.colour, "cross");
+  if (big >= 2) return stock(p.colour, Math.round(big * 7));
+  return undefined;
+}
+
+/**
  * One `Prim` descriptor to one Mesh. Exported so it can be tested without a WebGL
  * context: this mapping is the part of the generic prims channel that can actually
  * be wrong, and it should not need a browser to assert.
@@ -170,6 +196,8 @@ export function buildPrim(p: Prim): Mesh {
   switch (p.k) {
     case "box": {
       const m = box(p.colour, ...p.size);
+      const paper = paperFor(p);
+      if (paper) m.material = lit(p.colour, paper);
       m.position.set(...p.pos);
       if (p.rotY) m.rotation.y = p.rotY;
       return m;

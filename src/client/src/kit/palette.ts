@@ -33,19 +33,26 @@ export const PAPER = {
   highlight: "#ffd23f",
 } as const;
 
+/**
+ * The arena, retargeted to paper stock (visual-direction T4, RD-021).
+ *
+ * Held back until Phases B and C converted the world — a bright paper sky over a
+ * Lambert-lit dungeon would have been worse than either look on its own. Now that
+ * characters are unlit slabs and surfaces carry fibre, the ground can follow.
+ */
 export const PALETTE = {
-  sky: "#0e1014",
-  floor: "#3b4152",
-  floorEdge: "#2a2f3c",
-  cracking: "#c8642f",
-  gone: "#14161c",
+  sky: "#cfe4f2",
+  floor: "#f2e9d6",
+  floorEdge: "#d9caa9",
+  cracking: "#e08b3c",
+  gone: "#b9a888",
   hazard: "#e6484d",
-  pickup: "#ffc51e",
+  pickup: "#ffd23f",
   shadow: "#000000",
-  text: "#f2f4f8",
-  textDim: "#9aa3b2",
-  panel: "#181c25",
-  accent: "#2f9bff",
+  text: "#1b1a17",
+  textDim: "#6e6754",
+  panel: "#fdf8ee",
+  accent: "#0a7fc4",
 } as const;
 
 export type PaletteKey = keyof typeof PALETTE;

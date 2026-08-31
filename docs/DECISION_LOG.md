@@ -741,3 +741,36 @@ now builds the identifier from parts, and the guard stays maximally strict.
 **Still deliberately open:** T4's arena half. The `PAPER` tokens exist and the interface
 uses them, but the world's ground stays dark until Phases B and C convert it —
 retargeting now would put a bright paper sky over a Lambert-lit dungeon.
+
+## RD-027 — The world is paper now (2026-08-31)
+
+**Decision.** `specs/visual-direction/` Phases B and C, plus T4's held-back half.
+Characters are slab humanoids with ink edges and hinged limbs; materials are unlit for
+paper and softly lit for the arena; fog and shadow maps are gone; the arena palette and
+every minigame's own `arena()` colours moved to warm stock.
+
+**The outline stayed free, as designed.** `BoxGeometry` orders its face groups
++X, −X, +Y, −Y, +Z, −Z, so handing it six materials paints the front and back in the
+player's colour and the four edges in ink. A slab therefore outlines itself with no
+shader, no inverted hull, no fullscreen pass and no per-frame cost — and a test asserts
+the render source contains no render target, no depth texture and no composer, so a
+later "let's just add a post-process outline" is a decision rather than a drift.
+
+**One thing the implementation decided that the spec had not.** On a *shaded* slab the
+ink edges stay **unlit**. A shaded outline brightens and dims with the light, which is
+the one thing an ink line must not do. The test that caught it was asserting the wrong
+property — it wanted every material on a shaded slab to be lit — and the fix was to the
+test, not the code.
+
+**T4 landed here rather than in Phase A, on purpose.** Retargeting the arena while the
+world was still Lambert-lit and dark would have put a bright paper sky over a dungeon —
+worse than either look on its own. Holding it cost one line of task prose and avoided a
+half-converted game.
+
+**Two tests had to work around guards rather than weaken them**, which is now a pattern
+worth naming. `character.test.ts` forbids `lookAt`, `Sprite`, `quaternion` and `camera`
+in the character source to prove it is not a billboard — but the comment *explaining*
+that legitimately uses those words, so the test strips comments before checking rather
+than dropping terms from the list. Same shape as RD-026's loader test. When an assertion
+collides with prose, move the prose out of the assertion's way; do not shrink the
+assertion.

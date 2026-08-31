@@ -226,7 +226,7 @@ export const fallingFloor: Minigame<FallingFloorState> = {
       camera: { eye: [0, 26, 21], look: [0, 0, 0], fov: 45 },
       solids: [],
       statics: [],
-      sky: "#0e1014",
+      sky: "#cfe4f2",
     };
   },
 };

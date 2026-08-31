@@ -246,7 +246,7 @@ export const scramble: Minigame<ScrambleState> = {
         p.pos.z,
       ] as [number, number, number],
       r: PICKUP_RADIUS,
-      colour: "#ffef14",
+      colour: "#ffd23f",
     }));
     return {
       counts: Object.fromEntries(s.counts),
@@ -257,21 +257,21 @@ export const scramble: Minigame<ScrambleState> = {
 
   arena(): ArenaDescriptor {
     const statics: Prim[] = [
-      { k: "box", pos: [0, -0.25, 0], size: [ARENA, 0.5, ARENA], colour: "#3b4152" },
+      { k: "box", pos: [0, -0.25, 0], size: [ARENA, 0.5, ARENA], colour: "#f2e9d6" },
     ];
     for (const w of WALLS) {
       statics.push({
         k: "box",
         pos: [(w.min.x + w.max.x) / 2, 0.6, (w.min.z + w.max.z) / 2],
         size: [w.max.x - w.min.x, 1.2, w.max.z - w.min.z],
-        colour: "#2a2f3c",
+        colour: "#d9caa9",
       });
     }
     return {
       camera: { eye: [0, 28, 23], look: [0, 0, 0], fov: 45 },
       solids: WALLS,
       statics,
-      sky: "#0e1014",
+      sky: "#cfe4f2",
     };
   },
 };

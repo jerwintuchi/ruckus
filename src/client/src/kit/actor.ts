@@ -9,6 +9,11 @@
  */
 
 export interface ActorPose {
+  /** Hip/shoulder angles, radians. Legs and arms are always in counter-phase. */
+  legSwing: number;
+  armSwing: number;
+  /** Extra yaw on a turn, so the slab shows its ink edge — the paper flip. */
+  flip: number;
   /** Vertical bob applied to the body, in metres. */
   bob: number;
   /** Lean into the direction of travel, in radians. Clamped. */
@@ -20,6 +25,9 @@ export interface ActorPose {
 }
 
 export const MAX_LEAN = 0.35;
+export const MAX_LEG_SWING = 0.62;
+export const MAX_ARM_SWING = 0.5;
+export const MAX_FLIP = 0.34;
 const BOB_HZ = 2.4;
 const BOB_AMPLITUDE = 0.07;
 const SWING_AMPLITUDE = 0.6;
@@ -30,6 +38,8 @@ const SWING_AMPLITUDE = 0.6;
  * @param airborne height above the ground; drives squash and suppresses the bob
  * @param vy       vertical velocity, so a rise stretches and a fall squashes
  * @param t        seconds; the only time input, so the pose is reproducible
+ * @param turning  how sharply the character is changing direction, 0..1 — drives the
+ *                 flip that shows the slab's ink edge
  */
 export function poseFor(
   speed: number,
@@ -37,6 +47,7 @@ export function poseFor(
   airborne: number,
   vy: number,
   t: number,
+  turning = 0,
 ): ActorPose {
   const gait = maxSpeed > 0 ? Math.min(1, Math.max(0, speed / maxSpeed)) : 0;
   const grounded = airborne <= 0.01;
@@ -53,7 +64,15 @@ export function poseFor(
 
   const swing = grounded ? Math.sin(phase) * SWING_AMPLITUDE * gait : 0.3;
 
-  return { bob, lean, squash, swing };
+  // Paper hinges; it does not deform. A sinusoid reads as rubber, so the curve is
+  // sharpened toward its extremes — the limb snaps to a pose and holds it (R9).
+  const snap = (v: number): number => Math.sign(v) * Math.pow(Math.abs(v), 0.55);
+  const legSwing = grounded ? snap(Math.sin(phase)) * MAX_LEG_SWING * gait : -0.42;
+  const armSwing = grounded ? -snap(Math.sin(phase)) * MAX_ARM_SWING * gait : 0.55;
+
+  const flip = clamp(turning, 0, 1) * MAX_FLIP;
+
+  return { bob, lean, squash, swing, legSwing, armSwing, flip };
 }
 
 function clamp(v: number, lo: number, hi: number): number {

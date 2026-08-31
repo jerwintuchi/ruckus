@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_COLOURS as SHARED_COLOURS } from "@ruckus/shared";
-import { PALETTE, PLAYER_COLOURS, hexToInt } from "./palette.ts";
+import { PALETTE, PAPER, PLAYER_COLOURS, hexToInt } from "./palette.ts";
 
 /* sRGB -> CIE Lab, then CIE76 deltaE. Enough to catch "these two look the same". */
 
@@ -109,5 +109,51 @@ describe("palette hygiene (T14)", () => {
     expect(hexToInt("#ffffff")).toBe(0xffffff);
     expect(hexToInt("#000000")).toBe(0);
     expect(hexToInt("#2f9bff")).toBe(0x2f9bff);
+  });
+});
+
+describe("the arena moved to paper stock (visual-direction T4, R3)", () => {
+  it("leaves the eight player colours untouched", () => {
+    // RD-007's dichromacy search has nothing to do with style, so a change of look
+    // must not disturb it. The tests above still hold; this pins the intent.
+    expect(PLAYER_COLOURS).toEqual([
+      "#1ab0ff", "#ff3f18", "#ffef14", "#69f982",
+      "#b013b0", "#875e35", "#08865a", "#870909",
+    ]);
+  });
+
+  it("makes the arena light rather than a void", () => {
+    const luma = (hex: string): number => {
+      const n = hexToInt(hex);
+      return 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+    };
+    for (const token of ["sky", "floor", "floorEdge", "panel"] as const) {
+      expect(luma(PALETTE[token]), token).toBeGreaterThan(140);
+    }
+  });
+
+  it("keeps ink legible on every paper ground it outlines", () => {
+    // WCAG contrast: ink must stay readable on anything it is drawn against.
+    const lum = (hex: string): number => {
+      const n = hexToInt(hex);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * ch[0]! + 0.7152 * ch[1]! + 0.0722 * ch[2]!;
+    };
+    const ratio = (a: string, b: string): number => {
+      const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+      return (x! + 0.05) / (y! + 0.05);
+    };
+    for (const ground of [PAPER.card, PAPER.cardDim, PAPER.ground, PALETTE.floor]) {
+      expect(ratio(PAPER.ink, ground), ground).toBeGreaterThan(7);
+    }
+  });
+
+  it("still declares every token as well-formed hex", () => {
+    for (const [name, hex] of Object.entries({ ...PALETTE, ...PAPER })) {
+      expect(hex, name).toMatch(/^#[0-9a-f]{6}$/);
+    }
   });
 });

@@ -30,11 +30,10 @@ legible, not tidied away.*
   pairwise-distinct texel arrays; every parameter stays inside its declared range;
   all linework lands inside the texture bounds for every slot
 
-- [ ] T4 [R3] — Move the **arena** palette to paper stock in `src/client/src/kit/palette.ts`
-  **Partly done:** the `PAPER` tokens exist and the interface uses them (T13). What
-  remains is retargeting the *arena* tokens, which is deliberately held until Phases B
-  and C convert the world — swapping the world's ground out now would leave the game
-  half-converted with a bright sky over a dark Lambert-lit arena.
+- [x] T4 [R3] — Move the **arena** palette to paper stock in `src/client/src/kit/palette.ts`
+  Held back until Phases B and C had converted the world, then landed with them: a
+  bright paper sky over a Lambert-lit dungeon would have been worse than either look
+  alone. Every minigame's own `arena()` colours were retargeted in the same pass.
   Test: `palette.test.ts` — the 8 player colours are **unchanged** (RD-007's dichromacy
   search still holds); arena tokens are the new warm stock; every token is well-formed;
   `INK` contrasts at least 7:1 against every paper ground it outlines
@@ -50,36 +49,38 @@ legible, not tidied away.*
 - [~] T7 — **SUPERSEDED by T9** (RD-021). Was: flat shading plus per-arena distance fog.
   Fog dissolves edges; hard edges are the point. Characters are now unlit outright.
 
-- [ ] T8 [R3, R4, P1] — Native crisp rendering and the outline strategy in
+- [x] T8 [R3, R4, P1] — Native crisp rendering and the outline strategy in
   `src/client/src/kit/paper.ts`
   Test: `paper.test.ts` — the pixel ratio is capped at 2; **no fullscreen pass and no
   depth-texture requirement exists in the render source** (P1, asserted against the
   source); a slab's edge faces resolve to `INK` while its front and back take the
   player colour; the opt-in inverted hull applies only to objects that request it
 
-- [ ] T9 [R5, R6] — Materials: unlit characters, lightly-lit arena, paper surfaces
+- [x] T9 [R5, R6] — Materials: unlit characters, lightly-lit arena, paper surfaces
   Test: `paper.test.ts` — character materials are unlit; arena materials keep one soft
   light; no fog is ever set; no shadow map is ever enabled; `stock()` and `crease()`
   are applied to arena surfaces rather than flat colour
 
 ## Phase C — the character
 
-- [ ] T10 [R7] — The slab humanoid in `src/client/src/kit/character.ts`
+- [x] T10 [R7] — The slab humanoid in `src/client/src/kit/character.ts`
   Test: `character.test.ts` — every part is a slab of `SLAB_DEPTH` with `INK` edges;
   total height and footprint are unchanged from the capsule it replaces; the face
   texture lands on the head's front face; geometries and materials are shared, not
   per-instance; **the character is never camera-facing** — a billboard would remove
   the depth cue Sweepers and Hot Potato depend on
 
-- [ ] T11 [R9, P4] — Hinged paper motion, extending `poseFor`
+- [x] T11 [R9, P4] — Hinged paper motion, extending `poseFor`
   Test: `actor.test.ts` — limbs hinge in counter-phase; the swing curve eases sharply
   at the extremes rather than sinusoidally (paper has no inertia); a turn rotates the
   slab enough to show its edge; the airborne pose differs from every grounded pose;
   every angle is finite for extreme inputs and is a pure function of its arguments
 
-- [ ] T12 [R7, R13] — Readability with 8 on screen
-  Test: manual capture at phone size, 8 characters, each arena — plus
-  `character.test.ts` asserting the per-character mesh count stays within budget
+- [x] T12 [R7, R13] — Readability with 8 on screen
+  Test: `character.test.ts` asserts the per-character mesh count and that a whole
+  lobby shares one geometry and one material set. **The manual capture at phone size
+  is still owed** — it belongs with T19's playtest, since "does this read at arm's
+  length" is the same question.
 
 ## Phase D — the interface
 

@@ -273,23 +273,23 @@ export const sweepers: Minigame<SweepersState> = {
 
   arena(): ArenaDescriptor {
     const statics: Prim[] = [
-      { k: "box", pos: [0, -0.25, 0], size: [ARENA, 0.5, ARENA], colour: "#3b4152" },
+      { k: "box", pos: [0, -0.25, 0], size: [ARENA, 0.5, ARENA], colour: "#f2e9d6" },
       // The pivot, so the geometry of the sweep is readable at a glance.
-      { k: "cyl", pos: [0, 0.05, 0], r: 0.6, h: 0.1, colour: "#2a2f3c" },
+      { k: "cyl", pos: [0, 0.05, 0], r: 0.6, h: 0.1, colour: "#d9caa9" },
     ];
     for (const w of WALLS) {
       statics.push({
         k: "box",
         pos: [(w.min.x + w.max.x) / 2, 0.6, (w.min.z + w.max.z) / 2],
         size: [w.max.x - w.min.x, 1.2, w.max.z - w.min.z],
-        colour: "#2a2f3c",
+        colour: "#d9caa9",
       });
     }
     return {
       camera: { eye: [0, 27, 22], look: [0, 0, 0], fov: 45 },
       solids: WALLS,
       statics,
-      sky: "#0e1014",
+      sky: "#cfe4f2",
     };
   },
 };
