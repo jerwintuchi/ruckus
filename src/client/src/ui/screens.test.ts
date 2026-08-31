@@ -165,11 +165,33 @@ describe("the menu offers create and join (lobby-flow T7, R1)", () => {
     expect(at(root, "#code").readOnly).toBe(true);
   });
 
+  it("shows a lobby error in the lobby, where the player is", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render(lobby({ error: ERROR_TEXT.NOT_HOST }));
+    expect(at(root, "#lobby").style.display).not.toBe("none");
+    expect(at(root, "#lobbyError").textContent).toContain("Only the host");
+  });
+
+  it("clears the error from every screen once it is resolved", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render({ ...initialState(), screen: "JOINING", error: ERROR_TEXT.NO_ROOM });
+    ui.render({ ...initialState(), screen: "JOINING", error: null });
+    for (const id of ["#error", "#joinError", "#lobbyError"]) {
+      expect(at(root, id).textContent, id).toBe("");
+    }
+  });
+
   it("shows an error where the player can act on it", () => {
     const { root } = stubDom();
     const ui = new Ui(root, noop);
     ui.render({ ...initialState(), screen: "JOINING", code: "ZZZZ", error: ERROR_TEXT.NO_ROOM });
-    expect(at(root, "#error").textContent).toContain("create your own");
+    // The slot must belong to the screen being SHOWN. This used to assert `#error`,
+    // which lives in the menu card: it passed while the message was painted into a
+    // display:none element and the player, mid-join, saw the tap do nothing at all.
+    expect(at(root, "#joining").style.display).not.toBe("none");
+    expect(at(root, "#joinError").textContent).toContain("create your own");
   });
 });
 

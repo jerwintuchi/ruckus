@@ -54,12 +54,18 @@ const ui = new Ui(overlay, {
   onCreate: (name) => {
     dispatch({ t: "setName", name });
     dispatch({ t: "wantCreate" });
+    dispatch({ t: "connecting" });
     net.connect({ t: "create", name });
   },
   onJoin: (code, name) => {
     dispatch({ t: "setName", name });
     dispatch({ t: "setCode", code });
-    if (flow.code.length === 4) net.connect({ t: "join", code: flow.code, name });
+    // Say the tap landed before the socket has anything to report. A join that fails
+    // silently and a join that is still in flight look identical otherwise.
+    if (flow.code.length === 4) {
+      dispatch({ t: "connecting" });
+      net.connect({ t: "join", code: flow.code, name });
+    }
   },
   onStart: () => net.send({ t: "start" }),
   onEvent: dispatch,

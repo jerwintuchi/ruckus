@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { DEAD_ZONE_PX, STICK_RADIUS, keyVector, stickVector } from "./input.ts";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { DEAD_ZONE_PX, InputController, STICK_RADIUS, keyVector, stickVector } from "./input.ts";
 
 describe("stickVector (T17, R10)", () => {
   it("is zero inside the dead zone, so a resting thumb does not drift", () => {
@@ -53,5 +53,83 @@ describe("keyVector (T17)", () => {
     expect(Object.keys(keyVector(new Set(["w"]))).sort()).toEqual(
       Object.keys(stickVector(0, -STICK_RADIUS)).sort(),
     );
+  });
+});
+
+/**
+ * The DOM binding, which had no test at all — which is why a phone-only, total UI
+ * lockout shipped and survived a green suite (T19).
+ *
+ * A stub surface rather than jsdom: the binding's whole contract is "which touches do
+ * you swallow", and that needs a target and a preventDefault spy, nothing more.
+ */
+function surfaceStub() {
+  const listeners: Record<string, ((e: unknown) => void)[]> = {};
+  const el = {
+    addEventListener(ev: string, fn: (e: unknown) => void) {
+      (listeners[ev] ??= []).push(fn);
+    },
+  } as unknown as HTMLElement;
+
+  const touch = (x: number, y: number, id = 1) => ({ clientX: x, clientY: y, identifier: id });
+  /** `target.closest` is the real API the guard uses, so the stub provides it. */
+  const control = { closest: (sel: string) => (sel.includes("button") ? {} : null) };
+  const bare = { closest: () => null };
+
+  const fire = (ev: string, changedTouches: unknown[], target: unknown) => {
+    let prevented = false;
+    const e = { changedTouches, target, preventDefault: () => { prevented = true; } };
+    for (const fn of listeners[ev] ?? []) fn(e);
+    return prevented;
+  };
+  return { el, fire, touch, control, bare };
+}
+
+describe("touches on a control belong to the control (T19)", () => {
+  // The controller binds the keyboard to `window` and splits the screen by
+  // `innerWidth`. A stub is enough, and keeps these tests out of a DOM environment.
+  const g = globalThis as { window?: unknown };
+  beforeAll(() => {
+    g.window = { addEventListener: () => {}, innerWidth: 800, innerHeight: 400 };
+  });
+  afterAll(() => { delete g.window; });
+
+  it("does not swallow a tap that lands on a button", () => {
+    // preventDefault on touchstart cancels the synthesized tap on iOS. Swallowing it
+    // here made every button and input on the page inert on a phone, while the
+    // desktop build — which fires no touch events — stayed perfect.
+    const s = surfaceStub();
+    new InputController(s.el);
+    const prevented = s.fire("touchstart", [s.touch(20, 400)], s.control);
+    expect(prevented).toBe(false);
+  });
+
+  it("does not plant the stick under a control either", () => {
+    const s = surfaceStub();
+    const input = new InputController(s.el);
+    s.fire("touchstart", [s.touch(20, 400)], s.control);
+    expect(input.stickView).toBeNull();
+    expect(input.read()).toEqual({ ax: 0, ay: 0, btn: false });
+  });
+
+  it("still claims a touch on the bare arena, and swallows that one", () => {
+    const s = surfaceStub();
+    const input = new InputController(s.el);
+    const prevented = s.fire("touchstart", [s.touch(20, 400)], s.bare);
+    expect(prevented).toBe(true);
+    expect(input.stickView).not.toBeNull();
+  });
+
+  it("ignores a drag it never claimed, so a control's own gestures survive", () => {
+    const s = surfaceStub();
+    new InputController(s.el);
+    expect(s.fire("touchmove", [s.touch(30, 410)], s.control)).toBe(false);
+  });
+
+  it("swallows the drag once the stick owns it", () => {
+    const s = surfaceStub();
+    new InputController(s.el);
+    s.fire("touchstart", [s.touch(20, 400)], s.bare);
+    expect(s.fire("touchmove", [s.touch(30, 410)], s.bare)).toBe(true);
   });
 });

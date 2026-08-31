@@ -129,3 +129,8 @@ legible, not tidied away.*
   Test: manual playtest via `pnpm playtest`. Two questions no test answers: does the
   paper read at arm's length in a lit room, and can you still judge depth well enough
   to time a jump over a sweeper?
+  **Still open — neither question has been reached yet.** The first attempt never got
+  past the menu: no control on any screen responded on iOS, because `touchstart` was
+  bound to `document.body` and `preventDefault`ed unconditionally (RD-029). That, an
+  invisible join error and a silently dead Join button are all fixed and tested. The
+  bench's p95 and T12's arm's-length capture are still owed with this box.

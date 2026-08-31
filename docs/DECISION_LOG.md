@@ -822,3 +822,50 @@ table above is falsifiable on the actual hardware. It lands with T19's playtest.
 `expect()` calls to check 20,000 reduces, and the assertion overhead — not the work —
 made it the first test to time out when the suite got one worker busier. It now asserts
 on the failure instead: same coverage, 2.9 s → 0.07 s.
+
+## RD-029 — The desktop build was perfect and the phone build was unusable (2026-08-31)
+
+**What happened.** The first `visual-direction` T19 playtest, on an iPhone over Tailscale.
+Not one control on any screen responded — buttons, the name field, the code field. The
+suite was green, 475 tests, and the same build was flawless on a laptop.
+
+**Cause.** `InputController` bound `touchstart` to `document.body` with
+`{ passive: false }` and called `preventDefault()` on **every** touch. On iOS that
+cancels the synthesized tap, so no button fires a click and no input takes focus. Bound
+to `document.body`, it swallowed every touch on the page, the entire UI included.
+Desktop fires no touch events at all, which is why the laptop never showed a symptom.
+
+A touch starting on a control now passes through untouched, and `touchmove` only
+swallows a gesture the stick has actually claimed, so dragging on a control still
+scrolls and selects. Touches on the bare arena are unchanged.
+
+**Why a green suite said nothing.** `input.ts` carries the comment "exported and pure so
+it can be tested without a DOM", and the tests covered exactly that: the trig. The DOM
+binding — the part that decides whether the game can be used at all — had no test.
+Purity had been optimised for testability, and then only the testable part was tested.
+It has five tests now, including one that a tap on a control is *not* swallowed.
+
+**Two more silences found on the way to it**, both real, neither the cause:
+
+- **A join failure had nowhere to appear.** `screenForError` deliberately keeps a failed
+  join on the join screen (P4, input intact), but the only error element in the UI lived
+  in the *menu* card, hidden at that moment. `NO_ROOM`, `ROOM_FULL`, `BAD_CODE` and
+  `BAD_MSG` were all invisible; the lobby had the same hole for `NOT_HOST` and
+  `TOO_FEW`. Each screen owns a slot now.
+- **The Join button was silently dead.** Start has always explained why it is
+  unavailable — there is a test named for it — and Join was `disabled` with nothing
+  said. On a phone there is no cursor to reveal a dead control, so it is
+  indistinguishable from a broken game. `joinState` mirrors `startState`, and a join in
+  flight now says so, so a tap always has a visible consequence.
+
+**The lesson is the one the pillar already states**, which is what makes it worth
+logging: *judged on a mid-range phone, not on the desktop it was written on.* Three
+independent ways for the interface to say nothing shipped past a green suite, and the
+one that mattered was a single `preventDefault` in a file whose tests were deliberately
+DOM-free. A pure core does not make the impure edge optional.
+
+**Method note.** Two wrong turns before the cause: the empty server log was read as "no
+connection was attempted" when the server only ever logs its startup line, and the first
+two fixes chased the join path the symptom named. The screenshot settled it — a *text
+input* that will not focus was never a join-flow bug. Trust the artefact over the
+report of it.

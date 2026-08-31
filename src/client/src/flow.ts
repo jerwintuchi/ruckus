@@ -21,12 +21,15 @@ export interface FlowState {
   codeLocked: boolean;
   name: string;
   error: string | null;
+  /** A join is in flight. Without this a tap on Join has no visible consequence. */
+  connecting: boolean;
   mySlot: number;
   host: number;
   players: PlayerView[];
 }
 
 export type FlowEvent =
+  | { t: "connecting" }
   | { t: "setName"; name: string }
   | { t: "setCode"; code: string }
   | { t: "wantCreate" }
@@ -56,6 +59,7 @@ export const initialState = (): FlowState => ({
   code: "",
   codeLocked: false,
   name: "",
+  connecting: false,
   error: null,
   mySlot: -1,
   host: -1,
@@ -71,6 +75,9 @@ function screenForError(state: FlowState): Screen {
 
 export function reduce(state: FlowState, event: FlowEvent): FlowState {
   switch (event.t) {
+    case "connecting":
+      return { ...state, connecting: true, error: null };
+
     case "setName":
       return { ...state, name: event.name.slice(0, 12), error: null };
 
@@ -88,7 +95,9 @@ export function reduce(state: FlowState, event: FlowEvent): FlowState {
     case "back":
       // Leaving the join screen releases a linked code, so Back is a real way out
       // rather than a trap you can never edit your way off.
-      return { ...state, screen: "MENU", error: null, codeLocked: false, code: "" };
+      return {
+        ...state, screen: "MENU", error: null, codeLocked: false, code: "", connecting: false,
+      };
 
     case "deepLink":
       return {
@@ -102,6 +111,7 @@ export function reduce(state: FlowState, event: FlowEvent): FlowState {
     case "welcome":
       return {
         ...state,
+        connecting: false,
         screen: "LOBBY",
         code: event.code,
         codeLocked: false,
@@ -122,7 +132,12 @@ export function reduce(state: FlowState, event: FlowEvent): FlowState {
       };
 
     case "err":
-      return { ...state, screen: screenForError(state), error: ERROR_TEXT[event.code] };
+      return {
+        ...state,
+        screen: screenForError(state),
+        error: ERROR_TEXT[event.code],
+        connecting: false,
+      };
 
     case "disconnected":
       // Never a frozen lobby: say what happened and offer the way back.
@@ -136,6 +151,26 @@ export function reduce(state: FlowState, event: FlowEvent): FlowState {
       // Total by construction: an unknown event leaves the state untouched.
       return state;
   }
+}
+
+/**
+ * Can this player press Join, and if not, what should they be told? (P5)
+ *
+ * The Start button has always explained itself. Join did not: it was `disabled` with
+ * nothing said, so on a phone — where there is no cursor to reveal a dead control — a
+ * tap on it was indistinguishable from a broken game. Found in a playtest, not by a
+ * test, which is the same way RD-008 was found.
+ */
+export function joinState(state: FlowState): { canJoin: boolean; note: string } {
+  if (state.connecting) return { canJoin: false, note: "Connecting…" };
+  if (state.code.length === 0) {
+    return { canJoin: false, note: "Type the room's four-character code." };
+  }
+  if (state.code.length < 4) {
+    const short = 4 - state.code.length;
+    return { canJoin: false, note: `${short} more character${short === 1 ? "" : "s"}.` };
+  }
+  return { canJoin: true, note: "" };
 }
 
 /** Can this player press Start, and if not, what should they be told? */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ERROR_TEXT, initialState, reduce, startState, type FlowEvent, type FlowState } from "./flow.ts";
+import { ERROR_TEXT, initialState, joinState, reduce, startState, type FlowEvent, type FlowState } from "./flow.ts";
 import { makeRng, type ErrCode, type PlayerView } from "@ruckus/shared";
 
 const SCREENS = ["MENU", "CREATING", "JOINING", "LOBBY", "IN_MATCH"];
@@ -138,6 +138,40 @@ describe("the start control explains itself (lobby-flow T8, R5)", () => {
   it("does not count disconnected players toward the minimum", () => {
     const state: FlowState = { ...lobby(2, 0), players: players(2, false) };
     expect(startState(state).canStart).toBe(false);
+  });
+});
+
+describe("the join control explains itself (T19, P5)", () => {
+  // Start has always done this; Join did not, and on a phone a disabled button with
+  // nothing said is indistinguishable from a broken game. Found in a playtest.
+  it("says what is missing rather than being silently dead", () => {
+    expect(joinState({ ...initialState(), code: "" }))
+      .toMatchObject({ canJoin: false, note: "Type the room's four-character code." });
+    expect(joinState({ ...initialState(), code: "GKL" }))
+      .toMatchObject({ canJoin: false, note: "1 more character." });
+    expect(joinState({ ...initialState(), code: "GK" }).note).toBe("2 more characters.");
+  });
+
+  it("allows the join once the code is whole", () => {
+    expect(joinState({ ...initialState(), code: "GKLR" }))
+      .toEqual({ canJoin: true, note: "" });
+  });
+
+  it("reports a join in flight, so a tap always has a visible consequence", () => {
+    const s = reduce({ ...initialState(), code: "GKLR" }, { t: "connecting" });
+    expect(joinState(s)).toMatchObject({ canJoin: false, note: "Connecting…" });
+  });
+
+  it("never leaves the note stuck after the attempt resolves", () => {
+    const trying = reduce({ ...initialState(), code: "GKLR" }, { t: "connecting" });
+    for (const ending of [
+      { t: "err", code: "NO_ROOM" } as const,
+      { t: "welcome", slot: 0, code: "GKLR", host: 0 } as const,
+      { t: "disconnected" } as const,
+      { t: "back" } as const,
+    ]) {
+      expect(reduce(trying, ending).connecting, ending.t).toBe(false);
+    }
   });
 });
 

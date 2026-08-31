@@ -7,7 +7,7 @@
  */
 import type { PlayerView } from "@ruckus/shared";
 import type { FlowEvent, FlowState } from "../flow.ts";
-import { startState } from "../flow.ts";
+import { joinState, startState } from "../flow.ts";
 import { colourFor, escapeHtml } from "./kit.ts";
 import { renderHud, roundLabel, type HudData } from "./hud.ts";
 
@@ -67,14 +67,26 @@ export class Ui {
     show(this.joining, state.screen === "JOINING");
     show(this.lobby, state.screen === "LOBBY");
 
-    this.q("#error").textContent = state.error ?? "";
+    // Every screen that can raise an error owns a slot for it.
+    //
+    // An error is deliberately kept on the screen that raised it (screenForError, P4),
+    // but the only slot used to be the menu's — so a failed join painted its message
+    // into a display:none element and the player saw the tap do nothing at all. The
+    // test that covered this asserted `#error`.textContent and passed the whole time,
+    // because the stub DOM cannot express "is this inside the screen being shown".
+    for (const id of ["#error", "#joinError", "#lobbyError"]) {
+      this.q(id).textContent = state.error ?? "";
+    }
 
     const codeInput = this.q("#code") as HTMLInputElement;
     if (codeInput.value !== state.code) codeInput.value = state.code;
     // A code from a shared link is not editable — half-editing an invite is worse
     // than not being able to edit it at all.
     codeInput.readOnly = state.codeLocked;
-    (this.q("#joinBtn") as HTMLButtonElement).disabled = state.code.length !== 4;
+    // Never silently dead: if Join cannot be pressed, say why (P5, joinState).
+    const join = joinState(state);
+    (this.q("#joinBtn") as HTMLButtonElement).disabled = !join.canJoin;
+    this.q("#joinNote").textContent = join.note;
     (this.q("#createBtn") as HTMLButtonElement).disabled = state.screen === "CREATING";
 
     if (state.screen === "LOBBY") {
@@ -201,6 +213,8 @@ const TEMPLATE = `
            autocapitalize="characters" autocomplete="off" spellcheck="false">
     <button id="joinBtn">join</button>
     <button id="backBtn" class="ghost">back</button>
+    <div id="joinNote" class="dim"></div>
+    <div id="joinError" class="err"></div>
   </div>
 </div>
 
@@ -215,5 +229,6 @@ const TEMPLATE = `
     <div id="scoreboard"></div>
     <button id="startBtn">start</button>
     <div id="waitNote" class="dim"></div>
+    <div id="lobbyError" class="err"></div>
   </div>
 </div>`;

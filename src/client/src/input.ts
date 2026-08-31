@@ -13,6 +13,18 @@ export interface InputState {
   btn: boolean;
 }
 
+/**
+ * A touch landing on one of these belongs to the control, not to the stick.
+ *
+ * `preventDefault()` on `touchstart` cancels the synthesized tap on iOS, so calling it
+ * for every touch on `document.body` made every button and every input on the page
+ * inert on a phone — while the desktop build, which has no touch events at all, stayed
+ * perfect. That is the exact failure "judged on a mid-range phone, not on the desktop
+ * it was written on" exists to prevent, and it took a playtest to find because the DOM
+ * binding had no test: only the pure trig did.
+ */
+export const UI_CONTROLS = "button, input, select, textarea, a, label";
+
 export const STICK_RADIUS = 60;
 export const DEAD_ZONE_PX = 4;
 
@@ -100,11 +112,23 @@ export class InputController {
     window.addEventListener("blur", () => this.keys.clear());
   }
 
+  /** True when the touch started on a control, which then owns it. */
+  private onControl(e: TouchEvent): boolean {
+    const target = e.target as Element | null;
+    return typeof target?.closest === "function" && target.closest(UI_CONTROLS) !== null;
+  }
+
+  /** Whether the stick has actually claimed this gesture. */
+  private get engaged(): boolean {
+    return this.touchId !== null || this.buttonHeld;
+  }
+
   private bindTouch(): void {
     const el = this.surface;
     el.addEventListener(
       "touchstart",
       (e) => {
+        if (this.onControl(e)) return; // let the tap through, untouched
         for (const t of Array.from(e.changedTouches)) {
           // Right half is the button, left half plants the stick. No camera to drive.
           if (t.clientX > window.innerWidth * 0.6) {
@@ -125,6 +149,9 @@ export class InputController {
     el.addEventListener(
       "touchmove",
       (e) => {
+        // Only swallow the gesture once the stick owns it, so a drag on a control —
+        // scrolling, selecting text in the name field — still behaves normally.
+        if (!this.engaged) return;
         for (const t of Array.from(e.changedTouches)) {
           if (t.identifier === this.touchId) this.current = { x: t.clientX, y: t.clientY };
         }
