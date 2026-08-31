@@ -18,6 +18,8 @@
  */
 import type { InputController } from "../input.ts";
 import { UI, escapeHtml } from "./kit.ts";
+import { ICON_BOX, iconLabel, iconPath } from "./icons.ts";
+import { ACTION_VERBS, type ActionVerb, type WireAction } from "@ruckus/shared";
 
 /** Present enough to be found, faint enough not to fight the arena. */
 export const STICK_REST_OPACITY = 0.35;
@@ -27,6 +29,14 @@ export const BUTTON_MIN_PX = 72;
 export const STICK_BASE_PX = 132;
 /** Where the resting stick sits, from the bottom-left corner. */
 export const STICK_HOME_PX = 96;
+
+/**
+ * The cooldown the ring is drawn against, in seconds.
+ *
+ * The longest any action takes to recharge, so a shorter one simply sweeps less of the
+ * ring rather than needing its own scale sent every tick.
+ */
+export const COOLDOWN_FULL_S = 1.4;
 
 /** Faint enough to ignore: a reminder, not a HUD element. */
 export const GUIDE_OPACITY = 0.4;
@@ -55,10 +65,20 @@ export const CONTROLS_CSS = `
   box-shadow:0 ${UI.shadowOffset}px 0 var(--ink);
   font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:15px;
   letter-spacing:.04em;
-  display:flex;align-items:center;justify-content:center;
+  display:flex;align-items:center;justify-content:center;position:fixed;
   pointer-events:auto;touch-action:none;-webkit-user-select:none;user-select:none}
 #actionBtn[hidden]{display:none}
 #actionBtn.down{transform:translateY(${UI.shadowOffset - 2}px);box-shadow:0 2px 0 var(--ink)}
+#actionBtn svg{width:30px;height:30px;fill:none;stroke:var(--ink);stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round}
+/* The cooldown ring sweeps around the button as the move recharges (R6). */
+#cooldownRing{position:absolute;inset:-4px;width:auto;height:auto;transform:rotate(-90deg)}
+#cooldownRing circle{fill:none;stroke:var(--ink);stroke-width:3;opacity:.45;
+  stroke-dasharray:126;stroke-dashoffset:0}
+#cooldownNum{position:absolute;font-family:Fredoka,ui-rounded,system-ui,sans-serif;
+  font-weight:700;font-size:13px;color:var(--ink);
+  transform:translateY(20px);font-variant-numeric:tabular-nums}
+#actionBtn.cooling svg:first-of-type{opacity:.35}
 
 /* The keyboard guide, for a player who has a keyboard. */
 #keyGuide{position:fixed;
@@ -84,7 +104,15 @@ export const CONTROLS_HTML = `
 <div id="controls" hidden>
   <div id="stickBase"></div>
   <div id="stickKnob"></div>
-  <button id="actionBtn" hidden></button>
+  <button id="actionBtn" hidden>
+    <svg viewBox="0 0 ${ICON_BOX} ${ICON_BOX}" aria-hidden="true" focusable="false">
+      <path id="actionIcon" d=""></path>
+    </svg>
+    <svg id="cooldownRing" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
+      <circle cx="22" cy="22" r="20"></circle>
+    </svg>
+    <span id="cooldownNum"></span>
+  </button>
   <div id="keyGuide" hidden></div>
 </div>`;
 
@@ -115,8 +143,12 @@ export class Controls {
   private readonly knob: HTMLElement;
   private readonly button: HTMLButtonElement;
   private readonly guide: HTMLElement;
+  private readonly icon: SVGPathElement;
+  private readonly ring: SVGCircleElement;
+  private readonly num: HTMLElement;
   private surface: Surface;
   private label = "";
+  private verb: ActionVerb = "tumble";
 
   constructor(host: HTMLElement, private readonly input: InputController) {
     const wrap = document.createElement("div");
@@ -127,6 +159,9 @@ export class Controls {
     this.knob = wrap.querySelector("#stickKnob") as HTMLElement;
     this.button = wrap.querySelector("#actionBtn") as HTMLButtonElement;
     this.guide = wrap.querySelector("#keyGuide") as HTMLElement;
+    this.icon = wrap.querySelector("#actionIcon") as unknown as SVGPathElement;
+    this.ring = wrap.querySelector("#cooldownRing circle") as unknown as SVGCircleElement;
+    this.num = wrap.querySelector("#cooldownNum") as HTMLElement;
     this.input.attachButton(this.button);
 
     this.surface = guessSurface((q) =>
@@ -144,6 +179,35 @@ export class Controls {
     window.addEventListener("keydown", settle("keyboard"), { capture: true });
 
     this.home();
+  }
+
+  /**
+   * What this player's button does right now (action-button T3, R4, R6).
+   *
+   * Driven by the snapshot, per player: in Hot Potato the holder sees a throw while
+   * everyone else sees a tumble, at the same instant. The cooldown comes from the
+   * server too — the client displays `readyIn` and never runs a timer of its own,
+   * because one that counted independently would drift from the server that owns it.
+   */
+  setAction(action: WireAction | undefined): void {
+    if (!action) return;
+    const verb = (ACTION_VERBS[action.v] ?? "tumble") as ActionVerb;
+    if (verb !== this.verb) {
+      this.verb = verb;
+      this.icon.setAttribute("d", iconPath(verb));
+      this.button.setAttribute("aria-label", iconLabel(verb));
+      this.button.setAttribute("title", iconLabel(verb));
+    }
+
+    const readyIn = action.r ?? 0;
+    const cooling = readyIn > 0;
+    this.button.classList.toggle("cooling", cooling);
+    // A ready button shows no clutter: full ring, no number.
+    this.num.textContent = cooling ? readyIn.toFixed(1) : "";
+    const circumference = 2 * Math.PI * 20;
+    this.ring.style.strokeDashoffset = cooling
+      ? String(circumference * Math.min(1, readyIn / COOLDOWN_FULL_S))
+      : "0";
   }
 
   /** Show the controls for a round. No label means `stick`: no button exists (P3). */

@@ -16,9 +16,10 @@ import {
 import {
   ARENA,
   CONTACT,
-  DASH_COOLDOWN_MS,
-  DASH_MS,
-  DASH_SPEED_MUL,
+  TUMBLE_COOLDOWN_MS,
+  TUMBLE_MS,
+  THROW_MS,
+  TUMBLE_SPEED_MUL,
   FUSE_MIN_MS,
   FUSE_START_MS,
   FUSE_STEP_MS,
@@ -232,68 +233,77 @@ describe("the fuse (T5, R3)", () => {
   });
 });
 
-describe("dashing (T6, R4, P2)", () => {
+describe("tumbling (T6, R4, P2)", () => {
   const pressed: InputState = { axis: { x: 1, z: 0 }, btn: true };
   const running: InputState = { axis: { x: 1, z: 0 }, btn: false };
 
-  it("a held button dashes exactly once, never chains (P2)", () => {
+  it("a held button tumbles exactly once, never chains (P2)", () => {
     const players = mkPlayers(1);
     const state = hotPotato.init({ rng: makeRng(1), players });
     const slot = players[0]!.slot;
 
     step(state, players, 50, () => pressed);
-    const firstReady = state.dashReadyAt.get(slot)!;
+    const firstReady = state.tumbleReadyAt.get(slot)!;
     for (let i = 2; i <= 10; i++) step(state, players, i * TICK_MS, () => pressed);
-    // Still the same cooldown stamp: holding produced no second dash.
-    expect(state.dashReadyAt.get(slot)).toBe(firstReady);
+    // Still the same cooldown stamp: holding produced no second tumble.
+    expect(state.tumbleReadyAt.get(slot)).toBe(firstReady);
   });
 
-  it("refuses a second dash inside the cooldown, and allows one after", () => {
-    const players = mkPlayers(1);
+  it("refuses a second tumble inside the cooldown, and allows one after", () => {
+    // Two players, and the button is pressed by the one NOT holding the bomb: the
+    // holder's button throws now, so a lone player can never demonstrate a tumble.
+    const players = mkPlayers(2);
     const state = hotPotato.init({ rng: makeRng(1), players });
-    const slot = players[0]!.slot;
+    const slot = players.find((p) => p.slot !== state.holder)!.slot;
+    const pressBy = (s: number) => (who: number) => (who === s ? pressed : IDLE_INPUT);
 
-    step(state, players, 50, () => pressed);
-    const first = state.dashReadyAt.get(slot)!;
+    step(state, players, 50, pressBy(slot));
+    const first = state.tumbleReadyAt.get(slot)!;
 
     // Release, then press again well inside the cooldown: refused.
     step(state, players, 100, () => running);
-    step(state, players, 150, () => pressed);
-    expect(state.dashReadyAt.get(slot)).toBe(first);
+    step(state, players, 150, pressBy(slot));
+    expect(state.tumbleReadyAt.get(slot)).toBe(first);
 
     // Release, press again after the cooldown: allowed.
-    step(state, players, DASH_COOLDOWN_MS + 100, () => running);
-    step(state, players, DASH_COOLDOWN_MS + 150, () => pressed);
-    expect(state.dashReadyAt.get(slot)).toBeGreaterThan(first);
+    step(state, players, TUMBLE_COOLDOWN_MS + 100, () => running);
+    step(state, players, TUMBLE_COOLDOWN_MS + 150, pressBy(slot));
+    expect(state.tumbleReadyAt.get(slot)).toBeGreaterThan(first);
   });
 
   it("covers more ground over a fixed window than running", () => {
+    // Two players, measuring the one NOT holding the bomb: the holder's button throws
+    // now, so a lone player pressing it never tumbles at all.
     const cover = (btnAt: number | null): number => {
-      const players = mkPlayers(1);
+      const players = mkPlayers(2);
       const state = hotPotato.init({ rng: makeRng(1), players });
-      players[0]!.body.pos = vec(-HALF + 2, 0);
-      const start = players[0]!.body.pos.x;
+      const runner = players.find((p) => p.slot !== state.holder)!;
+      // Well clear of the holder, so neither collision nor a pass perturbs the run.
+      players.find((p) => p.slot === state.holder)!.body.pos = vec(HALF - 2, HALF - 2);
+      runner.body.pos = vec(-HALF + 2, 0);
+      const start = runner.body.pos.x;
       for (let i = 1; i <= 8; i++) {
         const t = i * TICK_MS;
-        step(state, players, t, () => (btnAt !== null && t >= btnAt ? pressed : running));
+        step(state, players, t, (who) =>
+          who === runner.slot && btnAt !== null && t >= btnAt ? pressed : running);
       }
-      return players[0]!.body.pos.x - start;
+      return runner.body.pos.x - start;
     };
     expect(cover(50)).toBeGreaterThan(cover(null));
   });
 
-  it("the dash window is shorter than its cooldown, so it is a burst not a mode", () => {
-    expect(DASH_MS).toBeLessThan(DASH_COOLDOWN_MS);
+  it("the tumble window is shorter than its cooldown, so it is a burst not a mode", () => {
+    expect(TUMBLE_MS).toBeLessThan(TUMBLE_COOLDOWN_MS);
   });
 });
 
 describe("the walled arena (T7, R5)", () => {
   it("walls are thick enough for the DASHING speed, not just the base one", () => {
-    expect(WALL).toBeGreaterThanOrEqual(minThicknessFor(DASH_SPEED_MUL));
-    expect((MAX_SPEED * DASH_SPEED_MUL) / 20).toBeLessThanOrEqual(WALL);
+    expect(WALL).toBeGreaterThanOrEqual(minThicknessFor(TUMBLE_SPEED_MUL));
+    expect((MAX_SPEED * TUMBLE_SPEED_MUL) / 20).toBeLessThanOrEqual(WALL);
   });
 
-  it("nobody escapes, driven at every wall while dashing, over many seeds", () => {
+  it("nobody escapes, driven at every wall while tumbling, over many seeds", () => {
     const dirs = [vec(1, 0), vec(-1, 0), vec(0, 1), vec(0, -1), vec(1, 1), vec(-1, -1)];
     for (let seed = 0; seed < 200; seed++) {
       const dir = dirs[seed % dirs.length]!;
@@ -304,7 +314,7 @@ describe("the walled arena (T7, R5)", () => {
       // made it fail intermittently — a slow assertion loop reads exactly like a bug.
       let escaped = 0;
       for (let i = 1; i <= 200; i++) {
-        // Mash the button too: the dash is the case most likely to punch through.
+        // Mash the button too: the tumble is the case most likely to punch through.
         step(state, players, i * TICK_MS, () => ({ axis: dir, btn: i % 40 < 2 }));
         const { x, z } = players[0]!.body.pos;
         if (Math.abs(x) > HALF + 0.01 || Math.abs(z) > HALF + 0.01) escaped++;
@@ -502,5 +512,81 @@ describe("contact survives player collision (player-collision T4, R3)", () => {
     other.body.pos = vec(CONTACT + 0.2, 0);
     step(state, players, PASS_LOCK_MS + TICK_MS);
     expect(state.holder).toBe(holder);
+  });
+});
+
+describe("the throw (action-button T4, R3, P3)", () => {
+  /** Put the holder at the origin facing +z, with one catcher along the flight path. */
+  const thrown = (catcherAt: { x: number; z: number } | null, seed = 4) => {
+    const players = mkPlayers(catcherAt ? 2 : 1);
+    const state = hotPotato.init({ rng: makeRng(seed), players });
+    const holder = players.find((p) => p.slot === state.holder)!;
+    holder.body.pos = vec(0, 0);
+    holder.facing = 0; // +z
+    const other = players.find((p) => p.slot !== state.holder);
+    if (other && catcherAt) other.body.pos = vec(catcherAt.x, catcherAt.z);
+    // Past the pass lock so the throw is allowed, then press.
+    step(state, players, PASS_LOCK_MS + TICK_MS, () => ({ ...IDLE_INPUT, btn: true }));
+    return { state, players, holder, other };
+  };
+
+  it("leaves the hand: there is a bomb in flight after the press", () => {
+    const { state } = thrown({ x: 0, z: 6 });
+    expect(state.flight).not.toBeNull();
+  });
+
+  it("is caught by a player in its path", () => {
+    const { state, players, other } = thrown({ x: 0, z: 5 });
+    for (let i = 2; i * TICK_MS <= PASS_LOCK_MS + THROW_MS + 400; i++) {
+      step(state, players, PASS_LOCK_MS + i * TICK_MS);
+    }
+    expect(state.flight).toBeNull();
+    expect(state.holder).toBe(other!.slot);
+  });
+
+  it("always ends with a holder, even thrown at nobody (P3, I8)", () => {
+    // A bomb that could rest unheld is a fuse nobody can beat and a round that never
+    // ends. Every angle, many seeds.
+    for (let seed = 0; seed < 60; seed++) {
+      const players = mkPlayers(3);
+      const state = hotPotato.init({ rng: makeRng(seed), players });
+      const holder = players.find((p) => p.slot === state.holder)!;
+      holder.facing = (seed / 60) * Math.PI * 2;
+      step(state, players, PASS_LOCK_MS + TICK_MS, () => ({ ...IDLE_INPUT, btn: true }));
+      for (let i = 2; i * TICK_MS <= PASS_LOCK_MS + THROW_MS + 600; i++) {
+        step(state, players, PASS_LOCK_MS + i * TICK_MS);
+      }
+      expect(state.flight, `seed ${seed}`).toBeNull();
+      expect(state.alive.has(state.holder), `seed ${seed}`).toBe(true);
+    }
+  });
+
+  it("still respects the pass lock after a catch", () => {
+    const { state, players } = thrown({ x: 0, z: 5 });
+    const before = state.holder;
+    // Step until the catch, then assert the lock was armed at that moment — not after
+    // running past it, which was the first version of this test and always false.
+    for (let i = 2; i * TICK_MS <= PASS_LOCK_MS + THROW_MS + 400; i++) {
+      step(state, players, PASS_LOCK_MS + i * TICK_MS);
+      if (state.holder !== before) {
+        expect(state.lockUntil).toBeGreaterThan(state.elapsed);
+        return;
+      }
+    }
+    throw new Error("the bomb was never caught");
+  });
+
+  it("draws the bomb where it is flying, not on whoever threw it", () => {
+    // The bomb is a prim in the snapshot, so this reads the picture the client gets.
+    const { state, players, holder } = thrown({ x: 0, z: 9 });
+    step(state, players, PASS_LOCK_MS + 2 * TICK_MS);
+    const snap = hotPotato.snapshot(state) as { prims: { pos: [number, number, number] }[] };
+    expect(snap.prims.length).toBeGreaterThan(0);
+    expect(snap.prims[0]!.pos[2]).toBeGreaterThan(holder.body.pos.z);
+  });
+
+  it("does not let the holder tumble instead of throwing", () => {
+    const { state } = thrown({ x: 0, z: 6 });
+    expect(state.tumbleUntil.get(state.flight!.from) ?? 0).toBe(0);
   });
 });

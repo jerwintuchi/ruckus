@@ -33,16 +33,20 @@ describe("repo guards (T19)", () => {
     }
   });
 
-  it("the guards that do not depend on generated state are green", () => {
+  // Under the lock: kit_check scans the whole repo, and another worker's seeded probe
+  // would fail this for reasons that have nothing to do with the guard.
+  it("the guards that do not depend on generated state are green", async () => {
+    await withGuardLock(() => {
     // Deliberately NOT spec_status.py. Its --check compares the committed report to a
     // freshly derived one, so asserting it here couples every test run to whether the
     // registry happens to have been regenerated yet — which made this suite fail
     // intermittently the moment a new minigame's source landed. `pnpm check` runs it
     // as its own step, in CI and before a commit, which is the right place for it.
-    for (const tool of ["context_budget.py", "kit_check.py"]) {
-      const r = run(tool, "--check");
-      expect(r.code, `${tool}: ${r.out}`).toBe(0);
-    }
+      for (const tool of ["context_budget.py", "kit_check.py"]) {
+        const r = run(tool, "--check");
+        expect(r.code, `${tool}: ${r.out}`).toBe(0);
+      }
+    });
   });
 
   it("spec_status --check detects staleness, which is the property that matters", () => {

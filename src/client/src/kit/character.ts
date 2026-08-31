@@ -82,13 +82,18 @@ export class Character {
    * @param t        seconds
    * @param turning  0..1, how sharply direction is changing — drives the paper flip
    */
-  update(height: number, speed: number, vy: number, facing: number, t: number, turning = 0): void {
-    const pose = poseFor(speed, MAX_SPEED, height, vy, t, turning);
+  update(
+    height: number, speed: number, vy: number, facing: number, t: number,
+    turning = 0, tumbling = 0,
+  ): void {
+    const pose = poseFor(speed, MAX_SPEED, height, vy, t, turning, tumbling);
 
     this.pivot.position.y = height + pose.bob;
     // The flip adds yaw on a turn so the ink edge comes into view — the paper tell.
     this.pivot.rotation.y = facing + pose.flip;
-    this.pivot.rotation.x = pose.lean * 0.4;
+    // The roll is about the same axis as the lean, so they add: a tumbling character
+    // is leaning into a rotation rather than fighting it.
+    this.pivot.rotation.x = pose.lean * 0.4 + pose.tumble;
     this.pivot.scale.y = pose.squash;
 
     this.legL.rotation.x = pose.legSwing;

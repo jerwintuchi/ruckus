@@ -27,14 +27,18 @@ const run = (): { code: number; out: string } => {
 };
 
 describe("the Kit stays closed with textures in play (T2, R1)", () => {
-  it("is green — the tree generates textures and still ships no assets", () => {
-    // Prove the generators are genuinely exercised, not merely importable.
-    expect(stock(PAPER.card, 1).image.data.length).toBeGreaterThan(0);
-    expect(checker(PAPER.card, PAPER.cardDim).image.data.length).toBeGreaterThan(0);
-    expect(faceFor(0, PAPER.card).image.data.length).toBeGreaterThan(0);
+  // Under the lock, like every test here that runs kit_check: another worker seeding a
+  // forbidden file would make a whole-repo check fail for reasons that are not ours.
+  it("is green — the tree generates textures and still ships no assets", async () => {
+    await withGuardLock(() => {
+      // Prove the generators are genuinely exercised, not merely importable.
+      expect(stock(PAPER.card, 1).image.data.length).toBeGreaterThan(0);
+      expect(checker(PAPER.card, PAPER.cardDim).image.data.length).toBeGreaterThan(0);
+      expect(faceFor(0, PAPER.card).image.data.length).toBeGreaterThan(0);
 
-    const r = run();
-    expect(r.code, r.out).toBe(0);
+      const r = run();
+      expect(r.code, r.out).toBe(0);
+    });
   });
 
   it("still rejects an image file", async () => {
@@ -74,13 +78,15 @@ describe("the Kit stays closed with textures in play (T2, R1)", () => {
     });
   });
 
-  it("does not mistake DataTexture for a loader", () => {
-    // The distinction the whole approach rests on: generating pixels is fine, fetching
-    // them is not. `DataTexture` contains the substring "Texture" and must survive.
-    const src = readFileSync(join(ROOT, "src", "client", "src", "kit", "textures.ts"), "utf8");
-    expect(src).toContain("DataTexture");
-    expect(src).not.toContain(["Texture", "Loader"].join(""));
-    expect(run().code).toBe(0);
+  it("does not mistake DataTexture for a loader", async () => {
+    await withGuardLock(() => {
+      // The distinction the whole approach rests on: generating pixels is fine,
+      // fetching them is not. `DataTexture` contains "Texture" and must survive.
+      const src = readFileSync(join(ROOT, "src", "client", "src", "kit", "textures.ts"), "utf8");
+      expect(src).toContain("DataTexture");
+      expect(src).not.toContain(["Texture", "Loader"].join(""));
+      expect(run().code).toBe(0);
+    });
   });
 });
 

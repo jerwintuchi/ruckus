@@ -3,7 +3,9 @@
  * one render loop. It holds no game state: everything drawn comes from a snapshot
  * (I1, I6), and everything sent is an intention.
  */
-import { TICK_MS, type PlayerView, type Prim, type ServerMsg } from "@ruckus/shared";
+import {
+  TICK_MS, type PlayerView, type Prim, type ServerMsg, type WireAction,
+} from "@ruckus/shared";
 import {
   initialState, reduce, rosterChange, shouldShowWaiting, type FlowEvent,
 } from "./flow.ts";
@@ -157,6 +159,10 @@ function onMessage(msg: ServerMsg): void {
       handler?.onSnapshot(renderer, extra);
       // The generic path every minigame gets for free.
       renderer.setPrims(extra.prims as Prim[] | undefined);
+      // What MY button does this instant. Per player, from the round (RD-009: a verb,
+      // never a minigame id).
+      const actions = extra.actions as Record<number, WireAction> | undefined;
+      if (actions && mySlot >= 0) controls.setAction(actions[mySlot]);
       break;
     }
 

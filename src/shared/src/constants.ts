@@ -70,8 +70,8 @@ export const MIN_SOLID_THICKNESS = 0.5;
 /**
  * The thinnest solid that is safe for a given speed multiplier.
  *
- * A minigame that boosts a player (Hot Potato's dash) makes its own arena unsafe at
- * the global minimum: at `speedMul` 2.1 a dashing body covers 0.58 m per tick, over
+ * A minigame that boosts a player (Hot Potato's tumble) makes its own arena unsafe at
+ * the global minimum: at `speedMul` 2.1 a tumbling body covers 0.58 m per tick, over
  * the 0.5 m floor, and can cross a minimum-thickness wall between two resolutions.
  * The guard therefore belongs to the minigame that changes the speed, not to a single
  * global number that the next boost would silently invalidate.

@@ -22,6 +22,15 @@ export interface ActorPose {
   squash: number;
   /** Counter-swing for the hands, in radians. */
   swing: number;
+  /**
+   * Forward roll, in radians, while tumbling (action-button T2, R2).
+   *
+   * A full turn over the tumble's duration, so the move reads as a roll at phone size
+   * rather than as a player who briefly moves faster. Movement only: it changes no hit
+   * detection, so hot-potato's contact rule and sweepers' bar clearance keep the
+   * balance RD-012 and RD-014 measured.
+   */
+  tumble: number;
 }
 
 export const MAX_LEAN = 0.35;
@@ -48,6 +57,8 @@ export function poseFor(
   vy: number,
   t: number,
   turning = 0,
+  /** 0..1 through a tumble; 0 when not tumbling. */
+  tumbling = 0,
 ): ActorPose {
   const gait = maxSpeed > 0 ? Math.min(1, Math.max(0, speed / maxSpeed)) : 0;
   const grounded = airborne <= 0.01;
@@ -72,7 +83,12 @@ export function poseFor(
 
   const flip = clamp(turning, 0, 1) * MAX_FLIP;
 
-  return { bob, lean, squash, swing, legSwing, armSwing, flip };
+  // One full rotation across the move, and exactly zero outside it — a partial turn
+  // left hanging would read as a character stuck on its side.
+  const roll = clamp(tumbling, 0, 1);
+  const tumble = roll > 0 ? roll * Math.PI * 2 : 0;
+
+  return { bob, lean, squash, swing, legSwing, armSwing, flip, tumble };
 }
 
 function clamp(v: number, lo: number, hi: number): number {

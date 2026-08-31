@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAX_SPEED } from "@ruckus/shared";
 import { MAX_FLIP, MAX_LEAN, poseFor } from "./actor.ts";
 
 describe("poseFor (T15, RD-005)", () => {
@@ -117,5 +118,41 @@ describe("paper hinges, it does not deform (visual-direction T11, R9, P4)", () =
 
   it("is a pure function of its arguments", () => {
     expect(poseFor(5, 8, 0.3, -2, 1.23, 0.4)).toEqual(poseFor(5, 8, 0.3, -2, 1.23, 0.4));
+  });
+});
+
+describe("the tumble (action-button T2, R2)", () => {
+  const pose = (tumbling: number) => poseFor(4, MAX_SPEED, 0, 0, 0.2, 0, tumbling);
+
+  it("turns exactly once across the move", () => {
+    expect(pose(0).tumble).toBe(0);
+    expect(pose(0.5).tumble).toBeCloseTo(Math.PI, 6);
+    expect(pose(1).tumble).toBeCloseTo(Math.PI * 2, 6);
+  });
+
+  it("is exactly zero when not tumbling, never a fraction left hanging", () => {
+    // A partial turn left over would read as a character stuck on its side.
+    expect(pose(0).tumble).toBe(0);
+    expect(pose(-1).tumble).toBe(0);
+  });
+
+  it("clamps rather than spinning several times on a bad input", () => {
+    expect(pose(5).tumble).toBeCloseTo(Math.PI * 2, 6);
+  });
+
+  it("changes nothing else about the pose", () => {
+    // Movement only (R2): no invulnerability, and no interference with the gait, so
+    // the balance RD-012 and RD-014 measured is untouched.
+    const still = pose(0);
+    const rolling = pose(0.5);
+    for (const k of ["bob", "lean", "squash", "swing", "legSwing", "armSwing", "flip"] as const) {
+      expect(rolling[k], k).toBe(still[k]);
+    }
+  });
+
+  it("is finite for every extreme input", () => {
+    for (const v of [0, 1, -1e9, 1e9, Number.NaN]) {
+      expect(Number.isFinite(pose(v).tumble), String(v)).toBe(true);
+    }
   });
 });

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CODE_ALPHABET } from "./constants.ts";
+import { ACTION_VERBS, type WireAction } from "./minigame.ts";
 import { normalizeCode, parseClientMsg, sanitizeName, type ServerMsg } from "./protocol.ts";
 
 describe("parseClientMsg (T6, R10, I2)", () => {
@@ -171,5 +172,27 @@ describe("roundStart carries what the controls need (touch-controls T2, R3)", ()
     for (const id of ["hot-potato", "sweepers", "scramble", "falling-floor"]) {
       expect(code, id).not.toContain(id);
     }
+  });
+});
+
+describe("a player's action travels as numbers, not words (action-button T3, I5)", () => {
+  it("sends an index into ACTION_VERBS rather than the verb itself", () => {
+    // I5 forbids strings in a per-tick snapshot, and a verb word per player per tick is
+    // exactly that. Both halves import the table, so it never goes on the wire at all.
+    const action: WireAction = { v: ACTION_VERBS.indexOf("pass"), r: 1.2 };
+    const back = JSON.parse(JSON.stringify(action)) as WireAction;
+    expect(typeof back.v).toBe("number");
+    expect(ACTION_VERBS[back.v]).toBe("pass");
+    expect(JSON.stringify(action)).not.toMatch(/[a-z]{4,}/); // no words on the wire
+  });
+
+  it("omits the cooldown entirely when the action is ready", () => {
+    const ready: WireAction = { v: 0 };
+    expect(JSON.parse(JSON.stringify(ready)).r).toBeUndefined();
+  });
+
+  it("keeps the cooldown to one decimal, which is all the display shows", () => {
+    const a: WireAction = { v: 0, r: Math.round(1.2666 * 10) / 10 };
+    expect(String(a.r)).toBe("1.3");
   });
 });

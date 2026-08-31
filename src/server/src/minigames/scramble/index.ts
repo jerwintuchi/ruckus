@@ -25,6 +25,8 @@ import {
   minThicknessFor,
   stepMovement,
   vec,
+  ACTION_VERBS,
+  type WireActions,
 } from "@ruckus/shared";
 
 export const ARENA = 22;
@@ -43,20 +45,20 @@ export const SPAWN_TRIES = 12;
 export const SHOVE_SPEED = 7.0;
 
 /**
- * Identical to hot-potato's, deliberately re-stated rather than re-tuned: a dash that
+ * Identical to hot-potato's, deliberately re-stated rather than re-tuned: a tumble that
  * feels different in each minigame is a worse game, not a richer one.
  */
-export const DASH_MS = 220;
-export const DASH_SPEED_MUL = 2.1;
-export const DASH_COOLDOWN_MS = 1400;
+export const TUMBLE_MS = 220;
+export const TUMBLE_SPEED_MUL = 2.1;
+export const TUMBLE_COOLDOWN_MS = 1400;
 
 const HALF = ARENA / 2;
 
-/** Dashing is the fastest anything moves here, so the walls are sized for that. */
-if (WALL < minThicknessFor(DASH_SPEED_MUL)) {
+/** Tumbling is the fastest anything moves here, so the walls are sized for that. */
+if (WALL < minThicknessFor(TUMBLE_SPEED_MUL)) {
   throw new Error(
-    `scramble walls are ${WALL}m but dashing at ${DASH_SPEED_MUL}x needs ` +
-      `${minThicknessFor(DASH_SPEED_MUL).toFixed(3)}m`,
+    `scramble walls are ${WALL}m but tumbling at ${TUMBLE_SPEED_MUL}x needs ` +
+      `${minThicknessFor(TUMBLE_SPEED_MUL).toFixed(3)}m`,
   );
 }
 
@@ -79,8 +81,8 @@ export interface ScrambleState {
   nextId: number;
   nextSpawnAt: number;
   counts: Map<number, number>;
-  dashUntil: Map<number, number>;
-  dashReadyAt: Map<number, number>;
+  tumbleUntil: Map<number, number>;
+  tumbleReadyAt: Map<number, number>;
   prevBtn: Set<number>;
   roster: number[];
   elapsed: number;
@@ -131,8 +133,8 @@ export const scramble: Minigame<ScrambleState> = {
       nextId: 0,
       nextSpawnAt: SPAWN_INTERVAL_MS,
       counts: new Map(ctx.players.map((p) => [p.slot, 0])),
-      dashUntil: new Map(),
-      dashReadyAt: new Map(),
+      tumbleUntil: new Map(),
+      tumbleReadyAt: new Map(),
       prevBtn: new Set(),
       roster: ctx.players.map((p) => p.slot),
       elapsed: 0,
@@ -145,13 +147,13 @@ export const scramble: Minigame<ScrambleState> = {
   tick(s: ScrambleState, ctx: TickCtx): void {
     s.elapsed = ctx.elapsed;
 
-    // 1. Dash edges (P1), identical to hot-potato's.
+    // 1. Tumble edges (P1), identical to hot-potato's.
     for (const p of ctx.players) {
       const held = ctx.input(p.slot).btn;
       const wasHeld = s.prevBtn.has(p.slot);
-      if (held && !wasHeld && s.elapsed >= (s.dashReadyAt.get(p.slot) ?? 0)) {
-        s.dashUntil.set(p.slot, s.elapsed + DASH_MS);
-        s.dashReadyAt.set(p.slot, s.elapsed + DASH_COOLDOWN_MS);
+      if (held && !wasHeld && s.elapsed >= (s.tumbleReadyAt.get(p.slot) ?? 0)) {
+        s.tumbleUntil.set(p.slot, s.elapsed + TUMBLE_MS);
+        s.tumbleReadyAt.set(p.slot, s.elapsed + TUMBLE_COOLDOWN_MS);
       }
       if (held) s.prevBtn.add(p.slot);
       else s.prevBtn.delete(p.slot);
@@ -161,7 +163,7 @@ export const scramble: Minigame<ScrambleState> = {
     const ground = (): number => 0;
     for (const p of ctx.players) {
       const input = ctx.input(p.slot);
-      const dashing = s.elapsed < (s.dashUntil.get(p.slot) ?? 0);
+      const tumbling = s.elapsed < (s.tumbleUntil.get(p.slot) ?? 0);
       stepMovement(
         p.body,
         { axis: input.axis, jump: false },
@@ -169,17 +171,17 @@ export const scramble: Minigame<ScrambleState> = {
         WALLS,
         ground,
         0,
-        dashing ? DASH_SPEED_MUL : 1,
+        tumbling ? TUMBLE_SPEED_MUL : 1,
       );
       if (input.axis.x !== 0 || input.axis.z !== 0) {
         p.facing = Math.atan2(input.axis.x, input.axis.z);
       }
     }
 
-    // 3. Shove (P2). A dashing player displaces anyone they run into. Velocity only —
+    // 3. Shove (P2). A tumbling player displaces anyone they run into. Velocity only —
     //    no count is ever decremented, so there is no way to lose a banked point.
     for (const shover of ctx.players) {
-      if (s.elapsed >= (s.dashUntil.get(shover.slot) ?? 0)) continue;
+      if (s.elapsed >= (s.tumbleUntil.get(shover.slot) ?? 0)) continue;
       const speed = Math.hypot(shover.body.vel.x, shover.body.vel.z);
       if (speed < 0.1) continue;
       const dir = { x: shover.body.vel.x / speed, z: shover.body.vel.z / speed };
@@ -249,10 +251,19 @@ export const scramble: Minigame<ScrambleState> = {
       r: PICKUP_RADIUS,
       colour: "#ffd23f",
     }));
+    // Everyone tumbles here; only the cooldown differs (action-button R4).
+    const actions: WireActions = {};
+    for (const p of s.roster) {
+      const readyIn = Math.max(0, ((s.tumbleReadyAt.get(p) ?? 0) - s.elapsed) / 1000);
+      actions[p] = readyIn > 0
+        ? { v: ACTION_VERBS.indexOf("tumble"), r: Math.round(readyIn * 10) / 10 }
+        : { v: ACTION_VERBS.indexOf("tumble") };
+    }
     return {
       counts: Object.fromEntries(s.counts),
       remaining: Math.max(0, ROUND_MS - s.elapsed),
       prims,
+      actions,
     };
   },
 

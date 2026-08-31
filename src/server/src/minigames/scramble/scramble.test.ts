@@ -14,8 +14,8 @@ import {
 } from "@ruckus/shared";
 import {
   ARENA,
-  DASH_COOLDOWN_MS,
-  DASH_SPEED_MUL,
+  TUMBLE_COOLDOWN_MS,
+  TUMBLE_SPEED_MUL,
   MAX_PICKUPS,
   MIN_SPAWN_GAP,
   PICKUP_RADIUS,
@@ -207,32 +207,32 @@ describe("collecting (T4, R1)", () => {
   });
 });
 
-describe("dash and shove (T5, R3, P1, P2)", () => {
+describe("tumble and shove (T5, R3, P1, P2)", () => {
   const held: InputState = { axis: { x: 1, z: 0 }, btn: true };
   const running: InputState = { axis: { x: 1, z: 0 }, btn: false };
 
-  it("a held button dashes exactly once (P1)", () => {
+  it("a held button tumbles exactly once (P1)", () => {
     const s = session(1, 4);
     s.step(() => held);
-    const first = s.state.dashReadyAt.get(0)!;
+    const first = s.state.tumbleReadyAt.get(0)!;
     for (let i = 0; i < 10; i++) s.step(() => held);
-    expect(s.state.dashReadyAt.get(0)).toBe(first);
+    expect(s.state.tumbleReadyAt.get(0)).toBe(first);
   });
 
-  it("refuses a second dash inside the cooldown", () => {
+  it("refuses a second tumble inside the cooldown", () => {
     const s = session(1, 4);
     s.step(() => held);
-    const first = s.state.dashReadyAt.get(0)!;
+    const first = s.state.tumbleReadyAt.get(0)!;
     s.step(() => running);
     s.step(() => held);
-    expect(s.state.dashReadyAt.get(0)).toBe(first);
+    expect(s.state.tumbleReadyAt.get(0)).toBe(first);
   });
 
   it("shoves a player the dasher runs into, along the dasher's travel", () => {
     const s = session(2, 6);
     s.players[0]!.body.pos = vec(0, 0);
     s.players[1]!.body.pos = vec(PLAYER_RADIUS * 1.5, 0);
-    // Get the dasher moving in +x, then dash into the target.
+    // Get the dasher moving in +x, then tumble into the target.
     s.step((slot) => (slot === 0 ? running : IDLE_INPUT));
     s.players[0]!.body.pos = vec(0, 0);
     s.players[1]!.body.pos = vec(PLAYER_RADIUS * 1.5, 0);
@@ -257,17 +257,17 @@ describe("dash and shove (T5, R3, P1, P2)", () => {
     }
   });
 
-  it("has a cooldown longer than the dash, so it is a burst not a mode", () => {
-    expect(DASH_COOLDOWN_MS).toBeGreaterThan(220);
+  it("has a cooldown longer than the tumble, so it is a burst not a mode", () => {
+    expect(TUMBLE_COOLDOWN_MS).toBeGreaterThan(220);
   });
 });
 
 describe("walls (T6, R4)", () => {
-  it("are thick enough for the dashing speed", () => {
-    expect(WALL).toBeGreaterThanOrEqual(minThicknessFor(DASH_SPEED_MUL));
+  it("are thick enough for the tumbling speed", () => {
+    expect(WALL).toBeGreaterThanOrEqual(minThicknessFor(TUMBLE_SPEED_MUL));
   });
 
-  it("keep a dashing player inside the bounds, at every wall", () => {
+  it("keep a tumbling player inside the bounds, at every wall", () => {
     const dirs = [vec(1, 0), vec(-1, 0), vec(0, 1), vec(0, -1), vec(1, 1), vec(-1, -1)];
     for (let seed = 0; seed < 200; seed++) {
       const dir = dirs[seed % dirs.length]!;

@@ -13,6 +13,34 @@ import type { Body, Solid } from "./sim/move.ts";
 /** The whole input vocabulary of the game (RD-005 — the camera is never controlled). */
 export type InputScheme = "stick" | "stick+button" | "tap";
 
+/**
+ * What one player's button does right now (action-button R4).
+ *
+ * A verb token, not a sentence and not a minigame id: the UI maps a token to an icon
+ * and a label and never learns which round is running (RD-009). Per player rather than
+ * per round, because in Hot Potato the holder's button throws while everyone else's
+ * tumbles — at the same instant.
+ */
+export const ACTION_VERBS = ["tumble", "pass", "jump"] as const;
+export type ActionVerb = (typeof ACTION_VERBS)[number];
+
+/**
+ * One player's action, as it travels: **indices and numbers, never strings**.
+ *
+ * I5 forbids strings in a per-tick snapshot, and a verb word per player per tick is
+ * exactly that. `v` indexes `ACTION_VERBS`, which both halves already import, so the
+ * table never goes on the wire at all.
+ */
+export interface WireAction {
+  /** Index into `ACTION_VERBS`. */
+  v: number;
+  /** Seconds until usable again, one decimal. Absent means ready. */
+  r?: number;
+}
+
+/** Per-slot actions in a snapshot's `extra`. */
+export type WireActions = Record<number, WireAction>;
+
 export interface InputState {
   axis: Vec2;
   btn: boolean;

@@ -1317,3 +1317,44 @@ with a test, not a silent consequence.
 
 Coincident players have no axis to separate along, so the axis comes from their slots.
 Any deterministic choice works; an undefined one would break I3.
+
+## RD-041 — The button does what it says now (2026-08-31)
+
+`specs/action-button/` T1–T6.
+
+**The dash is a tumble**, in `hot-potato` and `scramble` alike: the same burst of speed,
+now presented as a full forward roll driven by `poseFor`. Procedural, one new pose
+channel, and it applies to any minigame that uses the move. Movement only — no
+invulnerability — so `hot-potato`'s contact rule and `sweepers`' bar clearance keep the
+balance RD-012 and RD-014 measured.
+
+**`hot-potato`'s button is contextual.** The holder throws the bomb along their facing;
+everyone else tumbles. One button, two verbs by role, so the input budget is unchanged
+(non-negotiable 2) rather than widened. A thrown bomb is caught by the nearest living
+player it passes, and taken by the nearest when it lands, because a bomb that could come
+to rest unheld is a fuse nobody can beat and a round that never ends (I8). A 60-seed
+property test throws at every angle and asserts the round always has a living holder
+afterwards.
+
+**I5 shaped how the verb travels.** "No strings in a per-tick snapshot" — and a verb
+word per player per tick is exactly that. It goes as an index into `ACTION_VERBS`, which
+both halves already import, so the table never reaches the wire. The cooldown rides
+alongside as seconds to one decimal, which is all the display shows.
+
+**Icons are SVG path strings written by hand.** `kit_check` bans image files on RD-001's
+grounds and an icon library would be a dependency needing its own decision, so three
+paths live in `icons.ts` — the same argument that produced the procedural textures
+(RD-020). A test asserts no URL, no import, no file extension anywhere in that module,
+and that every verb a minigame can send has a shape.
+
+**The cooldown ring is drawn from the server's number.** The client renders `readyIn`
+and runs no timer of its own; a test asserts `setAction` contains no `setInterval`, no
+`Date.now`, no `performance.now`. A client counting independently would drift from the
+server that owns the cooldown, and the drift would be invisible until it mattered.
+
+**Two existing tests broke, correctly.** Both pressed the button on a lone player — who
+is necessarily the holder, and now throws instead of tumbling. They were rewritten to
+press as a non-holder, which is the only way to demonstrate a tumble in a round where
+the holder's button means something else. That is the cost of a contextual control, and
+it is worth naming: the same input now has two meanings, and every test of it has to say
+which one it is exercising.

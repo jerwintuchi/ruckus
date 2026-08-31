@@ -26,6 +26,8 @@ import {
   stepMovement,
   vec,
   awardByRank,
+  ACTION_VERBS,
+  type WireActions,
 } from "@ruckus/shared";
 
 export const ARENA = 20;
@@ -266,9 +268,15 @@ export const sweepers: Minigame<SweepersState> = {
       colour: s.elapsed < bar.armedAt ? "#6b3138" : "#e6484d",
       rotY: -bar.angle,
     }));
+    // Everyone jumps here, always available (action-button R4).
+    const actions: WireActions = {};
+    for (const p of s.roster) {
+      if (s.alive.has(p)) actions[p] = { v: ACTION_VERBS.indexOf("jump") };
+    }
     return {
       bars: s.bars.map((b) => ({ angle: b.angle, speed: b.speed, armed: s.elapsed >= b.armedAt })),
       prims,
+      actions,
     };
   },
 

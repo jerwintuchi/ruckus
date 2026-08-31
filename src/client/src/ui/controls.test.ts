@@ -14,6 +14,8 @@ import {
   STICK_REST_OPACITY, guessSurface,
 } from "./controls.ts";
 import { STICK_RADIUS } from "../input.ts";
+import { ACTION_VERBS } from "@ruckus/shared";
+import { ICON_VERBS, iconLabel, iconPath } from "./icons.ts";
 import { UI } from "./kit.ts";
 
 /**
@@ -185,5 +187,53 @@ describe("the controls suit the device being held (T8, T9, R6)", () => {
     for (const id of ["hot-potato", "sweepers", "scramble", "falling-floor", "PASS", "JUMP", "GRAB"]) {
       expect(code, id).not.toContain(id);
     }
+  });
+});
+
+describe("the button says what it does, per player (action-button T3, T5, T6)", () => {
+  it("has a shape for every verb a minigame can send", () => {
+    // A verb with no icon would render an empty button, which is worse than a word.
+    for (const verb of ACTION_VERBS) {
+      expect(ICON_VERBS, verb).toContain(verb);
+      expect(iconPath(verb).length, verb).toBeGreaterThan(0);
+      expect(iconLabel(verb).length, verb).toBeGreaterThan(0);
+    }
+  });
+
+  it("draws icons from path data with no external reference (R5)", () => {
+    // No files and no dependency: kit_check bans image files on RD-001's grounds and a
+    // library would be a dependency needing its own decision.
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "icons.ts"), "utf8");
+    for (const forbidden of ["http", "url(", "import(", ".svg", ".png"]) {
+      expect(src, forbidden).not.toContain(forbidden);
+    }
+    for (const verb of ACTION_VERBS) expect(iconPath(verb)).toMatch(/^[Mm]/);
+  });
+
+  it("names no minigame, only verbs (RD-009)", () => {
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "icons.ts"), "utf8");
+    for (const id of ["hot-potato", "sweepers", "scramble", "falling-floor"]) {
+      expect(src, id).not.toContain(id);
+    }
+  });
+
+  it("renders the ring and the number from the server's own countdown (R6, P2)", () => {
+    // The client displays readyIn; it runs no timer. One that counted independently
+    // would drift from the server that owns the cooldown.
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+    const setAction = src.slice(src.indexOf("setAction("), src.indexOf("\n  }", src.indexOf("setAction(")));
+    expect(setAction).toContain("action.r");
+    expect(setAction).toContain("toFixed(1)"); // one decimal, as asked
+    for (const timer of ["setInterval", "setTimeout", "Date.now", "performance.now"]) {
+      expect(setAction, timer).not.toContain(timer);
+    }
+  });
+
+  it("shows nothing at all when the action is ready", () => {
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+    const setAction = src.slice(src.indexOf("setAction("), src.indexOf("\n  }", src.indexOf("setAction(")));
+    // A ready button is uncluttered: full ring, empty number.
+    expect(setAction).toContain('cooling ? readyIn.toFixed(1) : ""');
+    expect(setAction).toContain('"0"');
   });
 });

@@ -15,6 +15,8 @@ import {
   type Solid,
   type TickCtx,
   type Vec2,
+  type WireActions,
+  ACTION_VERBS,
   dist,
   minThicknessFor,
   stepMovement,
@@ -39,23 +41,37 @@ export const PASS_LOCK_MS = 600;
  * against them" reliably counts as touching, which is what the rule means (RD-040).
  */
 export const CONTACT = PLAYER_RADIUS * 2 + 0.06;
-export const DASH_MS = 220;
-export const DASH_SPEED_MUL = 2.1;
-export const DASH_COOLDOWN_MS = 1400;
+export const TUMBLE_MS = 220;
+export const TUMBLE_SPEED_MUL = 2.1;
+export const TUMBLE_COOLDOWN_MS = 1400;
+
+/**
+ * The throw (action-button T4, R3).
+ *
+ * The holder's button throws the bomb along their facing instead of tumbling: one
+ * button, two meanings by role (non-negotiable 2). A thrown bomb always ends with a
+ * holder — caught by the first living player it reaches, and otherwise taken by the
+ * nearest when it lands — because a bomb nobody can reach is not a fuse anyone can
+ * beat, and a round that waits on one would never end (I8).
+ */
+export const THROW_SPEED = 14;
+export const THROW_MS = 700;
+/** How close the flying bomb must pass to a player to be caught. */
+export const CATCH_RADIUS = PLAYER_RADIUS + 0.35;
 export const MAX_DURATION_MS = 90_000;
 
 const HALF = ARENA / 2;
 
 /**
- * The arena's walls must clear the tunnelling budget for the DASHING speed, not the
+ * The arena's walls must clear the tunnelling budget for the TUMBLING speed, not the
  * base one — `minThicknessFor` exists because a single global constant would have
  * hidden exactly this (see move.ts). Asserted at module load so a future retune of
- * DASH_SPEED_MUL cannot quietly make the walls permeable.
+ * TUMBLE_SPEED_MUL cannot quietly make the walls permeable.
  */
-if (WALL < minThicknessFor(DASH_SPEED_MUL)) {
+if (WALL < minThicknessFor(TUMBLE_SPEED_MUL)) {
   throw new Error(
-    `hot-potato walls are ${WALL}m but dashing at ${DASH_SPEED_MUL}x needs ` +
-      `${minThicknessFor(DASH_SPEED_MUL).toFixed(3)}m to be un-tunnellable`,
+    `hot-potato walls are ${WALL}m but tumbling at ${TUMBLE_SPEED_MUL}x needs ` +
+      `${minThicknessFor(TUMBLE_SPEED_MUL).toFixed(3)}m to be un-tunnellable`,
   );
 }
 
@@ -81,9 +97,11 @@ export interface HotPotatoState {
    * evaluated when nobody may receive anyway (RD-010).
    */
   lockUntil: number;
-  dashUntil: Map<number, number>;
-  dashReadyAt: Map<number, number>;
+  tumbleUntil: Map<number, number>;
+  tumbleReadyAt: Map<number, number>;
   prevBtn: Set<number>;
+  /** The bomb in flight, or null when someone is holding it. */
+  flight: { pos: Vec2; dir: Vec2; endsAt: number; from: number } | null;
   alive: Set<number>;
   roster: number[];
   placement: number[];
@@ -158,8 +176,9 @@ export const hotPotato: Minigame<HotPotatoState> = {
       fuseMs: FUSE_START_MS,
       fuseLength: FUSE_START_MS,
       lockUntil: 0,
-      dashUntil: new Map(),
-      dashReadyAt: new Map(),
+      tumbleUntil: new Map(),
+      tumbleReadyAt: new Map(),
+      flight: null,
       prevBtn: new Set(),
       alive: new Set(roster),
       roster,
@@ -174,15 +193,31 @@ export const hotPotato: Minigame<HotPotatoState> = {
   tick(s: HotPotatoState, ctx: TickCtx): void {
     s.elapsed = ctx.elapsed;
 
-    // 1. Dash edges (R4, P2). Edge-triggered, so holding the button is one dash.
+    // 1. The button, which means different things to different people (R3).
+    //
+    // The holder throws; everyone else tumbles. One button, two verbs by role, so the
+    // input budget is unchanged (non-negotiable 2). Edge-triggered either way, so
+    // holding it is one action rather than a stream of them.
     for (const p of ctx.players) {
       if (!s.alive.has(p.slot)) continue;
       const held = ctx.input(p.slot).btn;
       const wasHeld = s.prevBtn.has(p.slot);
-      if (held && !wasHeld && s.elapsed >= (s.dashReadyAt.get(p.slot) ?? 0)) {
-        s.dashUntil.set(p.slot, s.elapsed + DASH_MS);
-        s.dashReadyAt.set(p.slot, s.elapsed + DASH_COOLDOWN_MS);
+      const pressed = held && !wasHeld;
+
+      if (pressed && p.slot === s.holder && s.flight === null && s.elapsed >= s.lockUntil) {
+        // Throw along the facing. The bomb leaves the hand, so there is no holder
+        // until it is caught or it lands.
+        s.flight = {
+          pos: vec(p.body.pos.x, p.body.pos.z),
+          dir: vec(Math.sin(p.facing), Math.cos(p.facing)),
+          endsAt: s.elapsed + THROW_MS,
+          from: p.slot,
+        };
+      } else if (pressed && s.elapsed >= (s.tumbleReadyAt.get(p.slot) ?? 0)) {
+        s.tumbleUntil.set(p.slot, s.elapsed + TUMBLE_MS);
+        s.tumbleReadyAt.set(p.slot, s.elapsed + TUMBLE_COOLDOWN_MS);
       }
+
       if (held) s.prevBtn.add(p.slot);
       else s.prevBtn.delete(p.slot);
     }
@@ -192,7 +227,7 @@ export const hotPotato: Minigame<HotPotatoState> = {
     for (const p of ctx.players) {
       if (!s.alive.has(p.slot)) continue;
       const input = ctx.input(p.slot);
-      const dashing = s.elapsed < (s.dashUntil.get(p.slot) ?? 0);
+      const tumbling = s.elapsed < (s.tumbleUntil.get(p.slot) ?? 0);
       stepMovement(
         p.body,
         { axis: input.axis, jump: false },
@@ -200,16 +235,60 @@ export const hotPotato: Minigame<HotPotatoState> = {
         WALLS,
         ground,
         0,
-        dashing ? DASH_SPEED_MUL : 1,
+        tumbling ? TUMBLE_SPEED_MUL : 1,
       );
       if (input.axis.x !== 0 || input.axis.z !== 0) {
         p.facing = Math.atan2(input.axis.x, input.axis.z);
       }
     }
 
+    // 2b. The bomb in flight (R3, P3).
+    //
+    // It always ends with a holder: caught by the nearest living player it passes, and
+    // otherwise taken by the nearest when it lands. A bomb that could come to rest
+    // unheld would be a fuse nobody can beat, and a round that never ends (I8).
+    if (s.flight !== null) {
+      const f = s.flight;
+      f.pos = vec(
+        f.pos.x + f.dir.x * THROW_SPEED * ctx.dt,
+        f.pos.z + f.dir.z * THROW_SPEED * ctx.dt,
+      );
+
+      const living = ctx.players.filter((p) => s.alive.has(p.slot) && p.slot !== f.from);
+      let taker: number | null = null;
+      let takerD = Number.POSITIVE_INFINITY;
+      for (const p of living) {
+        const d = dist(f.pos, p.body.pos);
+        if (d <= CATCH_RADIUS && (d < takerD || (d === takerD && p.slot < (taker ?? Infinity)))) {
+          taker = p.slot;
+          takerD = d;
+        }
+      }
+
+      const landed = s.elapsed >= f.endsAt;
+      if (taker === null && landed) {
+        // Nobody was in the way. The nearest living player picks it up — including the
+        // thrower, if they are the only one left.
+        const pool = living.length > 0 ? living : ctx.players.filter((p) => s.alive.has(p.slot));
+        for (const p of pool) {
+          const d = dist(f.pos, p.body.pos);
+          if (d < takerD || (d === takerD && p.slot < (taker ?? Infinity))) {
+            taker = p.slot;
+            takerD = d;
+          }
+        }
+      }
+
+      if (taker !== null) {
+        s.holder = taker;
+        s.lockUntil = s.elapsed + PASS_LOCK_MS;
+        s.flight = null;
+      }
+    }
+
     // 3. Passing (R1, R2, P1). Only the NEAREST eligible toucher takes it, so a
     //    three-way pile-up resolves by geometry rather than by array order.
-    if (s.elapsed >= s.lockUntil && s.alive.size > 1) {
+    if (s.flight === null && s.elapsed >= s.lockUntil && s.alive.size > 1) {
       const holderBody = ctx.players.find((p) => p.slot === s.holder)?.body;
       if (holderBody) {
         let taker: number | null = null;
@@ -251,8 +330,13 @@ export const hotPotato: Minigame<HotPotatoState> = {
     }
 
     // 5. Cache what the snapshot needs, since it does not get a ctx.
+    //
+    // A bomb in flight is drawn where it is, not on whoever last held it — otherwise
+    // the throw would be invisible and the picture would lie about where the fuse is.
     const hp = ctx.players.find((p) => p.slot === s.holder);
-    s.holderPos = hp ? { x: hp.body.pos.x, z: hp.body.pos.z } : null;
+    s.holderPos = s.flight !== null
+      ? { x: s.flight.pos.x, z: s.flight.pos.z }
+      : hp ? { x: hp.body.pos.x, z: hp.body.pos.z } : null;
   },
 
   isOver(s: HotPotatoState): boolean {
@@ -290,7 +374,24 @@ export const hotPotato: Minigame<HotPotatoState> = {
         colour: rampToHazard(t),
       });
     }
-    return { holder: s.holder, fuse: Math.max(0, s.fuseMs), fuseLength: s.fuseLength, blasts: s.blasts, prims };
+    // What each player's button does right now (action-button R4). The holder throws
+    // and everyone else tumbles, so this genuinely differs per player.
+    const actions: WireActions = {};
+    for (const slot of s.roster) {
+      if (!s.alive.has(slot)) continue;
+      if (slot === s.holder && s.flight === null) {
+        actions[slot] = { v: ACTION_VERBS.indexOf("pass") };
+      } else {
+        const readyIn = Math.max(0, ((s.tumbleReadyAt.get(slot) ?? 0) - s.elapsed) / 1000);
+        actions[slot] = readyIn > 0
+          ? { v: ACTION_VERBS.indexOf("tumble"), r: Math.round(readyIn * 10) / 10 }
+          : { v: ACTION_VERBS.indexOf("tumble") };
+      }
+    }
+    return {
+      holder: s.holder, fuse: Math.max(0, s.fuseMs), fuseLength: s.fuseLength,
+      blasts: s.blasts, prims, actions,
+    };
   },
 
   arena(): ArenaDescriptor {
