@@ -295,7 +295,13 @@ export const hotPotato: Minigame<HotPotatoState> = {
       });
     }
     return {
-      camera: { eye: [0, 24, 20], look: [0, 0, 0], fov: 45 },
+      camera: {
+        eye: [0, 24, 20],
+        look: [0, 0, 0],
+        fov: 45,
+        /** The outer wall corner — the walls are part of the picture, not just collision. */
+        extent: (ARENA / 2 + WALL) * Math.SQRT2,
+      },
       solids: WALLS,
       statics,
       sky: "#cfe4f2",

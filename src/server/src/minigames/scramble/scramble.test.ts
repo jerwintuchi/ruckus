@@ -446,6 +446,10 @@ describe("snapshot and contract (T10, R8)", () => {
     expect(scramble.rule.length).toBeLessThan(80);
     expect(scramble.maxDurationMs).toBeGreaterThan(ROUND_MS);
     expect(Object.keys(scramble.arena({} as ScrambleState).camera).sort()).toEqual([
+      // `extent` is a distance in metres, not a camera instruction — there is nothing
+      // in it a client could steer. The list stays exhaustive so the next field to
+      // appear on a camera is a decision rather than a drift.
+      "extent",
       "eye",
       "fov",
       "look",

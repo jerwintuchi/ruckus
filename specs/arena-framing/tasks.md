@@ -3,18 +3,33 @@
 Render layer and one shared type. No minigame's rules, collision or scoring change; if
 a task finds itself editing a `tick()`, it has gone wrong.
 
-- [ ] T1 [R2] — Add `extent?: number` to `ArenaDescriptor.camera` in
+- [x] T1 [R2] — Add `extent?: number` to `ArenaDescriptor.camera` in
   `src/shared/src/minigame.ts`, and declare it in all four minigames
-  Test: `minigame.test.ts` — every registered minigame declares an extent; each one is
-  positive, finite, and at least half the diagonal of its own arena, so nothing the
-  minigame builds can sit outside the disc it claims
+  Test: `registry.test.ts` — every registered minigame declares a positive, finite
+  extent, and it covers every corner of every `solid` and `static` the arena builds.
+  `falling-floor.test.ts` covers the other half: its grid is in neither collection —
+  it arrives via `setTiles` — so the only place that knows the true size is its own
+  test, which asserts the extent reaches the far *corner* and that every tile centre
+  lies inside it.
+  *(The spec named `minigame.test.ts`; the assertion needs the registered minigames,
+  which live server-side, and `registry.test.ts` is already where "every minigame
+  must…" lives. The camera key-set guard from RD-005 exists in four separate test
+  files and each had to be told about the new field — which is the guard working.)*
 
-- [ ] T2 [R1, P1, P2] — `fitCamera` in `src/client/src/kit/framing.ts`
-  Test: `framing.test.ts` — property over 200 aspects spanning [0.4, 2.4]: the extent
-  projects inside the viewport on **both** axes with the margin intact; the binding axis
-  swaps from horizontal to vertical as aspect crosses 1; the result is a pure function
-  of its arguments; extreme and degenerate inputs (aspect→0, extent 0, fov 179) stay
-  finite
+- [x] T2 [R1, P1, P2] — `fitCamera` in `src/client/src/kit/framing.ts`
+  Test: `framing.test.ts` — property over 200 aspects spanning [0.4, 2.4], for all four
+  real arenas: the extent disc is **projected through an actual `PerspectiveCamera`**
+  and every sample lands inside the viewport. That is deliberately not a restatement of
+  the formula — it is checked against what the renderer will really do, which is what
+  caught the first attempt (see below). Also: the binding axis swaps as aspect crosses
+  1; the fit stays snug rather than retreating into orbit; the authored viewing *angle*
+  is preserved and only distance changes; an arena with no extent is left untouched;
+  degenerate input (aspect 0, NaN, ∞, fov 0/360/NaN) stays finite.
+  *A **sphere** of `extent` is fitted, not the flat disc. The camera looks down steeply,
+  so a disc's near edge is much closer to the eye than its centre and projects larger —
+  the perpendicular-plane formula the design first described underestimates badly at
+  these angles. A sphere bound is angle-independent, provably contains the disc, and
+  costs a few metres of air. The projection test is what makes that difference visible.*
 
 - [ ] T3 [R1, R3, P3] — Apply the fit in `src/client/src/render.ts` on `setArena` and on
   `resize`

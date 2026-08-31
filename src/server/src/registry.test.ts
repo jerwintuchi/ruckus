@@ -13,6 +13,13 @@ const walk = (dir: string): string[] =>
     return statSync(p).isDirectory() ? walk(p) : [p];
   });
 
+/** Enough of an `InitCtx` to build an arena; the arena never depends on the roster. */
+const stubCtx = () => ({
+  rng: { next: () => 0.5, int: () => 0, range: (a: number) => a, shuffle: <T>(x: T) => x,
+    pick: <T>(x: T[]) => x[0]! },
+  players: [],
+}) as unknown as Parameters<(typeof MINIGAMES)[number]["init"]>[0];
+
 describe("registry contract (T11, R6)", () => {
   it("registers at least one minigame", () => {
     expect(MINIGAMES.length).toBeGreaterThan(0);
@@ -45,12 +52,62 @@ describe("registry contract (T11, R6)", () => {
 
   it("keeps every arena camera fixed — no field a client could drive (RD-005)", () => {
     for (const m of MINIGAMES) {
-      const state = m.init({
-        rng: { next: () => 0.5, int: () => 0, range: (a) => a, shuffle: (x) => x, pick: (x) => x[0]! },
-        players: [],
-      });
-      const arena = m.arena(state);
-      expect(Object.keys(arena.camera).sort()).toEqual(["eye", "fov", "look"]);
+      const arena = m.arena(m.init(stubCtx()));
+      // `extent` joins the allowlist deliberately: it is a distance in metres, not a
+      // camera instruction, and there is nothing in it a client could steer. The
+      // allowlist stays exhaustive so the next field is a decision, not a drift.
+      expect(Object.keys(arena.camera).sort()).toEqual(["extent", "eye", "fov", "look"]);
+    }
+  });
+
+  it("makes every arena declare the size it needs on screen (arena-framing T1, R2)", () => {
+    for (const m of MINIGAMES) {
+      const { extent } = m.arena(m.init(stubCtx())).camera;
+      expect(extent, m.id).toBeDefined();
+      expect(Number.isFinite(extent), m.id).toBe(true);
+      expect(extent, m.id).toBeGreaterThan(0);
+    }
+  });
+
+  it("declares an extent that covers everything the arena puts inside it", () => {
+    // The lower bound anyone can check from the descriptor alone: nothing in `solids`
+    // or `statics` may sit outside the disc the arena claims. `falling-floor`'s grid is
+    // in neither — it arrives via `setTiles` — so its own test covers that half, which
+    // is also why this cannot be the only assertion.
+    for (const m of MINIGAMES) {
+      const arena = m.arena(m.init(stubCtx()));
+      const [cx, , cz] = arena.camera.look;
+      let needed = 0;
+      const reach = (x: number, z: number): void => {
+        needed = Math.max(needed, Math.hypot(x - cx, z - cz));
+      };
+
+      for (const s of arena.solids) {
+        for (const x of [s.min.x, s.max.x]) for (const z of [s.min.z, s.max.z]) reach(x, z);
+      }
+      for (const p of arena.statics) {
+        const [px, , pz] = p.pos;
+        if (p.k === "cyl" || p.k === "sphere") {
+          needed = Math.max(needed, Math.hypot(px - cx, pz - cz) + p.r);
+          continue;
+        }
+        // Boxes are the walls, and a wall is a long thin slab: "centre + bounding
+        // radius" assumes its worst-case rotation and demands a disc a third too big.
+        // Its four corners, rotated by rotY, are exact.
+        const [hw, hd] = p.k === "box"
+          ? [p.size[0] / 2, p.size[2] / 2]
+          : [p.size[0] / 2, p.size[1] / 2];
+        // Only a box carries a rotation; a plane is always axis-aligned.
+        const rot = p.k === "box" ? (p.rotY ?? 0) : 0;
+        const cos = Math.cos(rot);
+        const sin = Math.sin(rot);
+        for (const [ox, oz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]] as const) {
+          reach(px + ox * cos - oz * sin, pz + ox * sin + oz * cos);
+        }
+      }
+
+      expect(arena.camera.extent, `${m.id} claims a disc smaller than its own geometry`)
+        .toBeGreaterThanOrEqual(needed - 1e-9);
     }
   });
 });

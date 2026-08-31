@@ -501,6 +501,10 @@ describe("snapshot and contract (T9, R8, P4)", () => {
     expect(sweepers.rule.length).toBeLessThan(80);
     expect(sweepers.maxDurationMs).toBeGreaterThan(0);
     expect(Object.keys(sweepers.arena({} as SweepersState).camera).sort()).toEqual([
+      // `extent` is a distance in metres, not a camera instruction — there is nothing
+      // in it a client could steer. The list stays exhaustive so the next field to
+      // appear on a camera is a decision rather than a drift.
+      "extent",
       "eye",
       "fov",
       "look",

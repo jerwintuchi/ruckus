@@ -33,15 +33,21 @@ fitCamera(extent, aspect, fov, eye, look) -> { fov, distance }
 ```
 
 Given the camera direction the author chose, back the camera off along that direction
-until the extent disc fits both axes:
+until the extent fits both axes:
 
 ```
-half-height needed = extent
-half-width needed  = extent
-d_v = extent / tan(fovV / 2)
-d_h = extent / tan(fovH / 2),  where fovH = 2·atan(tan(fovV/2) · aspect)
+fovH = 2·atan(tan(fovV/2) · aspect)
+d_v  = extent / sin(fovV / 2)
+d_h  = extent / sin(fovH / 2)
 distance = max(d_v, d_h) · MARGIN
 ```
+
+**`sin`, not `tan`** — corrected during T2. `tan` fits a plane perpendicular to the view
+direction, and these cameras look down at roughly 50°, so a flat disc's near edge sits
+far closer to the eye than its centre and projects much larger. `r / sin(θ)` is the
+bounding-*sphere* fit: independent of viewing angle, provably a superset of the disc,
+and a few metres more conservative. The property test projects the real disc through a
+real `PerspectiveCamera`, so the `tan` version fails it rather than reaching a phone.
 
 `max` is the whole point: the binding axis decides. On a tall portrait screen the
 horizontal term dominates and the camera pulls back; on a wide landscape one the

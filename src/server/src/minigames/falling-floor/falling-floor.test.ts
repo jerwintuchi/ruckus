@@ -359,7 +359,12 @@ describe("snapshot and arena (T6, R6, P5)", () => {
 
   it("declares a fixed camera and no assets (RD-005)", () => {
     const arena = fallingFloor.arena({} as FallingFloorState);
-    expect(Object.keys(arena.camera).sort()).toEqual(["eye", "fov", "look"]);
+    // `extent` is a distance in metres, not a camera instruction — there is nothing in
+    // it a client could steer. The list stays exhaustive so the next field is a
+    // decision rather than a drift.
+    expect(Object.keys(arena.camera).sort()).toEqual(["extent", "eye", "fov", "look"]);
+    // Still empty, and that is exactly why the extent has to be declared: there is
+    // nothing here for a client to measure the arena from.
     expect(arena.statics).toEqual([]);
     expect(arena.solids).toEqual([]);
   });
@@ -368,5 +373,35 @@ describe("snapshot and arena (T6, R6, P5)", () => {
     expect(fallingFloor.input).toBe("stick");
     expect(fallingFloor.rule.split(".").filter((p) => p.trim())).toHaveLength(1);
     expect(fallingFloor.rule.length).toBeLessThan(70);
+  });
+});
+
+describe("the arena declares a disc big enough for its grid (arena-framing T1, R2)", () => {
+  it("covers the far corner, which is what leaves the screen first", () => {
+    // The registry's generic check cannot see this one: the tiles are in neither
+    // `solids` nor `statics` — they arrive at the client via `setTiles` — so the only
+    // place that knows the grid's true size is here.
+    const { extent } = fallingFloor.arena(
+      fallingFloor.init({ rng: makeRng(1), players: mkPlayers(8) }),
+    ).camera;
+    const corner = ((GRID * TILE) / 2) * Math.SQRT2;
+    expect(extent).toBeCloseTo(corner, 9);
+
+    // And it really is the corner, not the edge: an edge-sized disc would clip the
+    // four corner tiles, which are exactly the ones a player is standing on last.
+    expect(extent).toBeGreaterThan((GRID * TILE) / 2);
+  });
+
+  it("keeps every tile centre inside the disc it claims", () => {
+    const state = fallingFloor.init({ rng: makeRng(1), players: mkPlayers(8) });
+    const { extent } = fallingFloor.arena(state).camera;
+    const half = ((GRID - 1) * TILE) / 2;
+    for (let row = 0; row < GRID; row++) {
+      for (let col = 0; col < GRID; col++) {
+        const x = col * TILE - half;
+        const z = row * TILE - half;
+        expect(Math.hypot(x, z), `tile ${col},${row}`).toBeLessThanOrEqual(extent!);
+      }
+    }
   });
 });

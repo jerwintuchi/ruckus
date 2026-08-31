@@ -286,7 +286,13 @@ export const sweepers: Minigame<SweepersState> = {
       });
     }
     return {
-      camera: { eye: [0, 27, 22], look: [0, 0, 0], fov: 45 },
+      camera: {
+        eye: [0, 27, 22],
+        look: [0, 0, 0],
+        fov: 45,
+        /** The outer wall corner — the walls are part of the picture, not just collision. */
+        extent: (ARENA / 2 + WALL) * Math.SQRT2,
+      },
       solids: WALLS,
       statics,
       sky: "#cfe4f2",

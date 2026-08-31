@@ -46,8 +46,22 @@ export type Prim =
 
 /** The fixed camera and static geometry, sent once at ROUND_START. */
 export interface ArenaDescriptor {
-  /** Fixed per arena, never player-controlled (RD-005). */
-  camera: { eye: [number, number, number]; look: [number, number, number]; fov: number };
+  /**
+   * Fixed per arena, never player-controlled (RD-005).
+   *
+   * `extent` is the radius in metres, centred on `look`, that must stay on screen. It
+   * is a **dimension, not a camera instruction**: the client decides how to frame it,
+   * and the server still knows nothing about aspect ratios or frustums
+   * (non-negotiable 1). It cannot be inferred — `falling-floor` ships `statics: []`
+   * and its grid arrives later via `setTiles` — so an arena states its own size or
+   * gets framed at whatever the author's `eye` happened to be (arena-framing R2).
+   */
+  camera: {
+    eye: [number, number, number];
+    look: [number, number, number];
+    fov: number;
+    extent?: number;
+  };
   solids: Solid[];
   statics: Prim[];
   /** Background clear colour, from the palette. */

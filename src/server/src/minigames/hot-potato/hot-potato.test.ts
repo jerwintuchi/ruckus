@@ -466,6 +466,8 @@ describe("snapshot and contract (T10, R8)", () => {
     expect(hotPotato.rule.length).toBeLessThan(80);
     expect(hotPotato.maxDurationMs).toBeGreaterThan(0);
     const arena = hotPotato.arena({} as HotPotatoState);
-    expect(Object.keys(arena.camera).sort()).toEqual(["eye", "fov", "look"]);
+    // `extent` is a distance in metres, not a camera instruction — nothing in it a
+    // client could steer. The list stays exhaustive so the next field is a decision.
+    expect(Object.keys(arena.camera).sort()).toEqual(["extent", "eye", "fov", "look"]);
   });
 });
