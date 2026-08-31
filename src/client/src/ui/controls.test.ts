@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   BUTTON_MIN_PX, CONTROLS_CSS, CONTROLS_HTML, GUIDE_OPACITY, STICK_BASE_PX,
-  STICK_REST_OPACITY, ICON_PX, guessSurface,
+  STICK_REST_OPACITY, ICON_PX, RING_PX, RING_GAP, RING_CIRCUMFERENCE, guessSurface,
 } from "./controls.ts";
 import { STICK_RADIUS } from "../input.ts";
 import { ACTION_VERBS } from "@ruckus/shared";
@@ -261,8 +261,8 @@ describe("the button reads at arm's length (action-button T9, R6, R7)", () => {
     // its intrinsic size under `inset`, so the ring rendered small and off in a corner.
     // Pixels rather than percentages — a percentage has its own failure mode (RD-044).
     const ring = rule("#cooldownRing");
-    expect(ring).toContain(`width:${BUTTON_MIN_PX}px`);
-    expect(ring).toContain(`height:${BUTTON_MIN_PX}px`);
+    expect(ring).toContain(`width:${RING_PX}px`);
+    expect(ring).toContain(`height:${RING_PX}px`);
     expect(ring).not.toContain("width:auto");
   });
 
@@ -349,5 +349,32 @@ describe("the icons carry their licence (RD-047)", () => {
   it("is still path data and still no dependency", () => {
     expect(src).not.toContain("from \"lucide");
     for (const verb of ACTION_VERBS) expect(iconPath(verb), verb).toMatch(/^M/);
+  });
+});
+
+describe("the cooldown sweep is outside the button and unmissable (action-button R6)", () => {
+  it("is a halo larger than the button, not an arc inside it", () => {
+    // Inside, the sweep competed with the icon for the same pixels and went unnoticed
+    // in play. Outside there is nothing else there, so it reads at arm's length.
+    expect(RING_PX).toBeGreaterThan(BUTTON_MIN_PX);
+    expect(RING_GAP).toBeGreaterThan(0);
+  });
+
+  it("is offset by the border as well as the gap, so it stays concentric", () => {
+    // An absolutely positioned child is placed against the PADDING box, so the border
+    // has to be backed out too or the ring hangs off one corner (RD-046).
+    const ring = rule("#cooldownRing");
+    expect(ring).toContain(`${RING_GAP}px`);
+    expect(ring).toContain(`${UI.outline}px`);
+  });
+
+  it("sweeps the whole circumference rather than a fraction of it", () => {
+    // The dash lives on the circle, not the svg — the ring's own rule sizes the box.
+    expect(rule("#cooldownRing circle")).toContain(`stroke-dasharray:${RING_CIRCUMFERENCE}`);
+  });
+
+  it("is invisible while the action is ready", () => {
+    // A full ring on a ready button is clutter that means nothing.
+    expect(CONTROLS_CSS).toContain("#actionBtn:not(.cooling) #cooldownRing{opacity:0}");
   });
 });

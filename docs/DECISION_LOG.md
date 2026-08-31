@@ -1569,3 +1569,56 @@ reason: the explanation legitimately contains the words the code must not.
 **Worth recording plainly.** Hand-drawn SVG is the weakest thing I produce here, and it
 took two rounds of playtest feedback to say so. Borrowing shapes from people who draw
 them for a living, and paying the licence, is the better trade.
+
+## RD-048 — The comment was right and the code was wrong (2026-08-31)
+
+`specs/spectating/`. Reported: "some of the bots are invisible in hot potato".
+
+**`Character.setEliminated` carried this, verbatim, since it was written:**
+
+```ts
+/** Eliminated players stay on screen — losing must be watchable (vision pillar 3). */
+setEliminated(): void {
+  this.pivot.visible = false;
+  this.shadow.visible = false;
+  void PAPER;
+}
+```
+
+The comment states the requirement. The two lines under it do the opposite. And the
+`void PAPER` is the fingerprint of the missing work: a palette import pulled in for a
+greyed-out treatment that was never written, kept alive by hand so the compiler would
+not complain about it.
+
+In Hot Potato players go out one at a time, so the arena emptied as the round went on —
+which is exactly what was reported. Out is a costume change now: every non-ink material
+goes flat grey, the ink edges survive so the silhouette still reads at phone size, the
+shadow fades, and the pose stops animating so nobody mistakes an out player for a live
+one. Materials are matched against `inkMaterial()` rather than by index, because a
+slab's array is indexed by *group* once neighbours coalesce (RD-028).
+
+**A cost assertion had to be reversed, and it is worth being straight about.**
+`cost.test.ts` asserted that an eliminated player *drops off the draw-call bill*, which
+was true precisely because they were hidden. They are drawn now, so the peak of 112 draw
+calls is **sustained for the whole round rather than decaying**. The ceiling RD-028 set
+was always written against eight live players, so it still holds — but the average cost
+of a round is higher than RD-028 measured, and the p95 that spec still owes matters
+slightly more than it did.
+
+**Two other things from the same playtest.**
+
+The waiting card has a live indicator — three cycling dots and the round being waited
+for. A wait with no sign of life reads as a hang. It is one CSS animation over
+information the client already has, so no wire traffic was added.
+
+The cooldown sweep moved **outside** the button. Drawn inside it, the arc competed with
+the icon for the same pixels and went unnoticed in play; as a halo around the whole
+control there is nothing else there, and it is hidden entirely while the action is
+ready, because a full ring on a ready button means nothing.
+
+**The pattern across today.** Three separate things turned out to be a comment, a doc, or
+a test asserting one behaviour while the code did another: I5 saying 20 Hz after the tick
+rose, `setEliminated`'s comment, and `shell` T18's zero-scorer test. Prose and tests both
+drift from code silently. The ones that held were the mechanical guards — `kit_check`,
+the context budget, the spec registry — which is an argument for more of those and fewer
+promises in comments.

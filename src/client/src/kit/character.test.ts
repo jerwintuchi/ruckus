@@ -171,3 +171,52 @@ describe("limbs hinge, and the pose is only ever a function of its inputs (T11)"
     }
   });
 });
+
+describe("eliminated players stay on screen (spectating T1, R1, P1, P2)", () => {
+  it("is still visible and still in the scene", () => {
+    // The comment above setEliminated has always said losing must be watchable; the
+    // two lines below it hid the character completely, and Hot Potato emptied its
+    // arena as players went out (RD-048).
+    const c = new Character(PLAYER_COLOURS[0]!, 0);
+    c.setEliminated();
+    expect(c.root.visible).toBe(true);
+    const parts = meshes(c);
+    expect(parts).toHaveLength(MESHES_PER_CHARACTER);
+    for (const m of parts) expect(m.visible).toBe(true);
+  });
+
+  it("greys every fill and leaves every ink edge alone (P2)", () => {
+    const c = new Character(PLAYER_COLOURS[3]!, 3);
+    const before = meshes(c)
+      .filter((m) => Array.isArray(m.material))
+      .map((m) => (m.material as Material[]).map((x) => x));
+    c.setEliminated();
+
+    const after = meshes(c).filter((m) => Array.isArray(m.material));
+    after.forEach((m, i) => {
+      (m.material as Material[]).forEach((mat, j) => {
+        const was = before[i]![j]!;
+        const wasInk = colourOf(was) === INK;
+        // Ink survives so the silhouette still reads; everything else goes flat.
+        if (wasInk) expect(colourOf(mat), "ink").toBe(INK);
+        else expect(colourOf(mat), "fill").not.toBe(colourOf(was));
+      });
+    });
+  });
+
+  it("is idempotent, because it is called on every snapshot while out", () => {
+    const c = new Character(PLAYER_COLOURS[1]!, 1);
+    c.setEliminated();
+    const first = meshes(c).map((m) => m.material);
+    c.setEliminated();
+    expect(meshes(c).map((m) => m.material)).toEqual(first);
+  });
+
+  it("stops animating, so an out player is not mistaken for a live one", () => {
+    const c = new Character(PLAYER_COLOURS[2]!, 2);
+    c.setEliminated();
+    c.update(0, 6, 0, 0, 0.3);
+    const pivot = c.root.children[0]!;
+    for (const limb of pivot.children) expect(limb.rotation.x).toBeCloseTo(0, 6);
+  });
+});

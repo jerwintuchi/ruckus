@@ -301,10 +301,15 @@ export class Ui {
    * state machine was right; it just said nothing. Losing is watchable and so is
    * arriving late (vision pillar 3), but only once the screen admits what is going on.
    */
-  showWaiting(): void {
+  showWaiting(round?: number, of?: number): void {
+    // Motion, not a static sentence: a wait with no sign of life reads as a hang.
+    // The dots are one CSS animation and the round number is already known from
+    // `intro`, so this adds no wire traffic at all (spectating R2).
+    const which = round && of ? `round ${round} of ${of} is finishing` : "the round in progress is finishing";
     this.banner.innerHTML =
-      `<div class="card tilt"><div class="big">joining in</div>` +
-      `<p class="rule">the round in progress finishes first — you are in from the next one</p></div>`;
+      `<div class="card tilt"><div class="big">joining in` +
+      `<span class="dots"><i></i><i></i><i></i></span></div>` +
+      `<p class="rule">${which} — you are in from the next one</p></div>`;
     this.banner.style.display = "flex";
   }
 

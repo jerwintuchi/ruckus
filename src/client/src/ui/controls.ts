@@ -41,6 +41,19 @@ export const COOLDOWN_FULL_S = 1.4;
 /** The icon's drawn size. Explicit pixels — see the note on `#actionIconSvg`. */
 export const ICON_PX = 38;
 
+/**
+ * The cooldown ring sits OUTSIDE the button (action-button R6).
+ *
+ * Drawn inside it, the sweep was a thin arc competing with the icon for the same
+ * pixels and went unnoticed in play. Outside, it is a halo the size of the whole
+ * control: nothing else is there, so a sweep across it is unmissable at arm's length.
+ */
+export const RING_GAP = 7;
+export const RING_PX = BUTTON_MIN_PX + RING_GAP * 2;
+/** The circle's radius in its own 100-unit viewBox, and the resulting circumference. */
+export const RING_R = 46;
+export const RING_CIRCUMFERENCE = Math.round(2 * Math.PI * RING_R);
+
 /** Faint enough to ignore: a reminder, not a HUD element. */
 export const GUIDE_OPACITY = 0.4;
 
@@ -102,11 +115,14 @@ export const CONTROLS_CSS = `
  * it back by the border width lands it concentric with the button.
  */
 #cooldownRing{position:absolute;
-  left:calc(0px - ${UI.outline}px);top:calc(0px - ${UI.outline}px);
-  width:${BUTTON_MIN_PX}px;height:${BUTTON_MIN_PX}px;
+  left:calc(0px - ${UI.outline}px - ${RING_GAP}px);
+  top:calc(0px - ${UI.outline}px - ${RING_GAP}px);
+  width:${RING_PX}px;height:${RING_PX}px;
   transform:rotate(-90deg);pointer-events:none}
-#cooldownRing circle{fill:none;stroke:var(--ink);stroke-width:3.5;opacity:.5;
-  stroke-dasharray:126;stroke-dashoffset:0}
+#cooldownRing circle{fill:none;stroke:var(--ink);stroke-width:5;
+  stroke-dasharray:${RING_CIRCUMFERENCE};stroke-dashoffset:0}
+/* Only drawn while it means something: a full ring on a ready button is clutter. */
+#actionBtn:not(.cooling) #cooldownRing{opacity:0}
 
 /* The number sits UNDER the button, clear of the icon rather than across it. */
 #cooldownNum{position:absolute;left:0;right:0;top:calc(100% + 4px);text-align:center;
@@ -150,8 +166,8 @@ export const CONTROLS_HTML = `
       <path id="actionIcon" d=""></path>
     </svg>
     <span id="actionHint" hidden></span>
-    <svg id="cooldownRing" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
-      <circle cx="22" cy="22" r="20"></circle>
+    <svg id="cooldownRing" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+      <circle cx="50" cy="50" r="${RING_R}"></circle>
     </svg>
     <span id="cooldownNum"></span>
   </button>
@@ -257,9 +273,10 @@ export class Controls {
     this.button.classList.toggle("cooling", cooling);
     // A ready button shows no clutter: full ring, no number.
     this.num.textContent = cooling ? readyIn.toFixed(1) : "";
-    const circumference = 2 * Math.PI * 20;
+    // A full sweep of the whole ring: offset the dash by the fraction still to run, so
+    // the ring empties as the cooldown does and is complete the moment it is ready.
     this.ring.style.strokeDashoffset = cooling
-      ? String(circumference * Math.min(1, readyIn / COOLDOWN_FULL_S))
+      ? String(RING_CIRCUMFERENCE * Math.min(1, readyIn / COOLDOWN_FULL_S))
       : "0";
   }
 

@@ -119,11 +119,37 @@ describe("eight players on screen, measured (T18, R13)", () => {
     expect(eight.drawCalls).toBe(one.drawCalls * 8);
   });
 
-  it("drops an eliminated player off the bill entirely", () => {
-    // Losing is watchable (vision pillar 3) but a hidden player must not still be drawn.
+  it("keeps drawing an eliminated player, and stays inside the budget anyway", () => {
+    // This assertion is reversed. Eliminated players used to be hidden, so the draw
+    // count FELL as a round went on — and the arena emptied, which is what a playtester
+    // reported as "the bots are invisible" (RD-048). They stay drawn now, greyed, so
+    // losing is watchable (vision pillar 3).
+    //
+    // The honest cost: the peak is unchanged, but it is now sustained for the whole
+    // round rather than decaying. The budget was always written against 8 live players,
+    // so the ceiling still holds — but the average is higher than RD-028 measured.
     const c = new Character(PLAYER_COLOURS[0]!, 0);
     const live = costOf(c.root).drawCalls;
     c.setEliminated();
-    expect(costOf(c.root).drawCalls).toBeLessThan(live);
+    expect(costOf(c.root).drawCalls, "still on screen, still drawn").toBe(live);
+
+    disposePaper();
+    const all = costOf(lobby());
+    for (const ch of PLAYER_COLOURS.map((col, slot) => new Character(col, slot))) {
+      ch.setEliminated();
+    }
+    expect(all.drawCalls, formatCost(all)).toBeLessThanOrEqual(120);
+  });
+
+  it("adds no new material for the whole crowd going out at once", () => {
+    // One shared "out" colour, not one per player: eight eliminations must not be
+    // eight new materials on a phone.
+    disposePaper();
+    const crowd = PLAYER_COLOURS.map((c, slot) => new Character(c, slot));
+    const group = new Group();
+    for (const c of crowd) group.add(c.root);
+    const before = costOf(group).materials;
+    for (const c of crowd) c.setEliminated();
+    expect(costOf(group).materials).toBeLessThanOrEqual(before + 1);
   });
 });

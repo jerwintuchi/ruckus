@@ -163,6 +163,15 @@ input::placeholder{color:var(--text-dim)}
   transition:opacity .16s ease-out,transform .16s ease-out}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
+/* Waiting dots: the sign of life a spectator needs (spectating R2). */
+.dots{display:inline-flex;gap:5px;margin-left:8px;vertical-align:middle}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--ink);
+  animation:dot 1.2s ease-in-out infinite}
+.dots i:nth-child(2){animation-delay:.15s}
+.dots i:nth-child(3){animation-delay:.3s}
+@keyframes dot{0%,70%,100%{opacity:.25;transform:translateY(0)}
+  35%{opacity:1;transform:translateY(-3px)}}
+
 /* The count before a round. Big enough to read across a room, quiet when empty. */
 .count{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;
   font-size:clamp(34px,9vw,48px);line-height:1;min-height:1em;
@@ -205,6 +214,8 @@ input::placeholder{color:var(--text-dim)}
   .card.tilt{transform:rotate(-${UI.tilt}deg)}
   /* The wobble goes; the sentence stays. Motion is emphasis, never the message. */
   #rotate span{transform:none}
+  /* The dots stop moving but remain visible — they are still a "waiting" mark. */
+  .dots i{opacity:.6;transform:none}
 }
 
 /*

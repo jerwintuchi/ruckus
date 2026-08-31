@@ -124,7 +124,7 @@ function onMessage(msg: ServerMsg): void {
       } else if (shouldShowWaiting(msg.state, roundSeen)) {
         // Mid-match arrival only: `roundStart` has already been and gone, so there is
         // no arena to draw and nothing to say for it. Say it (I8).
-        ui.showWaiting();
+        ui.showWaiting(roundLabelInfo?.round, roundLabelInfo?.of);
       }
       break;
     }

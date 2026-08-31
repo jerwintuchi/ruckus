@@ -9,12 +9,12 @@
  * would remove depth judgement entirely, in a game about timing a jump over a sweeping
  * bar. That was a gameplay decision, not an art one (RD-021).
  */
-import { Group, type Mesh } from "three";
+import { Group, type Material, type Mesh } from "three";
 import { MAX_SPEED } from "@ruckus/shared";
 import { poseFor } from "./actor.ts";
 import { faceFor } from "./face.ts";
 import { PAPER } from "./palette.ts";
-import { SLAB_DEPTH, slab } from "./paper.ts";
+import { SLAB_DEPTH, inkMaterial, slab, unlit } from "./paper.ts";
 import { blobShadow } from "./prims.ts";
 
 /** Proportions. Footprint and height stay as the capsule's, so no collision moves. */
@@ -30,6 +30,9 @@ export const BODY = {
   height: 1.80,
 } as const;
 
+/** A faint mark on the ground: out, but still standing somewhere. */
+export const OUT_SHADOW_OPACITY = 0.12;
+
 /** Meshes per character, asserted so the 8-on-screen budget cannot drift (T12). */
 export const MESHES_PER_CHARACTER = 7;
 
@@ -43,6 +46,7 @@ export class Character {
   private readonly legL = new Group();
   private readonly legR = new Group();
   private readonly shadow: Mesh;
+  private out = false;
 
   constructor(colour: string, slot: number) {
     // The head carries the generated face on its front (+Z) slab face.
@@ -86,7 +90,8 @@ export class Character {
     height: number, speed: number, vy: number, facing: number, t: number,
     turning = 0, tumbling = 0,
   ): void {
-    const pose = poseFor(speed, MAX_SPEED, height, vy, t, turning, tumbling);
+    // Out players stop moving, so nobody mistakes one for a player still in the round.
+    const pose = poseFor(this.out ? 0 : speed, MAX_SPEED, height, vy, t, turning, tumbling);
 
     this.pivot.position.y = height + pose.bob;
     // The flip adds yaw on a turn so the ink edge comes into view — the paper tell.
@@ -105,17 +110,46 @@ export class Character {
     // is the cheapest depth cue there is, and it makes falling readable.
     const shrink = Math.max(0.25, 1 - height * 0.12);
     this.shadow.scale.setScalar(0.9 * shrink);
-    (this.shadow.material as { opacity: number }).opacity = 0.34 * shrink;
+    // `update` runs every frame, so it has to honour the eliminated fade rather than
+    // writing over it — the first version set the fade once and then undid it 60 times
+    // a second.
+    (this.shadow.material as { opacity: number }).opacity =
+      this.out ? OUT_SHADOW_OPACITY : 0.34 * shrink;
   }
 
   setVisible(v: boolean): void {
     this.root.visible = v;
   }
 
-  /** Eliminated players stay on screen — losing must be watchable (vision pillar 3). */
+  /**
+   * Eliminated players stay on screen — losing must be watchable (vision pillar 3).
+   *
+   * This comment sat directly above two lines that hid them completely, and had done
+   * since the character was written. In Hot Potato, where players go out one at a time,
+   * the arena emptied as the round went on and a playtester reported the bots as
+   * "invisible" (RD-048).
+   *
+   * Out is a costume change now: every non-ink material goes flat grey and everything
+   * else stays exactly where it is. The ink edges survive, so the silhouette still
+   * reads at phone size, and the shadow fades rather than vanishing.
+   *
+   * Materials are matched against `inkMaterial()` rather than by index, because a
+   * slab's material array is indexed by GROUP once identical neighbours coalesce
+   * (RD-028) — an index-based swap would grey the outline on some slabs and not others.
+   */
   setEliminated(): void {
-    this.pivot.visible = false;
-    this.shadow.visible = false;
-    void PAPER;
+    if (this.out) return; // called every snapshot while a player is out
+    this.out = true;
+
+    const ink = inkMaterial();
+    const dim = unlit(PAPER.textDim);
+    this.pivot.traverse((o) => {
+      const mesh = o as Mesh;
+      if (!mesh.isMesh) return;
+      const mats = mesh.material as Material[];
+      if (!Array.isArray(mats)) return;
+      mesh.material = mats.map((m) => (m === ink ? ink : dim));
+    });
+
   }
 }
