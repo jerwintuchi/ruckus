@@ -1279,3 +1279,41 @@ Specced now rather than built so the shape is agreed before anyone starts, and s
 appears in the registry instead of living in a conversation. The four moments worth
 hearing are the countdown, an elimination, a round ending and a match ending — the ones
 a player currently has to be watching the screen to notice.
+
+## RD-040 — Players are solid, and the shell is what makes them so (2026-08-31)
+
+`specs/player-collision/` T1–T4. Eight characters used to occupy the same square metre
+without noticing; a chase was a formality because you ran *through* the person you were
+chasing. They now push each other apart, half the overlap each, in every round —
+shoving someone onto a cracking tile in `falling-floor` included, which is the kind of
+thing a room retells afterwards (vision pillar 5).
+
+**Enforced by the shell, once, right after `game.tick()`.** Four minigames each
+remembering to call it would be four chances to forget, and minigame five would inherit
+the bug instead of the rule. A test asserts no minigame source calls it: a minigame
+resolving collisions has taken the shell's job. The contract did not grow — no new
+method, no flag, no opt-in.
+
+**Two passes were not enough, and I had asserted they were.** The design said two
+relaxation passes; the first test — eight players in a two-metre square, denser than
+they can physically rest — still had 0.22 m of overlap. Measured properly: four passes
+left 0.05 m, eight left 0.003 m, and it took **twenty-four** to settle exactly. So it
+iterates until a pass moves nobody, capped at 24. The ordinary tick exits after one
+pass; the pathological pile-up pays the cap, which at 28 pairs is 672 distance checks
+and costs nothing at 30 Hz.
+
+**Solids win.** Players are separated first and re-resolved against arena geometry
+afterwards, so a shove into a wall stops at the wall. The other order lets two players
+squeeze a third out of the arena, which a 300-seed property test over every approach
+angle now rules out.
+
+**The boundary this was always going to hit.** `hot-potato`'s `CONTACT` was exactly
+`2 · PLAYER_RADIUS`, and collision holds a resting pair at exactly that distance — so
+`d > CONTACT` on the boundary decided the round's central mechanic by the last bit of a
+square root. Resting against someone would pass the bomb, or not, depending on
+floating-point noise. `CONTACT` gains 6 cm of tolerance so that *resting against them*
+reliably counts as touching, which is what the rule means. A deliberate tuning change
+with a test, not a silent consequence.
+
+Coincident players have no axis to separate along, so the axis comes from their slots.
+Any deterministic choice works; an undefined one would break I3.

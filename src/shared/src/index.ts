@@ -7,3 +7,4 @@ export * from "./quant.ts";
 export * from "./sim/rng.ts";
 export * from "./sim/vec.ts";
 export * from "./sim/move.ts";
+export * from "./sim/collide.ts";

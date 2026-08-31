@@ -19,6 +19,7 @@ import {
   minThicknessFor,
   stepMovement,
   vec,
+  PLAYER_RADIUS,
   awardByRank,
 } from "@ruckus/shared";
 
@@ -28,7 +29,16 @@ export const FUSE_START_MS = 9000;
 export const FUSE_STEP_MS = 1000;
 export const FUSE_MIN_MS = 4000;
 export const PASS_LOCK_MS = 600;
-export const CONTACT = 0.8; // 2 * PLAYER_RADIUS
+/**
+ * How close counts as touching, for the pass.
+ *
+ * Deliberately a little more than `2 * PLAYER_RADIUS`. Player collision now holds two
+ * bodies at *exactly* two radii, so an equality comparison would decide the round's
+ * central mechanic on the last bit of a square root — resting against someone would
+ * pass the bomb or not depending on floating-point noise. The tolerance means "resting
+ * against them" reliably counts as touching, which is what the rule means (RD-040).
+ */
+export const CONTACT = PLAYER_RADIUS * 2 + 0.06;
 export const DASH_MS = 220;
 export const DASH_SPEED_MUL = 2.1;
 export const DASH_COOLDOWN_MS = 1400;

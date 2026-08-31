@@ -13,6 +13,8 @@
  */
 import {
   INTRO_MS,
+  resolvePlayerOverlaps,
+  type Solid,
   MIN_PLAYERS_TO_START,
   RESULT_MS,
   ROUNDS_PER_MATCH,
@@ -47,6 +49,8 @@ export class Match {
   private game: Minigame<never> | null = null;
   private gameState: unknown = null;
   private roundElapsed = 0;
+  /** The round's static geometry, for pushing players back out of it. */
+  private roundSolids: readonly Solid[] = [];
   /**
    * The round's RNG, created ONCE at beginPlay and advanced across every tick.
    *
@@ -144,6 +148,10 @@ export class Match {
     });
     this.roundRng = makeRng(seedFrom(this.room.code, this.room.round));
     this.gameState = game.init({ rng: this.roundRng, players });
+    // Captured once: the contract already says an ArenaDescriptor is sent once at
+    // ROUND_START, so its solids are static for the round and rebuilding them every
+    // tick to resolve collisions would be waste.
+    this.roundSolids = game.arena(this.gameState as never).solids;
     this.roundElapsed = 0;
     this.room.state = "ROUND_PLAY";
     // P2: the shell owns the deadline, not the minigame.
@@ -178,6 +186,13 @@ export class Match {
     };
 
     game.tick(state, ctx);
+
+    // Players are solid, everywhere, enforced once (player-collision R1).
+    //
+    // Here rather than in each minigame: four of them each remembering to call it is
+    // four chances to forget, and minigame five would inherit the bug instead of the
+    // rule. Same argument as the round timeout living in the shell (I8).
+    resolvePlayerOverlaps(players, this.roundSolids);
 
     if (game.isOver(state, ctx) || this.elapsed >= this.phaseEndsAt) {
       this.endRound(game.scores(state));

@@ -8,6 +8,7 @@ import {
   type InputState,
   type PlayerRuntime,
   type TickCtx,
+  PLAYER_RADIUS,
   makeBody,
   makeRng,
   vec,
@@ -470,5 +471,36 @@ describe("snapshot and contract (T10, R8)", () => {
     // `extent` is a distance in metres, not a camera instruction — nothing in it a
     // client could steer. The list stays exhaustive so the next field is a decision.
     expect(Object.keys(arena.camera).sort()).toEqual(["extent", "eye", "fov", "look"]);
+  });
+});
+
+describe("contact survives player collision (player-collision T4, R3)", () => {
+  it("passes the bomb between two players resting against each other", () => {
+    // Collision holds a resting pair at exactly 2 * PLAYER_RADIUS, which is what
+    // CONTACT used to be — so the round's central mechanic was decided by the last bit
+    // of a square root. The tolerance is what makes "resting against them" count.
+    const players = mkPlayers(2);
+    const state = hotPotato.init({ rng: makeRng(3), players });
+    const holder = state.holder;
+    const other = players.find((p) => p.slot !== holder)!;
+
+    players[holder]!.body.pos = vec(0, 0);
+    other.body.pos = vec(PLAYER_RADIUS * 2, 0); // exactly touching, as collision leaves them
+
+    // Past the pass lock, then one tick.
+    step(state, players, PASS_LOCK_MS + TICK_MS);
+    expect(state.holder).toBe(other.slot);
+  });
+
+  it("still refuses a pass at a distance nobody would call touching", () => {
+    const players = mkPlayers(2);
+    const state = hotPotato.init({ rng: makeRng(3), players });
+    const holder = state.holder;
+    const other = players.find((p) => p.slot !== holder)!;
+
+    players[holder]!.body.pos = vec(0, 0);
+    other.body.pos = vec(CONTACT + 0.2, 0);
+    step(state, players, PASS_LOCK_MS + TICK_MS);
+    expect(state.holder).toBe(holder);
   });
 });

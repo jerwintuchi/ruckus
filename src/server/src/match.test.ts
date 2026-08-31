@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   INTRO_MS,
@@ -5,6 +8,8 @@ import {
   ROUNDS_PER_MATCH,
   TICK_DT,
   TICK_HZ,
+  CONTACT_DISTANCE,
+  vec,
   type ArenaDescriptor,
   type MatchState,
   type Minigame,
@@ -279,5 +284,41 @@ describe("Match round RNG (RD-013)", () => {
 
     expect(initDraws).toHaveLength(3);
     for (const d of tickDraws) expect(initDraws).not.toContain(d);
+  });
+});
+
+describe("players are solid, and the shell is what makes them so (player-collision T3)", () => {
+  it("separates overlapping players without any minigame doing anything", () => {
+    // The stub minigame moves nobody, so any separation is the shell's doing. That is
+    // the property: a minigame gets solidity for free and cannot forget it.
+    const { room, match } = setup([stub("a", 999) as Minigame<never>]);
+    match.requestStart(0);
+    pump(match, INTRO_MS + TICK_DT * 1000);
+
+    const bodies = [...room.players.values()].map((p) => p.runtime);
+    expect(bodies.length).toBeGreaterThanOrEqual(2);
+    bodies[0]!.body.pos = vec(0, 0);
+    bodies[1]!.body.pos = vec(0.05, 0);
+    match.update();
+
+    const d = Math.hypot(
+      bodies[0]!.body.pos.x - bodies[1]!.body.pos.x,
+      bodies[0]!.body.pos.z - bodies[1]!.body.pos.z,
+    );
+    expect(d).toBeGreaterThanOrEqual(CONTACT_DISTANCE - 1e-6);
+  });
+
+  it("is called by nobody else — a minigame doing this has taken the shell's job", () => {
+    const dir = join(dirname(fileURLToPath(import.meta.url)), "minigames");
+    const walk = (d: string): string[] =>
+      readdirSync(d).flatMap((e) => {
+        const p = join(d, e);
+        return statSync(p).isDirectory() ? walk(p) : [p];
+      });
+    const offences = walk(dir).filter(
+      (f) => f.endsWith(".ts") && !f.endsWith(".test.ts")
+        && readFileSync(f, "utf8").includes("resolvePlayerOverlaps"),
+    );
+    expect(offences).toEqual([]);
   });
 });
