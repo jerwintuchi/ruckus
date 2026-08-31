@@ -20,23 +20,28 @@ import {
   type ArenaCamera,
 } from "./framing.ts";
 
-/** The real cameras, as the four minigames declare them. */
+/** The real cameras, as the four minigames declare them. `extent` is a half-WIDTH. */
 const ARENAS: ArenaCamera[] = [
-  { eye: [0, 26, 21], look: [0, 0, 0], fov: 45, extent: 11 * Math.SQRT2 },      // falling-floor
-  { eye: [0, 24, 20], look: [0, 0, 0], fov: 45, extent: 10 * Math.SQRT2 },      // hot-potato
-  { eye: [0, 27, 22], look: [0, 0, 0], fov: 45, extent: 10.5 * Math.SQRT2 },    // sweepers
-  { eye: [0, 28, 23], look: [0, 0, 0], fov: 45, extent: 12 * Math.SQRT2 },      // scramble
+  { eye: [0, 26, 21], look: [0, 0, 0], fov: 45, extent: 11 },     // falling-floor
+  { eye: [0, 24, 20], look: [0, 0, 0], fov: 45, extent: 10 },     // hot-potato
+  { eye: [0, 27, 22], look: [0, 0, 0], fov: 45, extent: 10.5 },   // sweepers
+  { eye: [0, 28, 23], look: [0, 0, 0], fov: 45, extent: 12 },     // scramble
 ];
 
-/** Every point the fit promises to keep on screen: the rim, at ground and head height. */
-function silhouette(camera: ArenaCamera, samples = 96): Vector3[] {
+/**
+ * Every point the fit promises to keep on screen: the square footprint's edges, at
+ * ground and head height. Sampled independently of the implementation's own sampling,
+ * and more densely, so a fit that only checked corners would fail here.
+ */
+function silhouette(camera: ArenaCamera, perEdge = 40): Vector3[] {
   const [lx, ly, lz] = camera.look;
+  const h = camera.extent!;
   const out: Vector3[] = [];
-  for (let i = 0; i < samples; i++) {
-    const a = (i / samples) * Math.PI * 2;
-    const x = lx + Math.cos(a) * camera.extent!;
-    const z = lz + Math.sin(a) * camera.extent!;
-    out.push(new Vector3(x, ly, z), new Vector3(x, ly + ARENA_HEADROOM, z));
+  for (let i = 0; i <= perEdge; i++) {
+    const t = -h + (2 * h * i) / perEdge;
+    for (const [dx, dz] of [[t, -h], [t, h], [-h, t], [h, t]] as const) {
+      out.push(new Vector3(lx + dx, ly, lz + dz), new Vector3(lx + dx, ly + ARENA_HEADROOM, lz + dz));
+    }
   }
   return out;
 }
@@ -92,16 +97,13 @@ describe("the whole arena fits, at every aspect a phone can produce (P1)", () =>
     }
   });
 
-  it("is tighter than the bounding-sphere fit it replaced", () => {
-    // Honest about the size of the win: about 6% closer at a wide aspect, not the
-    // transformation it looked like it would be. At these steep camera angles a flat
-    // disc's perspective spread is nearly as large as the sphere's, so most of the
-    // sphere's waste was never recoverable. What the disc fit really buys is that
-    // headroom is now an explicit, testable 3m rather than an accidental `extent`
-    // metres — and that the arena's actual silhouette is what gets framed.
+  it("is much tighter than fitting the circle that circumscribes the arena", () => {
+    // The square is what the arena occupies; the circle around it reaches the
+    // half-diagonal, 41% further along every axis. Fitting that circle is what left the
+    // characters too small to read on a phone (RD-033).
     const scramble = ARENAS[3]!;
-    const sphere = (scramble.extent! / Math.sin((scramble.fov * Math.PI) / 360)) * 1.08;
-    expect(fitDistance(scramble, 2.99)).toBeLessThan(sphere * 0.95);
+    const circumscribed: ArenaCamera = { ...scramble, extent: scramble.extent! * Math.SQRT2 };
+    expect(fitDistance(scramble, 2.17)).toBeLessThan(fitDistance(circumscribed, 2.17) * 0.8);
   });
 
   it("fails the way the old framing did, if the extent is ignored", () => {
@@ -129,8 +131,10 @@ describe("headroom is part of what must be visible (R1)", () => {
     cam.lookAt(...sweepers.look);
     cam.updateMatrixWorld(true);
     cam.updateProjectionMatrix();
-    const head = new Vector3(0, ARENA_HEADROOM, sweepers.extent!).project(cam);
+    // The nearest corner of the footprint, at the top of a jump.
+    const head = new Vector3(sweepers.extent!, ARENA_HEADROOM, sweepers.extent!).project(cam);
     expect(Math.abs(head.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(head.x)).toBeLessThanOrEqual(1);
   });
 });
 
@@ -263,5 +267,24 @@ describe("the renderer fits on resize, never per frame (T3, P3)", () => {
     expect(resize).toContain("clientWidth");
     expect(resize).toContain("clientHeight");
     expect(resize).toContain("|| window.innerWidth");
+  });
+});
+
+describe("the canvas box is watched, not just the window (RD-033)", () => {
+  const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "..", "render.ts"), "utf8");
+
+  it("observes the element itself", () => {
+    // The canvas box can change with no window resize event: entering standalone from
+    // the home screen, the browser's chrome collapsing, a resumed page. The buffer then
+    // keeps the old shape and the picture is stretched into the new one — square tiles
+    // arrived on a phone as tall strips.
+    expect(src).toContain("ResizeObserver");
+    expect(src).toContain(".observe(canvas)");
+  });
+
+  it("keeps the window listener as a fallback", () => {
+    expect(src).toContain('window.addEventListener("resize"');
+    // Guarded, because ResizeObserver is not universal.
+    expect(src).toContain('typeof ResizeObserver !== "undefined"');
   });
 });

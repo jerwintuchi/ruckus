@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Prim } from "@ruckus/shared";
 import { buildPrim } from "./render.ts";
@@ -78,5 +80,38 @@ describe("rotY on prims (sweepers T2, R8)", () => {
   it("still reuses the cached geometry — rotation lives in the transform", () => {
     const m = buildPrim({ k: "box", pos: [0, 0, 0], size: [8, 1, 1], colour: "#fff", rotY: 2 });
     expect(m.geometry).toBe(GEO.box);
+  });
+});
+
+describe("a round's world leaves with the round", () => {
+  // The lobby used to keep the last round's arena, tiles and pickups, with the camera
+  // still parked wherever that round's fit had put it — so a fresh lobby showed a
+  // leftover pickup floating in an empty sky. The Renderer needs a WebGL context, so
+  // this is asserted against the source, the same way the no-fullscreen-pass claim is.
+  const SRC = join(dirname(new URL(import.meta.url).pathname), "render.ts");
+  const MAIN = join(dirname(new URL(import.meta.url).pathname), "main.ts");
+  const src = readFileSync(SRC, "utf8");
+  const main = readFileSync(MAIN, "utf8");
+
+  const body = (source: string, signature: string): string => {
+    const start = source.indexOf(signature);
+    expect(start, signature).toBeGreaterThan(-1);
+    return source.slice(start, source.indexOf("\n  }", start));
+  };
+
+  it("empties every collection a round can fill", () => {
+    const clear = body(src, "clearWorld(): void {");
+    for (const collection of ["clearPlayers", "statics.clear", "prims.clear", "tileMeshes"]) {
+      expect(clear, collection).toContain(collection);
+    }
+    // And forgets the arena camera, so a stale fit cannot survive into the next round.
+    expect(clear).toContain("arenaCamera = null");
+  });
+
+  it("is what the lobby calls, not clearPlayers alone", () => {
+    const lobby = main.slice(main.indexOf('if (msg.state === "LOBBY")'));
+    const branch = lobby.slice(0, lobby.indexOf("\n      }"));
+    expect(branch).toContain("clearWorld");
+    expect(branch).toContain("clearHud");
   });
 });

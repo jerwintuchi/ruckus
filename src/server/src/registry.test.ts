@@ -78,8 +78,10 @@ describe("registry contract (T11, R6)", () => {
       const arena = m.arena(m.init(stubCtx()));
       const [cx, , cz] = arena.camera.look;
       let needed = 0;
+      // Chebyshev, not Euclidean: `extent` is the half-width of a square footprint, so
+      // a point is inside when both |x| and |z| are within it (RD-033).
       const reach = (x: number, z: number): void => {
-        needed = Math.max(needed, Math.hypot(x - cx, z - cz));
+        needed = Math.max(needed, Math.abs(x - cx), Math.abs(z - cz));
       };
 
       for (const s of arena.solids) {
@@ -88,7 +90,8 @@ describe("registry contract (T11, R6)", () => {
       for (const p of arena.statics) {
         const [px, , pz] = p.pos;
         if (p.k === "cyl" || p.k === "sphere") {
-          needed = Math.max(needed, Math.hypot(px - cx, pz - cz) + p.r);
+          reach(px + p.r, pz + p.r);
+          reach(px - p.r, pz - p.r);
           continue;
         }
         // Boxes are the walls, and a wall is a long thin slab: "centre + bounding
@@ -106,7 +109,7 @@ describe("registry contract (T11, R6)", () => {
         }
       }
 
-      expect(arena.camera.extent, `${m.id} claims a disc smaller than its own geometry`)
+      expect(arena.camera.extent, `${m.id} claims a footprint smaller than its own geometry`)
         .toBeGreaterThanOrEqual(needed - 1e-9);
     }
   });

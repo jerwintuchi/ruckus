@@ -99,7 +99,15 @@ function onMessage(msg: ServerMsg): void {
       dispatch({ t: "room", players: msg.players, host: msg.host, state: msg.state });
       if (msg.state === "LOBBY") {
         playing = false;
-        renderer.clearPlayers();
+        // The whole world, not just the players: a round's arena, tiles and pickups
+        // must leave with the round, or the lobby shows the last one's leftovers.
+        renderer.clearWorld();
+        ui.clearHud();
+        ui.hideBanner();
+      } else if (!playing) {
+        // Mid-match arrival: `roundStart` has already been and gone, so there is no
+        // arena to draw and nothing to say for it. Say it (I8).
+        ui.showWaiting();
       }
       break;
 
@@ -156,23 +164,6 @@ let lastSent = 0;
 function frame(now: number): void {
   requestAnimationFrame(frame);
 
-// `?debug=1`: the device reports its own camera state. A phone has no console, and
-// every question about what it is actually doing otherwise costs a round trip to
-// whoever is holding it.
-if (new URLSearchParams(location.search).has("debug")) {
-  const box = document.createElement("pre");
-  Object.assign(box.style, {
-    position: "fixed", left: "0", bottom: "0", margin: "0", padding: "8px 10px",
-    font: "11px/1.45 ui-monospace, Menlo, monospace", background: "rgba(0,0,0,.75)",
-    color: "#fff", zIndex: "30", pointerEvents: "none", whiteSpace: "pre",
-  });
-  document.body.append(box);
-  setInterval(() => {
-    box.textContent = Object.entries(renderer.debug())
-      .map(([k, v]) => `${k.padEnd(9)} ${v}`)
-      .join("\n");
-  }, 250);
-}
 
   // Send input at the tick rate, not the frame rate: at 120fps a phone would be
   // sending six times more than the server can ever read (R10).
@@ -197,6 +188,36 @@ if (new URLSearchParams(location.search).has("debug")) {
   renderer.render();
 }
 requestAnimationFrame(frame);
+
+// `?debug=1`: the device reports its own camera state. A phone has no console, and
+// every question about what it is actually doing otherwise costs a round trip to
+// whoever is holding it.
+if (new URLSearchParams(location.search).has("debug")) {
+  const box = document.createElement("pre");
+  Object.assign(box.style, {
+    position: "fixed", left: "0", bottom: "0", margin: "0", padding: "8px 10px",
+    font: "11px/1.45 ui-monospace, Menlo, monospace", background: "rgba(0,0,0,.75)",
+    color: "#fff", zIndex: "30", pointerEvents: "none", whiteSpace: "pre",
+  });
+  document.body.append(box);
+  const shown = (id: string): string => {
+    const el = overlay.querySelector(id) as HTMLElement | null;
+    return el ? (el.style.display === "none" ? "-" : "SHOWN") : "missing";
+  };
+  setInterval(() => {
+    const state = {
+      ...renderer.debug(),
+      screen: flow.screen,
+      overlays: `menu:${shown("#menu")} join:${shown("#joining")} lobby:${shown("#lobby")}`,
+      players: String(players.length),
+      socket: net.connected ? "open" : "closed",
+    };
+    box.textContent = Object.entries(state)
+      .map(([k, v]) => `${k.padEnd(9)} ${v}`)
+      .join("\n");
+  }, 250);
+}
+
 
 // A shared link opens straight on the join screen with its code filled and locked.
 const fromUrl = new URLSearchParams(location.search).get("room");

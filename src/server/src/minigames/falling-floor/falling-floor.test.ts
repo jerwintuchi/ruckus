@@ -376,31 +376,28 @@ describe("snapshot and arena (T6, R6, P5)", () => {
   });
 });
 
-describe("the arena declares a disc big enough for its grid (arena-framing T1, R2)", () => {
-  it("covers the far corner, which is what leaves the screen first", () => {
+describe("the arena declares a footprint big enough for its grid (arena-framing T1, R2)", () => {
+  it("is half the grid's width — a half-width, not a radius", () => {
     // The registry's generic check cannot see this one: the tiles are in neither
     // `solids` nor `statics` — they arrive at the client via `setTiles` — so the only
     // place that knows the grid's true size is here.
     const { extent } = fallingFloor.arena(
       fallingFloor.init({ rng: makeRng(1), players: mkPlayers(8) }),
     ).camera;
-    const corner = ((GRID * TILE) / 2) * Math.SQRT2;
-    expect(extent).toBeCloseTo(corner, 9);
-
-    // And it really is the corner, not the edge: an edge-sized disc would clip the
-    // four corner tiles, which are exactly the ones a player is standing on last.
-    expect(extent).toBeGreaterThan((GRID * TILE) / 2);
+    expect(extent).toBeCloseTo((GRID * TILE) / 2, 9);
   });
 
-  it("keeps every tile centre inside the disc it claims", () => {
+  it("keeps every tile inside the footprint it claims", () => {
+    // Chebyshev, matching the square the client fits (RD-033). The outer tiles' far
+    // edges are what leave the frame first, so the tile edge is checked, not its centre.
     const state = fallingFloor.init({ rng: makeRng(1), players: mkPlayers(8) });
     const { extent } = fallingFloor.arena(state).camera;
     const half = ((GRID - 1) * TILE) / 2;
     for (let row = 0; row < GRID; row++) {
       for (let col = 0; col < GRID; col++) {
-        const x = col * TILE - half;
-        const z = row * TILE - half;
-        expect(Math.hypot(x, z), `tile ${col},${row}`).toBeLessThanOrEqual(extent!);
+        const x = Math.abs(col * TILE - half) + TILE / 2;
+        const z = Math.abs(row * TILE - half) + TILE / 2;
+        expect(Math.max(x, z), `tile ${col},${row}`).toBeLessThanOrEqual(extent! + 1e-9);
       }
     }
   });

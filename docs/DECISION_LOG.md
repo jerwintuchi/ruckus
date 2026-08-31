@@ -1007,3 +1007,62 @@ bar are now declared, so Add to Home Screen runs the game with the whole screen;
 `viewport-fit=cover` and the safe-area insets already in place, that is the whole fix.
 It is worth stating plainly: the largest single improvement to how the game looks on a
 phone was two meta tags, not any of the camera work.
+
+## RD-033 — Fitting the circle around a square, and three things the phone found (2026-08-31)
+
+Four findings from the same round of phone testing. The framing one matters most.
+
+**1. `extent` was a radius; it should have been a half-width.** Each arena declared the
+radius of the disc that must stay on screen, and every arena declared its
+*half-diagonal* — the circle that circumscribes the square. That circle reaches 41%
+further than the square does along either axis, so the camera backed off to keep empty
+air on screen and the characters came out too small to read.
+
+`extent` is now the half-width of the square footprint, and the fit samples the square's
+edges rather than a circle. Measured, at a landscape phone's aspect:
+
+| | circumscribed circle | square footprint |
+|---|---|---|
+| hot-potato distance | 37.4 m | **26.4 m** |
+| scramble distance | 45.0 m | **31.8 m** |
+| arena fills | ~60% of height | **~84% of height** |
+
+About 29% closer, so everything on screen is 1.4x larger linearly and roughly twice the
+area. Edges are sampled, not just corners, because under perspective the nearest point
+of an edge is not always a corner.
+
+That is the sweet spot rather than the maximum: what is left is the 6% margin and the
+3 m of jump headroom, and taking either would start clipping a jumping character in
+Sweepers — the one round where a clipped jump is unjudgeable.
+
+**2. The canvas box was watched only through the window.** `resize()` ran on the
+`window` resize event, but the canvas box can change without one: entering standalone
+from the home screen, the browser's chrome collapsing, a resumed page. The drawing
+buffer kept the old shape and the picture was stretched into the new box — square tiles
+arrived as tall strips. A `ResizeObserver` on the element fires on the box itself,
+whatever moved it; the window listener stays as a fallback.
+
+**3. A round's world outlived the round.** Returning to a lobby called `clearPlayers()`
+and nothing else, so the last round's arena, tiles and pickups stayed in the scene with
+the camera parked wherever that round's fit had left it — a fresh lobby showing a
+leftover pickup floating in an empty sky. `clearWorld()` empties all of it and forgets
+the arena camera.
+
+**4. Arriving mid-match said nothing.** `roundStart` fires only at the start of a round,
+so a player joining mid-round sits in `IN_MATCH` with no arena, no camera and every
+overlay correctly hidden — a blank sky. The state machine was right and the screen was
+silent, which is the third time that exact shape of bug has surfaced today (RD-029's
+invisible join error and dead Join button were the first two). There is now a
+"the round in progress finishes first" card.
+
+**On the debug readout.** All four were found with `?debug=1`, and the fourth was
+*only* findable that way: `screen IN_MATCH / overlays all hidden / arena none` is not
+something a screenshot can show. Two of my earlier wrong turns today came from reasoning
+forward from a plausible cause; the readout is what stopped that, and it is worth the
+twenty lines it costs.
+
+**A bug I introduced and caught.** The readout's own setup block landed *inside*
+`frame()` — a scripted edit anchored on `requestAnimationFrame(frame)` and matched the
+call at the top of the function instead of the one at the bottom of the file. With
+`?debug=1` it appended a DOM node and started a `setInterval` every frame. Fixed the
+same session; noted because an anchor that appears twice is a trap worth naming.

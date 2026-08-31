@@ -299,8 +299,8 @@ export const hotPotato: Minigame<HotPotatoState> = {
         eye: [0, 24, 20],
         look: [0, 0, 0],
         fov: 45,
-        /** The outer wall corner — the walls are part of the picture, not just collision. */
-        extent: (ARENA / 2 + WALL) * Math.SQRT2,
+        /** Out to the outer wall — the walls are part of the picture, not just collision. */
+        extent: ARENA / 2 + WALL,
       },
       solids: WALLS,
       statics,

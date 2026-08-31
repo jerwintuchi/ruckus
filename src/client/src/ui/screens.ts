@@ -186,6 +186,21 @@ export class Ui {
     this.banner.style.display = "flex";
   }
 
+  /**
+   * Joining a match already in progress (I8).
+   *
+   * `roundStart` only fires at the start of a round, so a player who arrives mid-round
+   * has no arena, no camera and nothing drawn — an empty sky with no explanation. The
+   * state machine was right; it just said nothing. Losing is watchable and so is
+   * arriving late (vision pillar 3), but only once the screen admits what is going on.
+   */
+  showWaiting(): void {
+    this.banner.innerHTML =
+      `<div class="card tilt"><div class="big">joining in</div>` +
+      `<p class="rule">the round in progress finishes first — you are in from the next one</p></div>`;
+    this.banner.style.display = "flex";
+  }
+
   hideBanner(): void {
     this.banner.style.display = "none";
   }

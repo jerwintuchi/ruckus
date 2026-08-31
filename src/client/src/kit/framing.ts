@@ -7,8 +7,8 @@
  * made. On a portrait phone at aspect 0.46 that works out to about 21° across, which is
  * how a 24 m arena arrived on a phone as one enormous character.
  *
- * **What is fitted: the arena, not a ball around it.** An arena is a flat disc on the
- * ground with a few metres of headroom for characters and walls. The first version of
+ * **What is fitted: the arena's own square footprint.** An arena is a flat square on
+ * the ground with a few metres of headroom for characters and walls. The first version of
  * this file fitted the bounding *sphere* — correct at any camera angle, easy to prove,
  * and far too conservative: a sphere of radius 17 m reaches 17 m straight up into empty
  * sky, and the camera retreats to fit all of that nothing. On a short landscape phone
@@ -37,8 +37,9 @@ export const MIN_ASPECT = 0.4;
 /** A phone in landscape with the browser's chrome showing. */
 export const MAX_ASPECT = 3.2;
 
-/** Points sampled around the rim. Enough that the worst point is never missed. */
-const RIM_SAMPLES = 48;
+/** Samples per footprint edge. Under perspective the nearest point of an edge is not
+ * always a corner, so edges are sampled rather than only their endpoints. */
+const EDGE_SAMPLES = 10;
 /** Bisection steps: 40 halvings takes the bracket below a micrometre. */
 const SEARCH_STEPS = 40;
 
@@ -82,19 +83,22 @@ const norm = (a: Vec3): Vec3 => {
 };
 
 /**
- * The arena's silhouette: its rim at ground level and at head height.
+ * The arena's silhouette: its footprint edges, at ground level and at head height.
  *
- * The rim is what leaves the frame first — the centre never does — so sampling the two
- * circles that bound the playable volume is enough, and far cheaper than a mesh.
+ * **A square, not a circle.** Every arena in the game is square, and the circle that
+ * circumscribes a square reaches its half-diagonal — 41% further than the square does
+ * along either axis. Fitting that circle backed the camera off to keep empty air on
+ * screen and left the characters too small to read (RD-033). The footprint is what
+ * leaves the frame first; the centre never does.
  */
-function rimPoints(look: Vec3, extent: number): Vec3[] {
+function footprintPoints(look: Vec3, half: number): Vec3[] {
   const points: Vec3[] = [];
-  for (let i = 0; i < RIM_SAMPLES; i++) {
-    const a = (i / RIM_SAMPLES) * Math.PI * 2;
-    const x = look[0] + Math.cos(a) * extent;
-    const z = look[2] + Math.sin(a) * extent;
-    points.push([x, look[1], z]);
-    points.push([x, look[1] + ARENA_HEADROOM, z]);
+  for (let i = 0; i <= EDGE_SAMPLES; i++) {
+    const t = -half + (2 * half * i) / EDGE_SAMPLES;
+    for (const [dx, dz] of [[t, -half], [t, half], [-half, t], [half, t]] as const) {
+      points.push([look[0] + dx, look[1], look[2] + dz]);
+      points.push([look[0] + dx, look[1] + ARENA_HEADROOM, look[2] + dz]);
+    }
   }
   return points;
 }
@@ -159,12 +163,12 @@ export function fitCamera(camera: ArenaCamera, aspect: number): Vec3 | null {
   const tanV = Math.tan((fovV * Math.PI) / 360);
   const tanH = Math.tan(horizontalFov(fovV, a) / 2);
 
-  const points = rimPoints(look, extent);
+  const points = footprintPoints(look, extent);
 
   // The bounding-sphere distance always fits, whatever the angle, so it is a guaranteed
   // upper bracket for the search — the conservative answer, kept as a bound rather than
   // used as the result.
-  let hi = (extent + ARENA_HEADROOM) / Math.min(Math.sin((fovV * Math.PI) / 360),
+  let hi = (extent * Math.SQRT2 + ARENA_HEADROOM) / Math.min(Math.sin((fovV * Math.PI) / 360),
     Math.sin(horizontalFov(fovV, a) / 2));
   let lo = 0;
   // Guard the bracket: if even `hi` does not fit (an absurd fov), do not search below it.

@@ -60,6 +60,17 @@ export class Renderer {
     this.scene.add(key, new AmbientLight(0xffffff, 1.9));
 
     this.resize();
+    // Watch the ELEMENT, not just the window.
+    //
+    // A `resize` event fires when the window changes, but the canvas box can change
+    // without one: entering standalone from the home screen, the browser's chrome
+    // collapsing, a resumed page. When that happens the drawing buffer keeps the old
+    // shape and the picture is stretched to fit the new one — square tiles arrived on
+    // a phone as tall strips. A ResizeObserver fires on the box itself, whatever moved
+    // it. The window listener stays as a fallback where the observer is unavailable.
+    if (typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(() => this.resize()).observe(canvas);
+    }
     window.addEventListener("resize", () => this.resize());
   }
 
@@ -189,6 +200,25 @@ export class Renderer {
     for (const [slot, c] of this.characters) {
       if (!seen.has(slot)) c.setVisible(false);
     }
+  }
+
+  /**
+   * Empty the world: no arena, no tiles, no pickups, no players.
+   *
+   * Returning to the lobby used to clear only the players, so the last round's
+   * geometry stayed in the scene and the camera stayed wherever that round's fit had
+   * put it — a lobby with a leftover pickup floating in an empty sky. Anything the
+   * round put on screen has to leave with the round.
+   */
+  clearWorld(): void {
+    this.clearPlayers();
+    this.statics.clear();
+    this.prims.clear();
+    for (const m of this.tileMeshes) this.dynamics.remove(m);
+    this.tileMeshes = [];
+    this.tileStates = [];
+    this.arenaCamera = null;
+    this.scene.background = new Color(PALETTE.sky);
   }
 
   clearPlayers(): void {

@@ -276,3 +276,25 @@ describe("the round card and results (shell T18)", () => {
     expect(at(root, "#banner").innerHTML).toContain("p1");
   });
 });
+
+describe("arriving mid-match says so (arena-framing, I8)", () => {
+  it("explains the empty arena instead of showing a blank sky", () => {
+    // roundStart only fires at the start of a round, so a player who joins mid-round
+    // has no arena and no camera — the debug readout showed screen IN_MATCH, arena
+    // none, every overlay hidden. Correct state, nothing said.
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.showWaiting();
+    const banner = at(root, "#banner");
+    expect(banner.style.display).toBe("flex");
+    expect(banner.innerHTML).toContain("next one");
+  });
+
+  it("clears once a round actually starts", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.showWaiting();
+    ui.hideBanner();
+    expect(at(root, "#banner").style.display).toBe("none");
+  });
+});

@@ -49,7 +49,10 @@ export interface ArenaDescriptor {
   /**
    * Fixed per arena, never player-controlled (RD-005).
    *
-   * `extent` is the radius in metres, centred on `look`, that must stay on screen. It
+   * `extent` is the half-width in metres of the arena's square footprint, centred on
+   * `look`, that must stay on screen. A half-width, **not a radius**: the circle that
+   * circumscribes a square reaches its half-diagonal, 41% further than the square goes
+   * along either axis, and fitting that circle keeps empty air on screen (RD-033). It
    * is a **dimension, not a camera instruction**: the client decides how to frame it,
    * and the server still knows nothing about aspect ratios or frustums
    * (non-negotiable 1). It cannot be inferred — `falling-floor` ships `statics: []`

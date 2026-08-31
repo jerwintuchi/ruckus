@@ -227,10 +227,10 @@ export const fallingFloor: Minigame<FallingFloorState> = {
         eye: [0, 26, 21],
         look: [0, 0, 0],
         fov: 45,
-        // The grid's far corner, which is what leaves the screen first. Declared from
-        // the constants rather than from `statics`, because the tiles are not in
-        // `statics` at all — they arrive via `setTiles` (arena-framing R2).
-        extent: ((GRID * TILE) / 2) * Math.SQRT2,
+        // Half the grid's width. Declared from the constants rather than from
+        // `statics`, because the tiles are not in `statics` at all — they arrive via
+        // `setTiles` (arena-framing R2).
+        extent: (GRID * TILE) / 2,
       },
       solids: [],
       statics: [],
