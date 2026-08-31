@@ -205,9 +205,12 @@ describe("the button says what it does, per player (action-button T3, T5, T6)", 
   it("draws icons from path data with no external reference (R5)", () => {
     // No files and no dependency: kit_check bans image files on RD-001's grounds and a
     // library would be a dependency needing its own decision.
+    // Comments stripped: the file carries Lucide's licence, which names its URL. The
+    // property is that nothing is FETCHED at runtime, not that no URL is ever written.
     const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "icons.ts"), "utf8");
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
     for (const forbidden of ["http", "url(", "import(", ".svg", ".png"]) {
-      expect(src, forbidden).not.toContain(forbidden);
+      expect(code, forbidden).not.toContain(forbidden);
     }
     for (const verb of ACTION_VERBS) expect(iconPath(verb)).toMatch(/^[Mm]/);
   });
@@ -328,5 +331,23 @@ describe("replaced elements are sized in pixels, never left to intrinsic (RD-044
 
   it("keeps the icon inside the button it sits in", () => {
     expect(ICON_PX).toBeLessThan(BUTTON_MIN_PX);
+  });
+});
+
+describe("the icons carry their licence (RD-047)", () => {
+  const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "icons.ts"), "utf8");
+
+  it("names Lucide and keeps its ISC notice in the file", () => {
+    // The shapes are borrowed, not drawn. Inlining path data instead of installing a
+    // package keeps the Kit closed and kit_check green, and the obligation that comes
+    // with it is a copyright notice — which is cheap, and belongs next to the paths.
+    expect(src).toContain("lucide.dev");
+    expect(src).toContain("ISC");
+    expect(src).toContain("Permission to use, copy, modify");
+  });
+
+  it("is still path data and still no dependency", () => {
+    expect(src).not.toContain("from \"lucide");
+    for (const verb of ACTION_VERBS) expect(iconPath(verb), verb).toMatch(/^M/);
   });
 });

@@ -1,27 +1,49 @@
 /**
- * Action icons, drawn in code (action-button T5, R5).
+ * Action icons, as path data (action-button T5, R5; RD-047).
  *
  * **No icon files and no icon dependency.** `kit_check` rejects image files on RD-001's
- * grounds, and a library would be a dependency needing its own decision — so these are
- * SVG path strings written by hand, exactly the argument that produced the procedural
- * textures (RD-020). Three paths is not a library worth installing.
+ * grounds, and a package would be the project's first UI dependency — so these are SVG
+ * path strings compiled into the bundle, the same argument that produced the procedural
+ * textures (RD-020). What changed is where the *shapes* come from: they were hand-drawn
+ * and looked it, so they are Lucide's now.
  *
- * The UI maps a verb token to a path here and never learns which minigame is running
- * (RD-009): the round sends a verb, this file turns it into a shape.
+ * ---
+ * Icon paths adapted from Lucide (https://lucide.dev), ISC Licence:
+ *
+ *   Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of
+ *   Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors
+ *   2022.
+ *
+ *   Permission to use, copy, modify, and/or distribute this software for any purpose
+ *   with or without fee is hereby granted, provided that the above copyright notice and
+ *   this permission notice appear in all copies.
+ *
+ *   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ *   REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ *   FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+ *   OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+ *   OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ *   ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * ---
+ *
+ * The UI maps a verb token to a shape here and never learns which minigame is running
+ * (RD-009): the round sends a verb, this file turns it into a picture.
  */
 import type { ActionVerb } from "@ruckus/shared";
 
-/** Paths are drawn in a 24x24 box, stroked, so they inherit the ink colour. */
+/** Lucide draws on a 24x24 grid, which is why the viewBox is 24. */
 export const ICON_BOX = 24;
 
 const PATHS: Record<ActionVerb, string> = {
-  // A closed loop with an arrowhead: a roll. Drawn heavy and simple, because it is read
-  // at arm's length on a phone rather than in a toolbar.
-  tumble: "M18 12a6 6 0 1 1-3.2-5.3 M15.4 3.4l-.6 3.6 3.6.6",
-  // A ball on a rising arc.
-  pass: "M3 18c5-9 12-12 18-12 M6.5 19.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4",
-  // Straight up, off the ground.
-  jump: "M12 3.5v10 M7.5 8 12 3.5 16.5 8 M4 20.5h16",
+  // Lucide "refresh-cw" — a closed loop with two arrowheads. Reads as "roll" at the
+  // size this is drawn, and is symmetrical, which the hand-drawn one was not.
+  tumble:
+    "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8 M21 3v5h-5 " +
+    "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16 M8 16H3v5",
+  // Lucide "send" — an arrow leaving the hand. The clearest "throw" in the set.
+  pass: "M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z M21.854 2.147l-10.94 10.939",
+  // Lucide "arrow-big-up" — a solid, unmistakable jump at a glance.
+  jump: "M9 18v-6H5l7-7 7 7h-4v6H9z",
 };
 
 /** The word a screen reader gets, and the fallback if a verb is ever unknown. */

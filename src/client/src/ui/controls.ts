@@ -82,7 +82,9 @@ export const CONTROLS_CSS = `
  * time, which is why there is now a test rather than another comment (RD-044).
  */
 #actionIconSvg{width:${ICON_PX}px;height:${ICON_PX}px;fill:none;stroke:var(--ink);
-  stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+  stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+/* Some Lucide glyphs are solid shapes rather than strokes; this one wants a fill. */
+#actionIconSvg.solid path{fill:var(--ink)}
 
 /*
  * The cooldown ring, sized EXPLICITLY (R6).
@@ -184,6 +186,7 @@ export class Controls {
   private readonly button: HTMLButtonElement;
   private readonly guide: HTMLElement;
   private readonly icon: SVGPathElement;
+  private readonly iconSvg: SVGElement;
   private readonly ring: SVGCircleElement;
   private readonly num: HTMLElement;
   private readonly hint: HTMLElement;
@@ -201,6 +204,7 @@ export class Controls {
     this.button = wrap.querySelector("#actionBtn") as HTMLButtonElement;
     this.guide = wrap.querySelector("#keyGuide") as HTMLElement;
     this.icon = wrap.querySelector("#actionIcon") as unknown as SVGPathElement;
+    this.iconSvg = wrap.querySelector("#actionIconSvg") as unknown as SVGElement;
     this.ring = wrap.querySelector("#cooldownRing circle") as unknown as SVGCircleElement;
     this.num = wrap.querySelector("#cooldownNum") as HTMLElement;
     this.hint = wrap.querySelector("#actionHint") as HTMLElement;
@@ -237,6 +241,8 @@ export class Controls {
     if (verb !== this.verb) {
       this.verb = verb;
       this.icon.setAttribute("d", iconPath(verb));
+      // `jump` is a filled arrow; the others are line work.
+      this.iconSvg.classList.toggle("solid", verb === "jump");
       this.button.setAttribute("aria-label", iconLabel(verb));
       this.button.setAttribute("title", iconLabel(verb));
     }

@@ -1541,3 +1541,31 @@ bottom-right by 4 px. Pulled back by the border width, it is concentric. That is
 fourth distinct way an element in this button has been mis-sized, and unlike the other
 three it is not the replaced-element trap — it is the box model, which the RD-044 guard
 does not and cannot catch.
+
+## RD-047 — Lucide's shapes, not Lucide the dependency (2026-08-31)
+
+The action icons were hand-drawn path strings and looked it — the tumble glyph read as a
+lowercase "6". Playtest feedback suggested an icon library.
+
+**Decision: inline Lucide's path data with its ISC notice, rather than adding the
+package.** Three `d` strings compiled into the bundle. No dependency, no file,
+`kit_check` stays green, and the reasoning is the same one that produced the procedural
+textures (RD-020): the shapes are the valuable part, and a package manager is not needed
+to obtain three of them.
+
+What this is *not* is a reversal of the closed Kit. kit-rules.md bans asset files and
+requires a decision for a new dependency; this adds neither. What it does add is a
+**licence obligation** — the ISC notice lives at the top of `icons.ts`, next to the
+paths it covers, and a test asserts it is still there. An attribution that can be
+deleted without anything failing is an attribution that will be.
+
+**The test that had to be corrected, not the code.** `icons.ts` is asserted to contain
+no `http`, on the grounds that an icon should never be fetched at runtime. Lucide's
+licence names its URL, so the assertion fired on a comment. The property being defended
+is *nothing is fetched*, not *no URL is ever written*, so the test now strips comments —
+the same treatment `character.test.ts` gives its no-billboard check, and for the same
+reason: the explanation legitimately contains the words the code must not.
+
+**Worth recording plainly.** Hand-drawn SVG is the weakest thing I produce here, and it
+took two rounds of playtest feedback to say so. Borrowing shapes from people who draw
+them for a living, and paying the licence, is the better trade.
