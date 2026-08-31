@@ -45,6 +45,14 @@ what `btn` does — my error, in `touch-controls` T1 (RD-034).*
       does not apply to them
 - AC: the holder's button says it has a second meaning — a hidden one is not a feature
 
+**R8**: Every replaced element is sized in pixels.
+- AC: no `<svg>`, `<canvas>` or `<img>` in a control relies on `auto`, a percentage, or
+      `inset` for its size
+- AC: a control's own box is a size, not a minimum — `min-width` leaves the used width
+      to content, which is what makes a child's percentage circular
+- AC: **asserted by a test, not by review.** This class of bug has shipped three times
+      (RD-031, RD-043, RD-044) and looked correct in the diff every time
+
 **R5**: An icon, not a word.
 - AC: the button carries an icon with an accessible label, in the game's ink vocabulary
 - AC: **no icon files and no icon dependency.** Icons are SVG paths written in code,

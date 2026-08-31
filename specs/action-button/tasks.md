@@ -40,6 +40,11 @@
   relying on `inset` (RD-031's mistake, in a smaller element); the number is positioned
   clear of the icon; the icon fills a majority of the button
 
+- [x] T10 [R8] — Explicit pixel sizes, and a guard for the class
+  Test: `controls.test.ts` — every replaced element in a control declares a pixel width
+  and height and never `auto` or a percentage; the button declares a size rather than a
+  minimum; `framing.test.ts` — the canvas, where this class started, declares a CSS size
+
 - [ ] T7 — Played, on a phone
   Test: manual. Does the holder understand their button changed? That is the whole risk
   of a contextual control, and no test answers it.

@@ -38,6 +38,9 @@ export const STICK_HOME_PX = 96;
  */
 export const COOLDOWN_FULL_S = 1.4;
 
+/** The icon's drawn size. Explicit pixels — see the note on `#actionIconSvg`. */
+export const ICON_PX = 38;
+
 /** Faint enough to ignore: a reminder, not a HUD element. */
 export const GUIDE_OPACITY = 0.4;
 
@@ -59,8 +62,7 @@ export const CONTROLS_CSS = `
 #actionBtn{position:fixed;
   right:calc(${STICK_HOME_PX / 2}px + env(safe-area-inset-right));
   bottom:calc(${STICK_HOME_PX / 2}px + env(safe-area-inset-bottom));
-  min-width:${BUTTON_MIN_PX}px;min-height:${BUTTON_MIN_PX}px;
-  padding:0 14px;border-radius:50%;
+  width:${BUTTON_MIN_PX}px;height:${BUTTON_MIN_PX}px;padding:0;border-radius:50%;
   border:var(--outline) solid var(--ink);background:var(--highlight);color:var(--ink);
   box-shadow:0 ${UI.shadowOffset}px 0 var(--ink);
   font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:15px;
@@ -70,8 +72,17 @@ export const CONTROLS_CSS = `
 #actionBtn[hidden]{display:none}
 #actionBtn.down{transform:translateY(${UI.shadowOffset - 2}px);box-shadow:0 2px 0 var(--ink)}
 /* The icon fills the button: it is the whole content, so it should read across a room. */
-#actionIconSvg{width:60%;height:60%;fill:none;stroke:var(--ink);stroke-width:2.6;
-  stroke-linecap:round;stroke-linejoin:round}
+/*
+ * Explicit pixels, never a percentage or auto.
+ *
+ * An SVG is a replaced element. A percentage width inside a button whose own width
+ * comes from its content is circular, so the browser falls back to the SVG's intrinsic
+ * 300x150 — which stretched this button into an ellipse across a third of the screen.
+ * The canvas did it in RD-031 and the cooldown ring did it in RD-043; this is the third
+ * time, which is why there is now a test rather than another comment (RD-044).
+ */
+#actionIconSvg{width:${ICON_PX}px;height:${ICON_PX}px;fill:none;stroke:var(--ink);
+  stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
 
 /*
  * The cooldown ring, sized EXPLICITLY (R6).
@@ -80,7 +91,8 @@ export const CONTROLS_CSS = `
  * takes its intrinsic size, so the ring rendered small and off in a corner. Exactly the
  * mistake the canvas made in RD-031, in a different element.
  */
-#cooldownRing{position:absolute;left:0;top:0;width:100%;height:100%;
+#cooldownRing{position:absolute;left:0;top:0;
+  width:${BUTTON_MIN_PX}px;height:${BUTTON_MIN_PX}px;
   transform:rotate(-90deg);pointer-events:none}
 #cooldownRing circle{fill:none;stroke:var(--ink);stroke-width:3.5;opacity:.5;
   stroke-dasharray:126;stroke-dashoffset:0}

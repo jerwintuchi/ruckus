@@ -288,3 +288,16 @@ describe("the canvas box is watched, not just the window (RD-033)", () => {
     expect(src).toContain('typeof ResizeObserver !== "undefined"');
   });
 });
+
+describe("the canvas is sized in CSS, like every replaced element (RD-031, RD-044)", () => {
+  it("declares a CSS size rather than inheriting its drawing buffer", () => {
+    // The original instance of the bug class: no CSS size, so the canvas laid out at
+    // its buffer size — twice the viewport on a 2x display, anchored top-left. The
+    // same trap took the cooldown ring (RD-043) and the action icon (RD-044).
+    const kit = readFileSync(
+      join(dirname(new URL(import.meta.url).pathname), "..", "ui", "kit.ts"), "utf8");
+    const canvas = kit.slice(kit.indexOf("canvas{"), kit.indexOf("}", kit.indexOf("canvas{")));
+    expect(canvas).toContain("width:100%");
+    expect(canvas).toContain("height:100%");
+  });
+});

@@ -1438,3 +1438,44 @@ literal, so a backtick in a CSS comment ends the string — RD-036 recorded it, 
 again writing the comment above. Worth more than a note: code-quoting an identifier is
 reflex, and inside these two stylesheets it is a syntax error forty lines away from
 where it looks like one.
+
+## RD-044 — The same sizing bug, three times, and the guard that ends it (2026-08-31)
+
+The action button rendered as a yellow ellipse across a third of the phone screen.
+
+**Cause.** `#actionIconSvg` was `width:60%` inside a button sized `min-width:72px` — so
+the button's width came from its content and the content's width came from the button.
+That circularity has a defined resolution: a replaced element falls back to its
+**intrinsic** size, which for an SVG is 300x150. The button stretched to fit, and
+`border-radius:50%` turned it into an ellipse.
+
+**This is the third time this class has shipped**, and each looked correct in the diff:
+
+| | element | what was written | what happened |
+|---|---|---|---|
+| RD-031 | `<canvas>` | no CSS size at all | laid out at its drawing buffer — 2x the viewport, anchored top-left |
+| RD-043 | `#cooldownRing` | `inset:-4px; width:auto` | a small arc off the button's corner |
+| RD-044 | `#actionIconSvg` | `width:60%` in a content-sized parent | intrinsic 300x150, button stretched to an ellipse |
+
+The rule underneath all three: **a replaced element does not stretch to `inset`, and
+cannot resolve a percentage against a parent that is sizing itself from content.** It
+falls back to an intrinsic size with no relationship to the layout.
+
+**So it is a test now, not a comment.** `controls.test.ts` asserts every replaced
+element in a control declares a pixel width and height and never `auto` or a percentage,
+and that the button declares a size rather than a minimum. `framing.test.ts` asserts the
+same for the canvas, where the class started. A fourth instance now fails in CI rather
+than on a phone.
+
+**Three of my own tests had pinned the buggy values.** They asserted `width:100%` on the
+ring and `width:60%` on the icon, written an hour earlier in the same session that
+introduced them — a test can only encode what its author believed, and mine encoded the
+bug. That is worth naming as its own lesson: a test written alongside a change confirms
+the change, and confirms it just as happily when it is wrong. The guard above is
+different in kind, because it states a property of the *platform* rather than of my
+intent.
+
+**On the working method.** Every one of these was a CSS change I could not see. The
+guard is the structural answer for this class; the general answer is that the phone is
+the only place UI correctness is decided here, and changes to it should arrive in small
+verifiable batches rather than in a pile.

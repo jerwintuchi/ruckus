@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   BUTTON_MIN_PX, CONTROLS_CSS, CONTROLS_HTML, GUIDE_OPACITY, STICK_BASE_PX,
-  STICK_REST_OPACITY, guessSurface,
+  STICK_REST_OPACITY, ICON_PX, guessSurface,
 } from "./controls.ts";
 import { STICK_RADIUS } from "../input.ts";
 import { ACTION_VERBS } from "@ruckus/shared";
@@ -73,8 +73,10 @@ describe("the button says what it does, and only exists when there is one (T4, R
     expect(BUTTON_MIN_PX).toBeGreaterThanOrEqual(UI.minTarget);
     expect(BUTTON_MIN_PX).toBeGreaterThanOrEqual(64);
     const btn = rule("#actionBtn");
-    expect(btn).toContain(`min-width:${BUTTON_MIN_PX}px`);
-    expect(btn).toContain(`min-height:${BUTTON_MIN_PX}px`);
+    // A real size, not a minimum: min-width leaves the used width to content, which is
+    // what let the icon's percentage go circular (RD-044).
+    expect(btn).toContain(`width:${BUTTON_MIN_PX}px`);
+    expect(btn).toContain(`height:${BUTTON_MIN_PX}px`);
   });
 
   it("takes its own touches, so drawn region and hit region are one region (P2)", () => {
@@ -254,9 +256,10 @@ describe("the button reads at arm's length (action-button T9, R6, R7)", () => {
   it("sizes the ring explicitly, because inset does not stretch an SVG", () => {
     // RD-031's mistake in a smaller element: an SVG is a replaced element and takes
     // its intrinsic size under `inset`, so the ring rendered small and off in a corner.
+    // Pixels rather than percentages — a percentage has its own failure mode (RD-044).
     const ring = rule("#cooldownRing");
-    expect(ring).toContain("width:100%");
-    expect(ring).toContain("height:100%");
+    expect(ring).toContain(`width:${BUTTON_MIN_PX}px`);
+    expect(ring).toContain(`height:${BUTTON_MIN_PX}px`);
     expect(ring).not.toContain("width:auto");
   });
 
@@ -264,10 +267,13 @@ describe("the button reads at arm's length (action-button T9, R6, R7)", () => {
     expect(rule("#cooldownNum")).toContain("top:calc(100%");
   });
 
-  it("gives the icon most of the button", () => {
+  it("gives the icon most of the button, in pixels", () => {
     const icon = rule("#actionIconSvg");
-    expect(icon).toContain("width:60%");
-    expect(icon).toContain("height:60%");
+    expect(icon).toContain(`width:${ICON_PX}px`);
+    expect(icon).toContain(`height:${ICON_PX}px`);
+    // Most of the button, so it reads at arm's length, but inside it.
+    expect(ICON_PX / BUTTON_MIN_PX).toBeGreaterThan(0.4);
+    expect(ICON_PX).toBeLessThan(BUTTON_MIN_PX);
   });
 
   it("tells the holder their button has a second meaning (R7)", () => {
@@ -277,5 +283,50 @@ describe("the button reads at arm's length (action-button T9, R6, R7)", () => {
     const setAction = src.slice(src.indexOf("setAction("), src.indexOf("\n  }", src.indexOf("setAction(")));
     expect(setAction).toContain('verb !== "pass"');
     expect(setAction).toContain("HOLD");
+  });
+});
+
+describe("replaced elements are sized in pixels, never left to intrinsic (RD-044)", () => {
+  // The bug class that has now bitten three times in one project:
+  //
+  //   RD-031  the canvas had no CSS size, so it laid out at its drawing-buffer size —
+  //           twice the viewport on a 2x display, anchored top-left
+  //   RD-043  the cooldown ring used inset with width:auto, and rendered as a small
+  //           arc off the button's corner
+  //   RD-044  the icon used width:60% inside a content-sized button, which is circular,
+  //           so it fell back to the SVG's intrinsic 300x150 and stretched the button
+  //           into an ellipse across a third of the screen
+  //
+  // Each looked obviously fine in the diff. A replaced element — <svg>, <canvas>, <img>
+  // — does not stretch to `inset`, and cannot resolve a percentage against a container
+  // that is sizing itself from content. It falls back to an intrinsic size that has
+  // nothing to do with the layout. So: explicit pixels, and a test instead of a comment.
+  const REPLACED = ["#actionIconSvg", "#cooldownRing"];
+
+  it("gives every replaced element an explicit pixel width and height", () => {
+    for (const selector of REPLACED) {
+      const body = rule(selector);
+      expect(body, `${selector} width`).toMatch(/width:\s*\d+px/);
+      expect(body, `${selector} height`).toMatch(/height:\s*\d+px/);
+    }
+  });
+
+  it("never sizes one by percentage or auto", () => {
+    for (const selector of REPLACED) {
+      const body = rule(selector);
+      expect(body, `${selector}`).not.toMatch(/(width|height):\s*(auto|\d+%)/);
+    }
+  });
+
+  it("gives the button a real size rather than a minimum", () => {
+    // min-width leaves the used width to content — which is what made the icon's
+    // percentage circular in the first place.
+    const btn = rule("#actionBtn");
+    expect(btn).toMatch(/width:\s*\d+px/);
+    expect(btn).toMatch(/height:\s*\d+px/);
+  });
+
+  it("keeps the icon inside the button it sits in", () => {
+    expect(ICON_PX).toBeLessThan(BUTTON_MIN_PX);
   });
 });
