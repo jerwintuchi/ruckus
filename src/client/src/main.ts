@@ -4,7 +4,7 @@
  * (I1, I6), and everything sent is an intention.
  */
 import type { PlayerView, Prim, ServerMsg } from "@ruckus/shared";
-import { initialState, reduce, type FlowEvent } from "./flow.ts";
+import { initialState, reduce, shouldShowWaiting, type FlowEvent } from "./flow.ts";
 import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
@@ -39,6 +39,8 @@ let host = -1;
 let players: PlayerView[] = [];
 let colours = new Map<number, string>();
 let playing = false;
+/** Have we seen a round begin since joining? False only for a mid-match arrival. */
+let roundSeen = false;
 let bannerUntil = 0;
 let roundLabelInfo: { name: string; round: number; of: number } | null = null;
 let lastExtra: Record<string, unknown> | undefined;
@@ -108,14 +110,16 @@ function onMessage(msg: ServerMsg): void {
         ui.clearHud();
         ui.hideBanner();
         controls.hide();
-      } else if (!playing) {
-        // Mid-match arrival: `roundStart` has already been and gone, so there is no
-        // arena to draw and nothing to say for it. Say it (I8).
+        roundSeen = false;
+      } else if (shouldShowWaiting(msg.state, roundSeen)) {
+        // Mid-match arrival only: `roundStart` has already been and gone, so there is
+        // no arena to draw and nothing to say for it. Say it (I8).
         ui.showWaiting();
       }
       break;
 
     case "intro":
+      roundSeen = true;
       ui.showIntro(msg.displayName, msg.rule, msg.round, msg.of);
       roundLabelInfo = { name: msg.displayName, round: msg.round, of: msg.of };
       bannerUntil = performance.now() + 4000;
@@ -129,6 +133,7 @@ function onMessage(msg: ServerMsg): void {
       handler = clientMinigame(msg.game);
       handler?.onRoundStart?.(renderer);
       playing = true;
+      roundSeen = true;
       // The round says which controls it needs; the shell never asks which game it is.
       controls.show(msg.buttonLabel);
       ui.hideBanner();

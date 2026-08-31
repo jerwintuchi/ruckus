@@ -113,16 +113,25 @@ export class Controls {
     this.root.hidden = true;
   }
 
-  /** The resting position: lower-left, inside the safe area, so the stick is findable. */
+  /**
+   * The resting position: lower-left, inside the safe area, so the stick is findable.
+   *
+   * Positioned by `top`, never by `bottom`. Both elements carry
+   * `transform:translate(-50%,-50%)`, and under a `bottom` anchor that puts an
+   * element's visual centre at `bottom + its own height` — so the 132 px base and the
+   * 61 px knob came to rest at different points and the stick sat visibly broken in
+   * two. A `top` anchor puts both centres on the same line whatever their size
+   * (RD-035). It is also the same coordinate system `update` uses, so rest and live
+   * are one convention rather than two.
+   */
   private home(): void {
-    const inset = (side: "left" | "bottom"): string =>
-      `calc(${STICK_HOME_PX}px + env(safe-area-inset-${side}))`;
-    this.base.style.left = inset("left");
-    this.base.style.top = "";
-    this.base.style.bottom = inset("bottom");
-    this.knob.style.left = inset("left");
-    this.knob.style.top = "";
-    this.knob.style.bottom = inset("bottom");
+    const left = `calc(${STICK_HOME_PX}px + env(safe-area-inset-left))`;
+    const top = `calc(100% - ${STICK_HOME_PX}px - env(safe-area-inset-bottom))`;
+    for (const el of [this.base, this.knob]) {
+      el.style.left = left;
+      el.style.top = top;
+      el.style.bottom = "";
+    }
     this.root.classList.remove("live");
   }
 

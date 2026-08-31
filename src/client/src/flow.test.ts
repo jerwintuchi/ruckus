@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ERROR_TEXT, initialState, joinState, reduce, startState, type FlowEvent, type FlowState } from "./flow.ts";
+import { ERROR_TEXT, initialState, joinState, reduce, shouldShowWaiting, startState, type FlowEvent, type FlowState } from "./flow.ts";
 import { makeRng, type ErrCode, type PlayerView } from "@ruckus/shared";
 
 const SCREENS = ["MENU", "CREATING", "JOINING", "LOBBY", "IN_MATCH"];
@@ -219,5 +219,25 @@ describe("reduce is total (lobby-flow P3, R7)", () => {
       // Not merely a diagnosis: each one points somewhere.
       expect(/check|create|limit|host|least two|try again/i.test(text), code).toBe(true);
     }
+  });
+});
+
+describe("the joining-in card is for arrivals only (RD-035)", () => {
+  it("shows for a player who arrived mid-match", () => {
+    expect(shouldShowWaiting("ROUND_PLAY", false)).toBe(true);
+  });
+
+  it("stays away once a round has been seen", () => {
+    // The first version asked "not in the lobby and not playing", which is also true
+    // at the round intro and at round end — so the card covered the rule card and the
+    // scoreboard during entirely normal play.
+    for (const state of ["ROUND_INTRO", "ROUND_PLAY", "ROUND_END"] as const) {
+      expect(shouldShowWaiting(state as never, true), state).toBe(false);
+    }
+  });
+
+  it("never shows in the lobby, where the lobby card belongs", () => {
+    expect(shouldShowWaiting("LOBBY", false)).toBe(false);
+    expect(shouldShowWaiting("LOBBY", true)).toBe(false);
   });
 });

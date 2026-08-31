@@ -115,3 +115,26 @@ describe("the drawn stick is stickView, verbatim (P1)", () => {
     expect(update).toContain("this.home()");
   });
 });
+
+describe("the resting stick is one stick, not two (RD-035)", () => {
+  const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+  const home = src.slice(src.indexOf("private home()"), src.indexOf("\n  }", src.indexOf("private home()")));
+
+  it("positions base and knob by the same anchor, so their centres coincide", () => {
+    // Both carry translate(-50%,-50%). Under a `bottom` anchor that puts an element's
+    // centre at `bottom + its own height`, so the 132px base and the 61px knob rested
+    // at different points and the stick looked broken in two.
+    expect(home).toContain("top =");
+    expect(home).not.toMatch(/bottom = `/);
+    // Cleared explicitly, so a live frame's positioning cannot leak into rest.
+    expect(home).toContain('bottom = ""');
+  });
+
+  it("uses the same coordinate system as the live update", () => {
+    const update = src.slice(src.indexOf("update(): void {"), src.indexOf("\n  }", src.indexOf("update(): void {")));
+    for (const prop of ["left", "top"]) {
+      expect(home, prop).toContain(`${prop} =`);
+      expect(update, prop).toContain(`style.${prop}`);
+    }
+  });
+});

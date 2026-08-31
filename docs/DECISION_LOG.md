@@ -1101,3 +1101,34 @@ round to claim one it will never draw.
 **Still open: T7**, the only question that matters — hand the phone to someone who has
 never played and see whether they find the stick without being told and know what the
 button does before pressing it. No unit test answers either half.
+
+## RD-035 — Two bugs in the controls I shipped an hour earlier (2026-08-31)
+
+Both found by the next phone playtest, both mine, both from the same session.
+
+**The "joining in" card appeared during ordinary play.** I wrote the condition as
+"the match is not in the lobby and we are not playing" — which is also true at the round
+intro and at round end, because `room` is broadcast at both and `playing` is legitimately
+false then. So the card covered the rule card the round had just shown, and the
+scoreboard after it. It fired two or three times a match.
+
+The rule is now a named, tested function: show it only for a player who has seen neither
+an intro nor a round start since joining, which is exactly what "arrived mid-match"
+means. `shouldShowWaiting(state, roundSeen)` is pure and has its own tests, rather than
+being an inline condition nobody could check.
+
+**The resting stick was drawn broken in two.** `home()` anchored both the base and the
+knob by `bottom`, while both carry `transform:translate(-50%,-50%)`. Under a `bottom`
+anchor that transform puts an element's visual centre at `bottom + its own height` — so
+the 132 px base and the 61 px knob came to rest 70 px apart. It only looked right while
+held, because the live path positions by `top`.
+
+Anchoring by `top` puts both centres on the same line whatever their size, and makes
+rest and live one coordinate convention instead of two. The test asserts `home` sets
+`top` and never `bottom`, which is the actual invariant.
+
+**What these two have in common** is worth naming, because it is the third and fourth
+instance today. Both were conditions and coordinates that *looked* obviously right in
+the diff and were only wrong in a state the diff does not show — a `room` broadcast at
+round end, an element of a different height. The mechanical guards this project is built
+on could not have caught either. The phone caught both inside ten minutes.

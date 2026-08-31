@@ -154,6 +154,18 @@ export function reduce(state: FlowState, event: FlowEvent): FlowState {
 }
 
 /**
+ * Should the "joining in" card show for this room update?
+ *
+ * Only for a player who arrived while a match was already running — one who has seen
+ * neither an intro nor a round start since joining. The first version asked "is the
+ * match not in the lobby and are we not playing", which is also true at the round
+ * intro and at round end, so the card appeared over the rule card and over the
+ * scoreboard during perfectly normal play (RD-035).
+ */
+export const shouldShowWaiting = (state: MatchState, roundSeen: boolean): boolean =>
+  state !== "LOBBY" && !roundSeen;
+
+/**
  * Can this player press Join, and if not, what should they be told? (P5)
  *
  * The Start button has always explained itself. Join did not: it was `disabled` with
