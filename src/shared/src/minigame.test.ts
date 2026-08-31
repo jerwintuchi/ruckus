@@ -82,3 +82,12 @@ describe("Minigame contract (T5, R6)", () => {
     expect(IDLE_INPUT).toEqual({ axis: { x: 0, z: 0 }, btn: false });
   });
 });
+
+describe("resync is optional, and the shell must not require it (RD-052)", () => {
+  it("lets a minigame omit it entirely", () => {
+    // Only a round that sends deltas needs one. The fixture has none, and calling it
+    // through the optional chain is a no-op rather than a crash.
+    expect(fixture.resync).toBeUndefined();
+    expect(() => fixture.resync?.({ ticks: 0 })).not.toThrow();
+  });
+});

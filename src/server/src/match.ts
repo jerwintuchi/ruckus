@@ -161,6 +161,9 @@ export class Match {
    */
   inProgress(): { game: Minigame<never>; state: never } | null {
     if (this.room.state !== "ROUND_PLAY" || !this.game || this.gameState === null) return null;
+    // Whoever is about to watch has no base frame to apply deltas to, so ask the round
+    // to resend everything on its next tick (RD-052).
+    (this.game as Minigame<never>).resync?.(this.gameState as never);
     return { game: this.game as Minigame<never>, state: this.gameState as never };
   }
 

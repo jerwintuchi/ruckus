@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   BUTTON_MIN_PX, CONTROLS_CSS, CONTROLS_HTML, GUIDE_OPACITY, STICK_BASE_PX,
   STICK_REST_OPACITY, ICON_PX, RING_PX, RING_GAP, RING_CIRCUMFERENCE, guessSurface,
+  forcedSurface,
 } from "./controls.ts";
 import { STICK_RADIUS } from "../input.ts";
 import { ACTION_VERBS } from "@ruckus/shared";
@@ -181,6 +182,29 @@ describe("the controls suit the device being held (T8, T9, R6)", () => {
     const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
     const settle = src.slice(src.indexOf("const settle ="), src.indexOf("window.addEventListener"));
     expect(settle).toContain("this.surface === next");
+  });
+
+  it("lets the screenshot harness force a surface (RD-052)", () => {
+    // Headless Chrome reports a fine pointer, so without this the touch controls —
+    // the half of the UI this game exists for — are the half no screenshot can show.
+    expect(forcedSurface("?surface=touch")).toBe("touch");
+    expect(forcedSurface("?surface=keyboard")).toBe("keyboard");
+  });
+
+  it("ignores anything that is not one of the two words", () => {
+    // A stray query string must never be able to take a real player's stick away.
+    expect(forcedSurface("")).toBeNull();
+    expect(forcedSurface("?surface=")).toBeNull();
+    expect(forcedSurface("?surface=phone")).toBeNull();
+    expect(forcedSurface("?auto=Bo&code=7Z7Z")).toBeNull();
+  });
+
+  it("stops settling once a surface is forced", () => {
+    // Otherwise the first synthetic keydown in the harness would undo the override
+    // before the shutter opened.
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+    const settle = src.slice(src.indexOf("const settle ="), src.indexOf("window.addEventListener"));
+    expect(settle).toContain("forced");
   });
 
   it("mentions no minigame by name anywhere in the controls source (RD-009)", () => {

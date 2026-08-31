@@ -195,6 +195,21 @@ export function guessSurface(matches: (q: string) => boolean): Surface {
   return matches("(pointer: coarse)") ? "touch" : "keyboard";
 }
 
+/**
+ * `?surface=touch|keyboard` in the URL, or null for "no opinion" (RD-052).
+ *
+ * Headless Chrome on a desktop reports a fine pointer, so it draws the keyboard guide
+ * — which means the touch controls, the half this game is actually built for, are
+ * exactly the half a screenshot cannot show. This is not a simulation of a phone: it
+ * photographs the branch a desktop browser will never take on its own. Anything other
+ * than the two words is ignored rather than trusted, so a stray query string cannot
+ * take a real player's controls away.
+ */
+export function forcedSurface(search: string): Surface | null {
+  const v = new URLSearchParams(search).get("surface");
+  return v === "touch" || v === "keyboard" ? v : null;
+}
+
 export class Controls {
   private readonly root: HTMLElement;
   private readonly base: HTMLElement;
@@ -226,14 +241,16 @@ export class Controls {
     this.hint = wrap.querySelector("#actionHint") as HTMLElement;
     this.input.attachButton(this.button);
 
-    this.surface = guessSurface((q) =>
+    // A forced surface wins, and then stops listening: the harness asked for one.
+    const forced = forcedSurface(location.search);
+    this.surface = forced ?? guessSurface((q) =>
       typeof window.matchMedia === "function" && window.matchMedia(q).matches);
 
     // Whatever the device claims, the first REAL input decides. `isTrusted` matters:
     // a synthetic event — a test, an extension, our own dispatch — must not flip the
     // controls out from under a player.
     const settle = (next: Surface) => (e: Event): void => {
-      if (!e.isTrusted || this.surface === next) return;
+      if (forced || !e.isTrusted || this.surface === next) return;
       this.surface = next;
       this.paint();
     };

@@ -1739,3 +1739,43 @@ areas on a real phone. `spec-workflow.md` now says so, and says plainly that **a
 screenshot never ticks a manual box**. Every spec's last task still reads "played on a
 phone", and this changes none of them — it removes the round trip for the class of bug
 that never needed a human in the first place.
+
+## RD-052 — A picture of the wrong half of the game (2026-08-31)
+
+RD-051 built the screenshot harness. Its first phone-shaped run found two things, and
+neither of them was the thing I pointed it at.
+
+**The desktop browser was drawing the desktop build.** Headless Chrome reports a fine
+pointer, so `guessSurface` returned `keyboard` and every screenshot showed the keybind
+guide. The touch stick and the action button — the half of the UI this game exists for,
+the half that has produced most of the playtest bugs — were exactly the half the tool
+could not photograph. `?surface=touch|keyboard` forces the branch, `forcedSurface` is a
+pure function with tests, and a forced surface also stops the `settle` listeners so the
+harness's own synthetic keydown cannot undo it a frame later.
+
+**This is not an emulator and the distinction matters.** A forced surface plus a phone
+viewport reproduces CSS layout, camera fit at a phone's aspect, DPR scaling, and which
+control surface draws. It reproduces none of: `env(safe-area-inset-*)`, which is 0 on a
+desktop, so `arena-framing` R4's notch clearance stays unverifiable here; the browser's
+own chrome, which ate two thirds of the real landscape viewport on the first phone
+playtest; WebKit, and RD-029 was a WebKit-specific touch cancellation Chrome would never
+have shown; or frame rate, since this renders in software. `shoot.sh` grew a `desktop`
+profile alongside `phone` for the same reason the phone one exists — the PC build is now
+the half nothing looks at, and it will rot silently if nothing photographs it.
+
+**Then the phone shot came back as an empty sky.** `falling-floor` sends its 121-tile
+grid `full` on the first snapshot of a round and `changed` deltas after that. A player
+joining mid-round (RD-046 made that possible) gets deltas against a base frame they never
+received, so they see characters standing on nothing. The fix is an optional
+`resync?(state)` on the `Minigame` contract, called from `Match.inProgress()`, which
+clears `firstSnapshotSent` so the next snapshot is a full one.
+
+**The delta was correct; the contract was incomplete.** The temptation was to make
+`falling-floor` stop sending deltas, which would have cost every round a 121-entry grid
+thirty times a second to fix a case that happens once. Mid-round join is a shell concern,
+so the shell asks — and any future minigame that compresses against history now has a
+place to answer. It is optional, so the three that do not compress are untouched.
+
+**Worth noticing that RD-046 caused this.** Fixing the ghost player made mid-round join
+work, which made a code path real that had never run. Nothing regressed; a feature simply
+reached a corner no test covered, because until that week the corner was unreachable.

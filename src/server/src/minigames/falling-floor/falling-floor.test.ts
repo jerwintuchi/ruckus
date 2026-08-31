@@ -405,3 +405,35 @@ describe("the arena declares a footprint big enough for its grid (arena-framing 
     }
   });
 });
+
+describe("a spectator gets a base frame to apply deltas to (RD-052)", () => {
+  it("sends the whole grid again after a resync", () => {
+    // The delta channel assumes every client saw the first frame. A mid-round joiner
+    // did not, so they received diffs against a base they never had and watched
+    // characters float in an empty sky — found by a screenshot, not by this suite.
+    const players = mkPlayers(4);
+    const state = fallingFloor.init({ rng: makeRng(1), players });
+
+    const first = fallingFloor.snapshot(state) as { full?: number[]; changed?: unknown };
+    expect(first.full, "the first frame is whole").toBeDefined();
+    const second = fallingFloor.snapshot(state) as { full?: number[]; changed?: unknown };
+    expect(second.full, "and the next is a delta").toBeUndefined();
+
+    fallingFloor.resync!(state);
+    const afterJoin = fallingFloor.snapshot(state) as { full?: number[]; changed?: unknown };
+    expect(afterJoin.full, "a spectator gets a whole one").toBeDefined();
+    expect(afterJoin.full).toHaveLength(GRID * GRID);
+  });
+
+  it("returns to deltas straight afterwards", () => {
+    // One full frame, not a permanent switch: 121 numbers once is cheap, every tick
+    // is not.
+    const players = mkPlayers(4);
+    const state = fallingFloor.init({ rng: makeRng(1), players });
+    fallingFloor.snapshot(state);
+    fallingFloor.resync!(state);
+    fallingFloor.snapshot(state);
+    const next = fallingFloor.snapshot(state) as { full?: number[] };
+    expect(next.full).toBeUndefined();
+  });
+});

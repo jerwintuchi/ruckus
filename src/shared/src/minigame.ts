@@ -142,5 +142,17 @@ export interface Minigame<S = unknown> {
   /** Points awarded this round, by slot. */
   scores(state: S): Record<number, number>;
   snapshot(state: S): MinigameSnapshot;
+  /**
+   * A new spectator has arrived; send a whole frame next tick, not a delta.
+   *
+   * Optional, and only a minigame that sends deltas needs it. `falling-floor` sends its
+   * 121-tile grid once and diffs thereafter (P5) — which silently assumes every client
+   * saw the first frame. A player who joined mid-round received deltas against a base
+   * they never had, and watched characters float in an empty sky (RD-052).
+   *
+   * The shell calls it without knowing what "full" means for any particular round; the
+   * minigame decides what resending everything is.
+   */
+  resync?(state: S): void;
   arena(state: S): ArenaDescriptor;
 }

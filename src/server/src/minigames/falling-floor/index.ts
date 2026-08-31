@@ -219,6 +219,17 @@ export const fallingFloor: Minigame<FallingFloorState> = {
     return { changed: s.changed.map((i) => [i, s.tiles[i]!.state] as const) };
   },
 
+  /**
+   * Someone just started watching: send the whole grid again (RD-052).
+   *
+   * The delta channel assumes every client has the base frame, and a mid-round joiner
+   * does not. Everyone gets one full frame — 121 numbers, once — which is far cheaper
+   * than a protocol that tracks who has seen what.
+   */
+  resync(s: FallingFloorState): void {
+    s.firstSnapshotSent = false;
+  },
+
   arena(): ArenaDescriptor {
     // A high three-quarter view that fits the whole 22 m grid with no occlusion.
     // Fixed, and with no field a client could use to move it (RD-005).
