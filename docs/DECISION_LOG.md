@@ -963,3 +963,47 @@ supported. The spec is sound; the attribution was not.
 mis-framed" from a canvas that was mis-sized — came from reasoning forward from a
 plausible cause instead of backward from a measurement. The measurement was cheap both
 times. Take it first.
+
+## RD-032 — Fitting a sphere around a flat arena, and the threshold that let it pass (2026-08-31)
+
+**What happened.** With RD-031's canvas bug fixed, the arena finally rendered centred and
+whole — and too small to play. On a landscape phone it filled about half the height with
+sky either side.
+
+**Cause.** `fitCamera` fitted the bounding **sphere** of the arena's `extent`. That was a
+deliberate choice, made because these cameras look down at ~50° and a perpendicular-plane
+fit underestimates badly at that angle; a sphere bound is angle-independent and provably
+contains the disc. It is also far too conservative: an arena is a *flat* disc with a few
+metres of headroom, and a sphere of radius 17 m reserves 17 m of empty sky above it. The
+camera retreats to frame that nothing.
+
+The fit is numeric now: bisect the distance until the arena's own silhouette — its rim at
+ground level and at `ARENA_HEADROOM` — projects inside the viewport, and no further. A
+closed form for a tilted disc under perspective is a quartic; a bisection is a dozen
+lines, provably monotone in distance, and runs on resize only.
+
+**Be honest about the size of the win: about 6%.** At these steep angles a flat disc's
+perspective spread is nearly as large as the sphere's, so most of the sphere's apparent
+waste was never recoverable. What the change really buys is that headroom is now an
+explicit, tested 3 m — enough for a jumping character at the rim, which Sweepers depends
+on — rather than an accidental `extent` metres, and that the thing being framed is the
+arena's actual silhouette.
+
+**The test that should have caught it, and why it did not.** There was already a "frames
+it snugly, rather than retreating into orbit" test. It asserted the arena reached NDC
+0.3. A camera that retreats far enough always satisfies "everything fits", so snugness
+was the property that mattered — and 0.3 accepts almost anything. It is 0.85 now, and
+that number is the test. **A threshold chosen to pass is not an assertion.**
+
+**MAX_ASPECT was guessed and was wrong.** The file declared a range of [0.4, 2.4]; the
+phone reported **2.99** in landscape with Safari's chrome showing. The range is measured
+now, and a test pins it to the values real devices produced rather than to what seemed
+generous when writing the spec.
+
+**The real constraint is not the camera at all.** That phone's usable viewport is
+**874x292** — Safari's URL bar and tab strip take about two thirds of the landscape
+height. No fitting recovers that. `apple-mobile-web-app-capable` and a translucent status
+bar are now declared, so Add to Home Screen runs the game with the whole screen; with
+`viewport-fit=cover` and the safe-area insets already in place, that is the whole fix.
+It is worth stating plainly: the largest single improvement to how the game looks on a
+phone was two meta tags, not any of the camera work.

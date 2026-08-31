@@ -8,6 +8,15 @@
     />
     <meta name="theme-color" content="#0e1014" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <!--
+      Add to Home Screen runs without Safari's chrome. In landscape that chrome costs
+      about two thirds of the height — the playtest measured a usable viewport of
+      874x292 — and no amount of camera fitting buys that back. Combined with
+      viewport-fit=cover and the safe-area insets, black-translucent gives the game the
+      whole screen (RD-032).
+    -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>ruckus</title>
   </head>
   <body>
