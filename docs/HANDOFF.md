@@ -1,39 +1,31 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `191940a`, work has happened since this was written: distrust it and read
+> `15e073d`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-08-31 02:13 · branch `main` ·
-HEAD `191940a` — docs: de-identify the post-mortem before publishing · 9 uncommitted file(s)*
+*Written 2026-08-31 12:26 · branch `visual-direction-phase-bc` ·
+HEAD `15e073d` — perf(kit): the outline is free per fragment, not per draw — T18 · 0 uncommitted file(s)*
 
 ## What I was doing
 
-Built visual-direction Phase A: textures.ts (8 procedural paper generators into DataTextures) and face.ts (8 distinct generated faces), plus kit-rules.test.ts proving the Kit ban still bites with textures in play. 415 tests.
+visual-direction Phase E. T18 measured the paper build's cost instead of assuming it, found the draw-call regression RD-021 had hidden, and fixed it. Phases B/C were committed first, unchanged, on branch visual-direction-phase-bc.
 
 ## What is half-finished
 
-Nothing broken. visual-direction is 8/16 with 3 superseded: Phase B (outlines + materials, T8-T9) and Phase C (the slab character, T10-T12) are the remaining 3D work. T4's arena half is deliberately still open.
+Nothing broken. 469 tests, typecheck and all four guards green, status artifact republished. Two branch commits sit unmerged on visual-direction-phase-bc; main is still at a199339.
 
 ## The very next action
 
-Phase B (T8 native crisp rendering + the geometry outline strategy, T9 unlit characters and paper materials), then Phase C rebuilds the character as slabs. That is when T4's arena retarget lands too.
+T19 — the only open box in visual-direction. Play it on a phone: 'pnpm playtest', open the printed phone URL, and read the two questions in tasks.md. Then open /bench.html on the same phone and record p95 in RD-028; that number and T12's arm's-length capture are both owed and both need the hardware.
 
 ## Gotchas
 
-kit_check scans TEST files too — kit-rules.test.ts assembles the forbidden loader identifier at runtime, because naming it in source makes the test violate the rule it tests. Do NOT exempt tests from the scan to make that convenient. Face eye-spacing is capped at 0.30: at 0.44 the outer brow landed at x=44 on a 40px face and was silently clipped. Textures are LinearFilter (paper is smooth) — the opposite of what the superseded PS1 spec wanted.
+Draw calls are geometry GROUPS, not meshes. A six-material slab costs six draws; the mesh count went 5 to 7 and looked fine while the real cost went 40 to 296. A slab's material array is now indexed by group, not by face — use materialForFace(mesh, face), never material[4]. Committing a spec restages its own status report (the report embeds git's last-touched date), so status_html.py --check fails right after the commit: regenerate and amend, which is the documented wrinkle in spec-workflow.md.
 
 ## Uncommitted when this was written
 
-- `ocs/DECISION_LOG.md`
-- `docs/technical/spec-status.md`
-- `docs/technical/status.html`
-- `specs/visual-direction/tasks.md`
-- `src/client/src/kit/face.test.ts`
-- `src/client/src/kit/face.ts`
-- `src/client/src/kit/kit-rules.test.ts`
-- `src/client/src/kit/textures.test.ts`
-- `src/client/src/kit/textures.ts`
+- (clean tree)
 
 ---
 
