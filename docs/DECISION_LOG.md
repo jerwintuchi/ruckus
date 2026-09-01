@@ -2380,3 +2380,43 @@ ships alone, which is the workflow's own test for whether a spec is one thing.
 backwards from the old one. The obvious implementation animates forwards and leaves a
 wrong number behind if the card is dismissed early — and this card is dismissed early
 constantly, because the next round starts.
+
+## RD-070 — The buttons are yours; the paper is not (2026-09-01)
+
+"It would be nice if the UI colour matched the player colour" — then, on seeing the first
+draft, "just the buttons, not the actual menu UI itself." The correction is the better
+design and worth recording as such: **a whole interface tinted eight ways is a themed
+skin. A party game that knows who you are tints the thing under your thumb.** The panels
+are the game's identity; they stay paper.
+
+**The contrast maths is the load-bearing part, and it is not a formality.** The eight
+player colours were chosen for distinctness against an arena and for two common
+colour-blindness types — never as a surface behind a label. Measured against real WCAG
+relative luminance:
+
+| | ink on the raw colour |
+|---|---|
+| maroon | **1.72** — a label that is effectively invisible |
+| magenta / brown | 2.96 / 3.05 |
+| forest | 3.79 ink, 4.34 paper — **fails both** |
+
+So an automatic light-or-dark label does not save it. `forest` is the case that proves
+it: there is no choice of text colour that works on it at full strength.
+
+Two rules, each measured, no exception list:
+
+- a button with **text**: a 45% tint toward paper, ink label — worst case **4.90:1**
+- an **icon-only** control: full colour, glyph auto-picked ink or paper — worst case
+  **4.34:1**, against the 3:1 threshold that applies to a thick graphical object
+
+The palette is **not** retuned. Changing eight colours to suit a role they were never
+chosen for would cost the role they were chosen for, and that trade is not worth a
+button fill.
+
+**Scope is a test, not an intention.** P10 forbids `--mine` in any card, overlay, HUD,
+gauge or toast rule. "Only the buttons" is exactly the kind of boundary that erodes one
+convenient exception at a time, and this repo has a file full of examples.
+
+**And the two specs stay ignorant of each other.** `flat-controls` gives a control its
+shape; this gives it its colour. A control sets `background: var(--mine)` and inherits
+flatness from the button rule — neither spec has to know the other exists.

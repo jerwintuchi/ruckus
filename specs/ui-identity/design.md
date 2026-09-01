@@ -45,3 +45,33 @@ the player is absent; `out` is present and finished.
 
 **P6** (R4): the two states are asserted to differ visually, since "eliminated" and
 "disconnected" reading the same is worse than showing neither.
+
+## Your colour, on the controls only
+
+Two pure functions in `src/client/src/kit/palette.ts`, beside the colours they operate on:
+
+```
+tint(colour, t)        mix toward PAPER.card; text buttons use TINT_FOR_LABEL = 0.45
+readableInk(colour)    PAPER.ink or PAPER.card, whichever has more contrast
+```
+
+**P7** (R5): both are pure and take the colour, so they can be asserted over the whole
+palette rather than over one example. The test computes real WCAG relative luminance —
+not a hand-picked pair — and fails if any of the eight drops below its threshold. That
+is the difference between a contrast rule and a contrast intention.
+
+**P8** (R5): the value reaches CSS as **custom properties on the root**
+(`--mine`, `--mine-tint`, `--mine-ink`), set once when the slot is known. Not threaded
+through every rule: one write, and every control that spends `var(--mine)` follows. It is
+also what makes the fallback trivial — before a slot, the properties simply hold the
+highlight and the ink they hold today.
+
+**P9** (R5): `flat-controls` supplies the *shape* of a control and this supplies its
+*colour*. Neither knows about the other: a control sets `background: var(--mine)` and
+inherits the flatness from the button rule.
+
+**P10** (R5): the blast radius is the controls, and a test says so — no `.card`,
+`.overlay`, `#hud`, `.gauge`, `.toast` or body rule may reference `--mine`. Scope stated
+as a rule rather than as care, because "only the buttons" is the kind of intent that
+erodes one convenient exception at a time.
+

@@ -42,6 +42,28 @@ saying, and all three are dead space rather than crowded space.*
 - AC: distinct from *disconnected*, which the board already shows — out and gone are
       different states and must not look the same
 
+## Your colour
+
+**R5**: The **buttons** are yours. The interface around them is not.
+- AC: the controls carry the local player's colour — so the lobby dot, the character in
+      the arena, the caret above it and the thing under your thumb all agree
+- AC: **cards, the ground, body text and the HUD are untouched.** Paper stays paper: the
+      panels are the game's identity and a whole interface tinted eight ways is a themed
+      skin, not a party game that knows who you are
+- AC: **contrast is measured, not hoped for.** These eight were chosen for distinctness
+      against an arena and for two colour-blindness types — never as a surface behind a
+      label — and at full strength a maroon button with an ink label is **1.72:1**:
+  - a button with **text** uses a 45% tint toward paper, ink label — worst case 4.90:1
+  - an **icon-only** control keeps the full colour, glyph auto-picked ink or paper by
+    luminance — a thick glyph is a graphical object at 3:1, worst case 4.34
+- AC: no colour is special-cased. `forest` fails **both** ink and paper at full strength,
+      so an automatic light/dark choice alone does not save a text button — which is
+      why the tint exists rather than being a nicety
+- AC: before a slot exists — menu, join — the controls hold today's highlight, and adopt
+      the player's colour at `welcome`
+- AC: the palette itself is **not changed**. Retuning eight colours for a role they were
+      never chosen for would cost the role they were chosen for
+
 ## Not this spec
 
 The flat control language is `specs/flat-controls/`. Finding your own character is

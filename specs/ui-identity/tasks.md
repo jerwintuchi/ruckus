@@ -27,7 +27,26 @@
   `kit.test.ts` — `.row.out` and `.row.gone` differ in more than one property, so the
   two states cannot be confused
 
-- [ ] T6 [R1, R2, R3] — Seen on a phone, at a full lobby and a full match
-  Test: manual. Does the wordmark read at arm's length? Does the roll make the
-  scoreboard legible or busy at eight players? Does the strip answer the question it
-  exists for faster than counting rows?
+- [ ] T6 [R5, P7] — `tint` and `readableInk` in `src/client/src/kit/palette.ts`
+  Test: `palette.test.ts` — over **all eight** colours, computing real WCAG relative
+  luminance rather than comparing to a fixture: ink on a 45% tint clears 4.5:1 for every
+  one; `readableInk` clears 3:1 for every one; the raw colours are
+  asserted **unchanged**, since they are load-bearing for colour-blindness; and the
+  known failures are pinned as a regression — maroon at full strength is 1.72:1 and
+  `forest` fails both ink and paper, which is why the tint exists at all
+
+- [ ] T7 [R5, P8, P9] — `--mine`, `--mine-tint` and `--mine-ink` on the root, set from
+  `mySlot` in `src/client/src/main.ts`, spent by the controls
+  Test: `kit.test.ts` — the three properties are declared once on `:root` with the
+  highlight as the pre-slot fallback; no control names a player colour directly; and
+  **no card, overlay, HUD, gauge or toast rule references them at all** (P10 — the scope
+  is buttons, and that has to be a test rather than an intention);
+  `screens.test.ts` — they are written when a slot arrives and not before
+
+- [ ] T8 [R1, R2, R3, R5] — Seen on a phone, at a full lobby and a full match
+  Test: manual, and **on more than one device at once** — the point of R5 is that two
+  players see two different interfaces, which is the one thing a single phone cannot
+  show. Does the wordmark read at arm's length? Does the roll make the scoreboard
+  legible or busy at eight players? Does the strip answer its question faster than
+  counting rows? And is the maroon player's interface as pleasant as the mint one, which
+  is the case the contrast maths protects but does not judge?

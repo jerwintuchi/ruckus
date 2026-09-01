@@ -19,15 +19,15 @@ These are disagreements between what a spec says and what the tree contains.
 
 ### `specs/ui-identity/` — 🟡 dormant
 
-- **LIKELY-SHIPPED** — 3 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T1, T2, T3
+- **LIKELY-SHIPPED** — 5 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T1, T2, T3, T6, T7
 
 ## All specs
 
 | spec | status | done | open | superseded | last touched | flags |
 |---|---|---:|---:|---:|---|---|
-| `flat-controls` | 🟢 active | 0 | 4 | 0 | — | MISSING |
-| `find-yourself` | 🟡 dormant | 0 | 4 | 0 | — | LIKELY-SHIPPED |
-| `ui-identity` | 🟡 dormant | 0 | 6 | 0 | — | LIKELY-SHIPPED |
+| `flat-controls` | 🟢 active | 0 | 4 | 0 | 2026-09-01 | MISSING |
+| `find-yourself` | 🟡 dormant | 0 | 4 | 0 | 2026-09-01 | LIKELY-SHIPPED |
+| `ui-identity` | 🟡 dormant | 0 | 8 | 0 | 2026-09-01 | LIKELY-SHIPPED |
 | `action-button` | 🟡 dormant | 10 | 1 | 0 | 2026-09-01 | — |
 | `arena-framing` | 🟡 dormant | 6 | 1 | 0 | 2026-09-01 | — |
 | `audio` | 🟡 dormant | 3 | 2 | 0 | 2026-09-01 | — |
@@ -37,7 +37,7 @@ These are disagreements between what a spec says and what the tree contains.
 | `round-lifecycle` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
 | `spectating` | 🟡 dormant | 2 | 1 | 1 | 2026-09-01 | — |
 | `touch-controls` | 🟡 dormant | 8 | 1 | 0 | 2026-08-31 | — |
-| `visual-direction` | 🟡 dormant | 15 | 1 | 3 | 2026-08-31 | — |
+| `visual-direction` | 🟡 dormant | 15 | 1 | 3 | 2026-09-01 | — |
 | `auto-playtest` | ✅ done | 8 | 0 | 0 | 2026-09-01 | — |
 | `minigame-falling-floor` | ✅ done | 7 | 0 | 0 | 2026-08-31 | — |
 | `minigame-hot-potato` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |
