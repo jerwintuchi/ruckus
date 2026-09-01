@@ -63,11 +63,27 @@ export const ICON_PX = 38;
  * pixels and went unnoticed in play. Outside, it is a halo the size of the whole
  * control: nothing else is there, so a sweep across it is unmissable at arm's length.
  */
+/** Clear space between the button's edge and the ring's stroke, in real pixels. */
 export const RING_GAP = 7;
-export const RING_PX = BUTTON_MIN_PX + RING_GAP * 2;
-/** The circle's radius in its own 100-unit viewBox, and the resulting circumference. */
-export const RING_R = 46;
+export const RING_STROKE = 5;
+/**
+ * Every ring number is in SCREEN PIXELS, and the viewBox is sized to match.
+ *
+ * It used to be a 100-unit viewBox scaled into a box of RING_PX, with the circle at
+ * r=46 of that 100. Three lossy steps: the box was sized as if the circle filled it
+ * and the stroke had no width, then everything was scaled by RING_PX/100. The ring
+ * ended up 1.4px clear of the button instead of 7 — near enough to touching that the
+ * sweep RD-047 moved outside specifically to be unmissable was hard to see, which is
+ * what a playtester reported and what a photograph of it finally showed (RD-061).
+ *
+ * With viewBox units equal to pixels there is no scale factor left to lose it in, and
+ * the radius is derived from the clearance rather than guessed to fit.
+ */
+export const RING_R = BUTTON_MIN_PX / 2 + RING_GAP + RING_STROKE / 2;
+export const RING_PX = 2 * (RING_R + RING_STROKE / 2);
 export const RING_CIRCUMFERENCE = Math.round(2 * Math.PI * RING_R);
+/** How far the ring reaches past the button, on every side. */
+export const RING_OVERHANG = (RING_PX - BUTTON_MIN_PX) / 2;
 
 /** Faint enough to ignore: a reminder, not a HUD element. */
 export const GUIDE_OPACITY = 0.4;
@@ -139,11 +155,11 @@ export const CONTROLS_CSS = `
  * it back by the border width lands it concentric with the button.
  */
 #cooldownRing{position:absolute;
-  left:calc(0px - ${UI.outline}px - ${RING_GAP}px);
-  top:calc(0px - ${UI.outline}px - ${RING_GAP}px);
+  left:calc(0px - ${RING_OVERHANG}px - ${UI.outline}px);
+  top:calc(0px - ${RING_OVERHANG}px - ${UI.outline}px);
   width:${RING_PX}px;height:${RING_PX}px;
   transform:rotate(-90deg);pointer-events:none}
-#cooldownRing circle{fill:none;stroke:var(--ink);stroke-width:5;
+#cooldownRing circle{fill:none;stroke:var(--ink);stroke-width:${RING_STROKE};
   stroke-dasharray:${RING_CIRCUMFERENCE};stroke-dashoffset:0}
 /* Only drawn while it means something: a full ring on a ready button is clutter. */
 #actionBtn:not(.cooling) #cooldownRing{opacity:0}
@@ -157,7 +173,7 @@ export const CONTROLS_CSS = `
  * state gallery, which is the first thing able to hold a cooldown still (RD-059).
  */
 #cooldownNum{position:absolute;left:0;right:0;
-  top:calc(100% + ${UI.outline + RING_GAP + 4}px);text-align:center;
+  top:calc(100% + ${RING_OVERHANG + 4}px);text-align:center;
   font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:13px;
   color:var(--ink);font-variant-numeric:tabular-nums;pointer-events:none}
 
@@ -198,8 +214,8 @@ export const CONTROLS_HTML = `
       <path id="actionIcon" d="${NO_ICON_PATH}"></path>
     </svg>
     <span id="actionHint" hidden></span>
-    <svg id="cooldownRing" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
-      <circle cx="50" cy="50" r="${RING_R}"></circle>
+    <svg id="cooldownRing" viewBox="0 0 ${RING_PX} ${RING_PX}" aria-hidden="true" focusable="false">
+      <circle cx="${RING_PX / 2}" cy="${RING_PX / 2}" r="${RING_R}"></circle>
     </svg>
     <span id="cooldownNum"></span>
   </button>

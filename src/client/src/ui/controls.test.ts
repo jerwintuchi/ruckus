@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   BUTTON_MIN_PX, CONTROLS_CSS, CONTROLS_HTML, GUIDE_OPACITY, STICK_BASE_PX,
   STICK_REST_OPACITY, ICON_PX, RING_PX, RING_GAP, RING_CIRCUMFERENCE, guessSurface,
-  forcedSurface, INITIAL_VERB, NO_ICON_PATH,
+  forcedSurface, INITIAL_VERB, NO_ICON_PATH, RING_R, RING_STROKE, RING_OVERHANG,
 } from "./controls.ts";
 import { STICK_RADIUS } from "../input.ts";
 import { ACTION_VERBS } from "@ruckus/shared";
@@ -410,15 +410,15 @@ describe("the cooldown number clears the ring (RD-059)", () => {
     // number offset from the BUTTON lands on the sweep — dark ink on dark ink, at the
     // one moment the number is worth reading.
     const num = rule("#cooldownNum");
-    expect(num).toContain(`top:calc(100% + ${UI_OUTLINE + RING_GAP + 4}px)`);
+    expect(num).toContain(`top:calc(100% + ${RING_OVERHANG + 4}px)`);
   });
 
   it("clears it by more than the ring's own reach", () => {
     // Stated as arithmetic rather than a literal, so changing RING_GAP moves the
     // number with it instead of silently putting it back under the stroke.
     const num = rule("#cooldownNum");
-    const offset = Number(/top:calc\(100% \+ (\d+)px\)/.exec(num)?.[1]);
-    expect(offset).toBeGreaterThan(UI_OUTLINE + RING_GAP);
+    const offset = Number(/top:calc\(100% \+ ([\d.]+)px\)/.exec(num)?.[1]);
+    expect(offset).toBeGreaterThan(RING_OVERHANG);
   });
 });
 
@@ -441,19 +441,30 @@ describe("the icons carry their licence (RD-047)", () => {
 });
 
 describe("the cooldown sweep is outside the button and unmissable (action-button R6)", () => {
-  it("is a halo larger than the button, not an arc inside it", () => {
-    // Inside, the sweep competed with the icon for the same pixels and went unnoticed
-    // in play. Outside there is nothing else there, so it reads at arm's length.
-    expect(RING_PX).toBeGreaterThan(BUTTON_MIN_PX);
-    expect(RING_GAP).toBeGreaterThan(0);
+  it("actually clears the button by RING_GAP, in real pixels", () => {
+    // THE TEST THAT WAS MISSING. The old pair asserted RING_PX > BUTTON_MIN_PX and
+    // RING_GAP > 0 — both true of a ring sitting 1.4px off the button, which is what
+    // shipped (RD-061). Intent is not clearance; compute the clearance.
+    const clear = (RING_R - RING_STROKE / 2) - BUTTON_MIN_PX / 2;
+    expect(clear).toBe(RING_GAP);
   });
 
-  it("is offset by the border as well as the gap, so it stays concentric", () => {
+  it("keeps the viewBox in pixels, so no scale factor can eat the gap", () => {
+    // A 100-unit viewBox scaled into a smaller box is where the 7 became 1.4: every
+    // number below was quietly multiplied by RING_PX/100.
+    expect(CONTROLS_HTML).toContain(`viewBox="0 0 ${RING_PX} ${RING_PX}"`);
+    expect(CONTROLS_HTML).toContain(`cx="${RING_PX / 2}" cy="${RING_PX / 2}"`);
+    expect(CONTROLS_HTML).toContain(`r="${RING_R}"`);
+  });
+
+  it("stays concentric with the button it surrounds", () => {
     // An absolutely positioned child is placed against the PADDING box, so the border
-    // has to be backed out too or the ring hangs off one corner (RD-046).
+    // has to be backed out too or the ring hangs off one corner (RD-043). The overhang
+    // is derived, so the two cannot drift apart.
     const ring = rule("#cooldownRing");
-    expect(ring).toContain(`${RING_GAP}px`);
-    expect(ring).toContain(`${UI.outline}px`);
+    expect(ring).toContain(`left:calc(0px - ${RING_OVERHANG}px - ${UI.outline}px)`);
+    expect(ring).toContain(`top:calc(0px - ${RING_OVERHANG}px - ${UI.outline}px)`);
+    expect(RING_OVERHANG).toBe((RING_PX - BUTTON_MIN_PX) / 2);
   });
 
   it("sweeps the whole circumference rather than a fraction of it", () => {

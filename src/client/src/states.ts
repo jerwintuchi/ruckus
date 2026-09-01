@@ -59,10 +59,12 @@ const STATES: Record<string, (ui: Ui, controls: Controls, show: (s: FlowState) =
     hold(() => ui.toast("a-long-ish-name joined"));
   },
   "join-full": (_u, _c, show) => {
-    show(reduce(
-      reduce(reduce(initialState(), { t: "setName", name: "jerwin" }), { t: "setCode", code: "38YF" }),
-      { t: "err", code: "ROOM_FULL" },
-    ));
+    // Through `wantJoin`, or the reducer never leaves MENU and the error draws under
+    // the menu card — which is what the first walk of this gallery photographed.
+    let f = reduce(initialState(), { t: "setName", name: "jerwin" });
+    f = reduce(f, { t: "wantJoin" });
+    f = reduce(f, { t: "setCode", code: "38YF" });
+    show(reduce(f, { t: "err", code: "ROOM_FULL" }));
   },
   "round-tumble": (ui, controls) => {
     ui.render(inMatch()); controls.show("TUMBLE"); controls.setAction(verb("tumble"));
@@ -81,23 +83,29 @@ const STATES: Record<string, (ui: Ui, controls: Controls, show: (s: FlowState) =
   },
   "hud": (ui) => {
     ui.render(inMatch());
-    ui.renderHud({ remaining: 7400, counts: { 0: 3, 7: 5 } } as never,
+    ui.renderHud({ fuse: 6200, fuseLength: 9000, remaining: 7400, counts: { 0: 3, 7: 5 } } as never,
       { name: "A Round Name", round: 3, of: 5 });
   },
   "hud-urgent": (ui) => {
+    // The bar and the red belong to the FUSE gauge, not the round countdown — which
+    // the first walk of this gallery made obvious by showing neither (RD-061).
     ui.render(inMatch());
-    ui.renderHud({ remaining: 2100, counts: {} } as never,
+    ui.renderHud({ fuse: 1400, fuseLength: 9000, remaining: 12000 } as never,
       { name: "A Longer Round Name", round: 5, of: 5 });
   },
-  "waiting": (ui) => ui.showWaiting(2, 5),
-  "countdown": (ui) => hold(() => {
+  "waiting": (ui) => { ui.render(inMatch()); ui.showWaiting(2, 5); },
+  "countdown": (ui) => { ui.render(inMatch()); hold(() => {
     ui.showIntro("A Round Name", "One sentence, which is the whole explanation.", 2, 5);
     ui.setCountdown(2);
-  }),
-  "round-end": (ui) => ui.showRoundEnd(
-    Object.fromEntries(EIGHT.map((p, i) => [p.slot, 7 - i])), EIGHT),
-  "match-end": (ui) => ui.showMatchEnd(
-    EIGHT[0], EIGHT, Object.fromEntries(EIGHT.map((p, i) => [p.slot, 21 - i * 3]))),
+  }); },
+  "round-end": (ui) => {
+    ui.render(inMatch());
+    ui.showRoundEnd(Object.fromEntries(EIGHT.map((p, i) => [p.slot, 7 - i])), EIGHT);
+  },
+  "match-end": (ui) => {
+    ui.render(inMatch());
+    ui.showMatchEnd(EIGHT[0], EIGHT, Object.fromEntries(EIGHT.map((p, i) => [p.slot, 21 - i * 3])));
+  },
   "menu": (_u, _c, show) => show(initialState()),
   "join": (_u, _c, show) => show(reduce(
     reduce(initialState(), { t: "setName", name: "jerwin" }), { t: "wantJoin" })),

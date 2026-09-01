@@ -2047,3 +2047,47 @@ only one row is the thing you came for.
 **This does not move a manual task.** Every state here is fabricated, so the page proves
 layout on a real device and still says nothing about whether the game *reaches* the
 state. `shoot.sh` covers that half, and the specs still say "played on a phone".
+
+## RD-061 — The ring was 1.4px from the button, not 7 (2026-09-01)
+
+Fifteen states walked on the real phone. One real defect, one mislabelled fixture, and
+five fixtures that were photographing themselves.
+
+**The cooldown ring's clearance was a fifth of what the constant said.** `RING_GAP = 7`,
+and the ring sat **1.41px** off the button — near enough to touching that the sweep
+RD-047 moved outside *specifically to be unmissable* was hard to see. A playtester said
+so at the time ("the sweeping radius is okay but not that noticeable") and it was read as
+taste rather than arithmetic.
+
+Three lossy steps, each individually reasonable:
+
+```
+RING_PX = BUTTON + GAP*2        // assumes the circle fills the box
+r = 46 of a 100-unit viewBox    // it does not: 46, not 50
+stroke-width: 5                 // and the stroke has width, taken from the gap
+scale = RING_PX/100 = 0.86      // then everything above is multiplied by this
+```
+
+The viewBox is in pixels now, so there is no scale factor left to lose it in, and
+`RING_R` is *derived* from the clearance rather than guessed to fit:
+`RING_R = BUTTON/2 + RING_GAP + RING_STROKE/2`.
+
+**The old tests passed the whole time.** They asserted `RING_PX > BUTTON_MIN_PX` and
+`RING_GAP > 0` — both true of a ring 1.4px away. That is the fourth test this week to
+assert a property is *present* rather than what it *works out to* (after `width:100%`,
+`width:60%`, and `max-height`). The new one computes the clearance and compares it to
+RING_GAP, so intent and result cannot diverge again.
+
+**The gallery photographed itself in five states.** `showWaiting`, `showIntro`,
+`showRoundEnd` and `showMatchEnd` draw into a banner that is independent of
+`ui.render(state)`, so with no screen set they appeared over the menu card; and
+`join-full` never called `wantJoin`, so the reducer stayed on MENU. Fixture bugs, all
+mine — but they expose something true: **nothing enforces that the banner and the screen
+overlays are mutually exclusive.** They are kept apart by flow discipline alone, which is
+exactly what failed in RD-035 when the waiting card appeared over the rule card. Recorded
+here rather than fixed, because the fix belongs with whoever next touches that boundary.
+
+**And `hud-urgent` showed nothing urgent**, because the bar and the red belong to the
+*fuse* gauge, not the round countdown. The fixture was wrong and the name was a claim I
+had not checked — a state named for a behaviour it could not produce is worse than no
+state, since a clean run then means nothing.
