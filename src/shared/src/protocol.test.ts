@@ -140,11 +140,10 @@ describe("roundStart carries what the controls need (touch-controls T2, R3)", ()
       game: "hot-potato",
       arena: { camera: { eye: [0, 1, 1], look: [0, 0, 0], fov: 45 }, solids: [], statics: [], sky: "#fff" },
       roster: [0, 1],
-      endsAt: 1000,
       input: "stick+button",
       buttonLabel: "PASS",
     };
-    const back = JSON.parse(JSON.stringify(msg)) as typeof msg;
+    const back = JSON.parse(JSON.stringify(msg)) as typeof msg & { input: string; buttonLabel?: string };
     expect(back.input).toBe("stick+button");
     expect(back.buttonLabel).toBe("PASS");
   });
@@ -155,7 +154,6 @@ describe("roundStart carries what the controls need (touch-controls T2, R3)", ()
       game: "falling-floor",
       arena: { camera: { eye: [0, 1, 1], look: [0, 0, 0], fov: 45 }, solids: [], statics: [], sky: "#fff" },
       roster: [0],
-      endsAt: 1000,
       input: "stick",
     };
     expect(JSON.parse(JSON.stringify(msg)).buttonLabel).toBeUndefined();

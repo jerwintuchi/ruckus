@@ -32,5 +32,5 @@ These are disagreements between what a spec says and what the tree contains.
 | `minigame-hot-potato` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |
 | `minigame-scramble` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |
 | `minigame-sweepers` | ✅ done | 10 | 0 | 0 | 2026-08-31 | — |
-| `round-brief` | ✅ done | 3 | 0 | 0 | 2026-08-31 | — |
+| `round-brief` | ✅ done | 4 | 0 | 0 | 2026-08-31 | — |
 | `shell` | ✅ done | 19 | 0 | 0 | 2026-09-01 | — |

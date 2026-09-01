@@ -24,3 +24,13 @@
 **R3**: Motion is emphasis, never the message.
 - AC: each number lands with the same overshoot-and-settle the UI already uses (R10)
 - AC: under `prefers-reduced-motion` the numbers still change, without animation
+
+**R4**: Every player counts to the same instant, on their own clock.
+- AC: the wire carries a **duration**, never a wall-clock instant — two devices that
+      disagree about the time must not disagree about the countdown
+- AC: the client adds it to a **monotonic** clock, so an OS clock step cannot lurch it
+- AC: each number is on screen for exactly one second; none is held for two
+- AC: the intro is at least `COUNT_FROM` seconds long, so the first number is not clipped
+
+*Found in a two-player playtest: the host counted 3-2-1 unevenly and the second player's
+phone opened the intro already on "1" and lost it immediately (RD-065).*

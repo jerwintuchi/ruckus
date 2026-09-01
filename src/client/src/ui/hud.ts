@@ -82,5 +82,11 @@ export const COUNT_FROM = 3;
 export function countdownAt(endsAt: number, now: number): number {
   const remaining = endsAt - now;
   if (!Number.isFinite(remaining) || remaining <= 0) return 0;
-  return Math.min(COUNT_FROM, Math.ceil(remaining / 1000));
+  // Nothing until the count actually starts. `Math.min(COUNT_FROM, ...)` CLAMPED
+  // instead, so with a 4s intro the "3" was shown for the first second as well as its
+  // own — two seconds of 3, then one each of 2 and 1. That is the uneven count a
+  // playtester saw and called off timing (RD-065). Hidden above the threshold, each
+  // number now gets exactly one second.
+  if (remaining > COUNT_FROM * 1000) return 0;
+  return Math.ceil(remaining / 1000);
 }

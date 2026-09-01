@@ -1,7 +1,9 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { myCount, renderHud, roundLabel, COUNT_FROM, countdownAt } from "./hud.ts";
+import { COUNT_FROM, myCount, renderHud, roundLabel, countdownAt } from "./hud.ts";
+import { INTRO_MS } from "@ruckus/shared";
+const SERVER = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "server", "src");
 import { MINIGAMES } from "../../../server/src/minigames/index.ts";
 
 describe("the HUD draws known keys (visual-direction T16, R12)", () => {
@@ -97,8 +99,26 @@ describe("the countdown before a round (round-brief T1, R1, P1)", () => {
 
   it("draws nothing in the first second of a 4s intro", () => {
     // The rule needs a beat to be read before a number starts pulling the eye.
-    expect(countdownAt(ENDS, ENDS - 3500)).toBe(COUNT_FROM);
-    expect(countdownAt(ENDS, ENDS - 3999)).toBe(COUNT_FROM); // capped, never 4
+    //
+    // THIS TEST SAID THE OPPOSITE OF ITS OWN NAME. It asserted COUNT_FROM here —
+    // that a 3 IS drawn in that first second — because the implementation clamped
+    // rather than waited. So the 3 was on screen for two seconds and the 2 and the 1
+    // for one each, which is the uneven count a playtester reported (RD-065). The name
+    // was right and the assertion was wrong; reversed in place, with the reason kept.
+    expect(countdownAt(ENDS, ENDS - 3500)).toBe(0);
+    expect(countdownAt(ENDS, ENDS - 3001)).toBe(0);
+  });
+
+  it("gives every number exactly one second", () => {
+    // The property the uneven count violated. Sampled densely enough that a number
+    // holding for two seconds cannot hide between the samples.
+    const seen = new Map<number, number>();
+    for (let t = 0; t <= COUNT_FROM * 1000; t += 10) {
+      const n = countdownAt(ENDS, ENDS - t);
+      if (n > 0) seen.set(n, (seen.get(n) ?? 0) + 10);
+    }
+    expect([...seen.keys()].sort()).toEqual([1, 2, 3]);
+    for (const [n, ms] of seen) expect(ms, `the ${n}`).toBeCloseTo(1000, -2);
   });
 
   it("draws nothing once the deadline has passed", () => {
@@ -106,10 +126,12 @@ describe("the countdown before a round (round-brief T1, R1, P1)", () => {
     expect(countdownAt(ENDS, ENDS + 5000)).toBe(0);
   });
 
-  it("is clamped against clock skew in both directions", () => {
-    // A phone, a laptop and a server do not agree on the time, and the count must not
-    // print 47 or -3 when they disagree.
-    expect(countdownAt(ENDS, ENDS - 60_000)).toBe(COUNT_FROM);
+  it("survives a nonsensical clock without printing a nonsensical number", () => {
+    // This used to be the DEFENCE against clock skew, and clamping is not one: it
+    // turned a phone whose clock ran a second fast into a phone that opened the intro
+    // already on "1". The skew is gone at the source — the wire carries a duration
+    // now, not an instant (RD-065) — and this is only the last line of defence.
+    expect(countdownAt(ENDS, ENDS - 60_000)).toBe(0);
     expect(countdownAt(ENDS, ENDS + 60_000)).toBe(0);
     for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
       expect(countdownAt(ENDS, bad), String(bad)).toBe(0);
@@ -118,5 +140,59 @@ describe("the countdown before a round (round-brief T1, R1, P1)", () => {
 
   it("is a pure function of its two arguments", () => {
     expect(countdownAt(ENDS, ENDS - 1500)).toBe(countdownAt(ENDS, ENDS - 1500));
+  });
+});
+
+describe("two devices count together, whatever their clocks say (RD-065)", () => {
+  const INTRO = 4000;
+
+  /** What a client does now: add the wire's DURATION to a clock it already trusts. */
+  const fromDuration = (localNow: number, inMs: number, at: number): number =>
+    countdownAt(localNow + inMs, at);
+
+  it("gives every device the same sequence, at any clock offset", () => {
+    // The host and the phone disagreed about the time by about a second, so the phone
+    // opened the intro already on "1" and lost it immediately. A duration cannot do
+    // that: each device measures against itself.
+    const sample = (deviceClock: number): number[] => {
+      const ends = deviceClock + INTRO;
+      return [0, 1000, 2000, 3000, 3500].map((dt) => countdownAt(ends, deviceClock + dt));
+    };
+    const host = sample(0);
+    for (const skew of [-90_000, -1500, -1, 0, 1, 1500, 90_000, 1.7e12]) {
+      expect(sample(skew), `skew ${skew}`).toEqual(host);
+    }
+    expect(host).toEqual([0, 3, 2, 1, 1]);
+  });
+
+  it("an INSTANT on the wire would NOT survive the same skew", () => {
+    // Stated so the fix cannot be undone quietly. This is the old shape: the server
+    // sends `serverNow + INTRO` and each client subtracts its own clock.
+    const serverInstant = 0 + INTRO;
+    const onTime = countdownAt(serverInstant, 0);
+    const oneSecondFast = countdownAt(serverInstant, 1000);
+    expect(onTime).not.toBe(oneSecondFast);
+  });
+
+  it("is what main.ts actually does — its own monotonic clock, not the wall clock", () => {
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "..", "main.ts"), "utf8");
+    expect(src).toContain("introEndsAt = performance.now() + msg.inMs;");
+    // Date.now() is steppable by the OS and disagrees between devices; neither is
+    // acceptable for something counting seconds on eight screens at once.
+    const countdown = src.slice(src.indexOf("introEndsAt = "), src.indexOf("introEndsAt = ") + 200);
+    expect(countdown).not.toContain("Date.now()");
+  });
+
+  it("the intro is long enough for the count it promises", () => {
+    // COUNT_FROM numbers at a second each have to fit, or the first one is clipped.
+    expect(INTRO_MS).toBeGreaterThanOrEqual(COUNT_FROM * 1000);
+  });
+
+  it("the server sends a duration from the constant, not a literal or an instant", () => {
+    const net = readFileSync(join(SERVER, "net.ts"), "utf8");
+    expect(net).toContain("inMs: INTRO_MS");
+    expect(net).toContain("of: ROUNDS_PER_MATCH");
+    const intro = net.slice(net.indexOf('t: "intro"'), net.indexOf('t: "intro"') + 400);
+    expect(intro).not.toContain("Date.now()");
   });
 });

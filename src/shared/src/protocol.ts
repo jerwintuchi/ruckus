@@ -50,7 +50,16 @@ export type ServerMsg =
       game: string;
       displayName: string;
       rule: string;
-      endsAt: number;
+      /**
+       * How long the intro has LEFT, in ms — a duration, never an instant.
+       *
+       * It used to be `Date.now() + INTRO_MS`, a server wall-clock timestamp that each
+       * client subtracted from its own clock. Two devices that disagree about the time
+       * by a second then disagree about the countdown by a second: the host counted
+       * 3-2-1 and the phone opened on "1" and lost it immediately (RD-065). A duration
+       * is skew-proof — every client adds it to a clock it already trusts.
+       */
+      inMs: number;
       round: number;
       of: number;
     }
@@ -59,7 +68,6 @@ export type ServerMsg =
       game: string;
       arena: ArenaDescriptor;
       roster: number[];
-      endsAt: number;
       /** How to draw the controls: the input scheme, and the button's word if it has one. */
       input: InputScheme;
       buttonLabel?: string;

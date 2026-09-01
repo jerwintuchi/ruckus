@@ -14,3 +14,17 @@
 - [x] T3 [R1] — Drive it from the render loop in `src/client/src/main.ts`
   Test: `screens.test.ts` — the intro card updates without a new message arriving,
   asserted through the Ui's own API rather than a timer
+
+- [x] T4 [R4] — A duration on the wire (`inMs` in `src/shared/src/protocol.ts`), sent
+  from `INTRO_MS` in `src/server/src/net.ts`, added to `performance.now()` in
+  `src/client/src/main.ts`; and `countdownAt` waits rather than clamps
+  Test: `hud.test.ts` — the same sequence at any clock offset including 1.7e12, stated
+  alongside the assertion that an *instant* would NOT survive the same skew, so the fix
+  cannot be undone quietly; every number holds for exactly one second, sampled at 10ms;
+  the server sends the constant and no `Date.now()`. **Verified by reintroducing the
+  bug:** two tests fail.
+  *Two tests here previously pinned the defect. One was named "draws nothing in the
+  first second of a 4s intro" and asserted that a 3 IS drawn — the name was right and
+  the assertion was wrong. The other called clamping a defence against clock skew; it
+  was what turned a phone one second fast into a phone that opened on "1".*
+

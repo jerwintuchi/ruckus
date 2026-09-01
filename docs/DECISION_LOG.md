@@ -2193,3 +2193,37 @@ fingerprints reproducible, so a gallery shot cannot tell you that a card scrolls
 looks simply cut off. That is now written where the rule is. A diagnostic that quietly
 removes the evidence for the thing it is showing you is the failure mode of RD-053 in
 miniature.
+
+## RD-065 — Two clocks, and a count that clamped instead of waiting (2026-09-01)
+
+A two-player playtest: the host counted 3-2-1 but unevenly, and the second player's phone
+opened the intro already on "1" and lost it immediately. Two independent causes.
+
+**The wire carried an instant.** `endsAt: Date.now() + 4000` is a *server* wall-clock
+timestamp, and each client subtracted its *own* clock from it. Two devices that disagree
+about the time by a second disagree about the countdown by a second — and a phone syncing
+to NTP against a WSL2 host that does not is exactly that case. The wire carries `inMs`
+now, a duration, added on arrival to `performance.now()`: monotonic, so an OS clock step
+cannot lurch it, and self-relative, so there is no second clock to disagree with. Latency
+costs tens of milliseconds, invisible at one-second granularity.
+
+**And the count clamped instead of waiting.** `Math.min(COUNT_FROM, ceil(remaining/1000))`
+over a 4-second intro shows "3" for the first second as well as its own — two seconds of
+3, then one each of 2 and 1. Hidden above the threshold now, so each number gets exactly
+one second.
+
+**Two tests were pinning the defect, and one of them said so in its own name.** It was
+called *"draws nothing in the first second of a 4s intro"* and asserted `toBe(COUNT_FROM)`
+— that a 3 **is** drawn in that second. The name was right and the assertion was wrong,
+which is RD-048's fingerprint exactly. The other was called *"is clamped against clock
+skew in both directions"*: clamping is not a defence against skew, it is what converted a
+one-second disagreement into a countdown that started at 1. Both reversed in place with
+the reasoning kept, per RD-045.
+
+**A dead field went with it.** `roundStart.endsAt` was `Date.now() + 60_000` on every
+round start and read by nothing at all.
+
+**The suite passed before the fix and after it.** Nothing tested this, because every test
+used one clock. The new ones use two, and state the negative alongside the positive — an
+*instant* must NOT survive the same skew — so the fix cannot be quietly undone. Verified
+by reintroducing the bug rather than assuming.
