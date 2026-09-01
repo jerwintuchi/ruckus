@@ -123,12 +123,23 @@ input::placeholder{color:var(--text-dim)}
 .codeinput{font-family:Fredoka,sans-serif;font-size:30px;font-weight:700;
   letter-spacing:.26em;text-indent:.26em;text-transform:uppercase}
 .codeinput:read-only{background:var(--card-dim)}
-.linkbox{font-size:12px;letter-spacing:0;text-transform:none;font-weight:400}
+.linkbox{grid-column:1/-1;font-size:12px;letter-spacing:0;text-transform:none;font-weight:400}
 
-/* The room code: the one thing in the lobby that gets read across a room. */
-.codeblock{display:flex;flex-direction:column;align-items:center;gap:7px;
-  padding-bottom:12px;border-bottom:3px solid var(--ink)}
-.codelabel{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-dim)}
+/*
+ * The room code: the one thing in the lobby that gets read across a room.
+ *
+ * The copy button sits BESIDE the code, not under it. Stacked, it cost a whole 44px
+ * row, and on a landscape phone with eight players that row was the one that pushed
+ * "waiting for X to start" off the bottom of the card. Its offset shadow also landed
+ * on the divider rule underneath. A grid does it without touching the markup: the
+ * label and the link box span both columns, so the code and the button are the only
+ * two things that share a line.
+ */
+.codeblock{display:grid;grid-template-columns:auto auto;
+  align-items:center;justify-content:center;column-gap:6px;row-gap:3px;
+  padding-bottom:10px;border-bottom:3px solid var(--ink)}
+.codelabel{grid-column:1/-1;
+  font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-dim)}
 .code{font-family:Fredoka,sans-serif;font-size:clamp(38px,11vw,52px);font-weight:700;
   letter-spacing:.2em;text-indent:.2em;line-height:1;font-variant-numeric:tabular-nums}
 

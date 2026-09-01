@@ -1895,3 +1895,37 @@ value and forbids viewport units outright.
 **A backtick in a CSS template-literal comment, for the third time** (RD-036, RD-043).
 Caught by `tsc` in seconds each time, so it costs little — but three occurrences is a
 habit, not an accident: comments inside these template literals get no backticks.
+
+## RD-056 — The shadow was competing with the ring (2026-09-01)
+
+Two layout notes from a clean playtest — nothing broken, both about things being harder
+to read than they should be.
+
+**The action button no longer casts a shadow, alone among the game's slabs.** Everything
+in this UI is paper: flat fill, ink outline, hard offset shadow, no blur. But this
+button's shadow is a solid ink shape 3 px below it, and the cooldown ring is a solid ink
+stroke sweeping 7 px outside it — same colour, same neighbourhood, and on the phone they
+read as one shape. RD-047 had already moved the ring outside the button to make the sweep
+unmissable; the shadow was quietly undoing that.
+
+The press still has to say it landed, so it shrinks instead — `scale(.93)`, which needs no
+ink at all. The rule is now in `action-button` R6 rather than left as a comment, because
+the next person adding polish to this button will reach for a shadow, and the reason it
+is absent is not visible from the code.
+
+**The copy button moved beside the room code.** Stacked under it, it cost a whole 44 px
+row, and on a landscape phone with eight players that was the row that pushed "waiting for
+X to start" off the bottom of the card — half a sentence, sliced by the card's edge. Its
+own offset shadow also landed on the divider rule.
+
+A two-column grid does it **without touching the markup**: the label and the link box span
+both columns, so the code and the button are the only two things sharing a line. That
+matters more than the pixels saved — the lobby markup is queried by id from three test
+files and a reducer, and a restructure to save vertical space would have been a much
+larger change than the problem deserved.
+
+**Both were invisible to 711 passing tests and obvious in one photograph**, which is the
+same sentence as RD-051, RD-054 and RD-055. The pattern is stable enough now to state
+plainly: this project's UI defects are not logic defects, and the suite is not where they
+will be found. Both changes are pinned by tests written after the fact — that is what
+those tests are for, and it is not the same thing as having caught them.

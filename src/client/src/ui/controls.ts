@@ -92,13 +92,22 @@ export const CONTROLS_CSS = `
   bottom:calc(${STICK_HOME_PX / 2}px + var(--safe-bottom));
   width:${BUTTON_MIN_PX}px;height:${BUTTON_MIN_PX}px;padding:0;border-radius:50%;
   border:var(--outline) solid var(--ink);background:var(--highlight);color:var(--ink);
-  box-shadow:0 ${UI.shadowOffset}px 0 var(--ink);
   font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:15px;
   letter-spacing:.04em;
   display:flex;align-items:center;justify-content:center;position:fixed;
   pointer-events:auto;touch-action:none;-webkit-user-select:none;user-select:none}
 #actionBtn[hidden]{display:none}
-#actionBtn.down{transform:translateY(${UI.shadowOffset - 2}px);box-shadow:0 2px 0 var(--ink)}
+/*
+ * The one slab in the game with NO drop shadow, deliberately (action-button R6).
+ *
+ * Everything else is paper: flat fill, ink outline, hard offset shadow. But this
+ * button's shadow is a solid ink shape sitting 3px below it, and the cooldown ring is
+ * a solid ink stroke sweeping 7px outside it — same colour, same neighbourhood. On the
+ * phone the shadow read as part of the ring and blunted the one piece of feedback the
+ * button exists to give. The ring wins the space; the press says so by shrinking
+ * instead, which needs no ink at all.
+ */
+#actionBtn.down{transform:scale(.93)}
 /* The icon fills the button: it is the whole content, so it should read across a room. */
 /*
  * Explicit pixels, never a percentage or auto.

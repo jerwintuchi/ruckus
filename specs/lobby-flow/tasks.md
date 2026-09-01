@@ -97,6 +97,12 @@ inventing a second one.
   Test: `kit.test.ts` — the result card is bounded and scrolls internally rather than
   growing past the viewport, under the short-viewport query T17 already establishes
 
+- [x] T19 [R13] — The copy button sits beside the room code, not under it
+  Test: `kit.test.ts` — `.codeblock` is a two-column grid and the label and link box
+  span both columns, so the code and the button share one line; the stacked layout
+  cost a 44px row, which on a landscape phone with eight players was the row that
+  pushed the footer off the bottom of the card
+
 - [ ] T12 — Played for real: create a room on one device, join it from another by the
   link, play a round, and have someone leave and come back
   Test: manual, via `pnpm playtest`. The questions are whether the code is readable

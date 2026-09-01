@@ -252,3 +252,21 @@ describe("the insets are spent by name, so they can be replayed (RD-055)", () =>
     expect(declarations).not.toContain("env(safe-area-inset");
   });
 });
+
+describe("the room code and its copy button share a line (lobby-flow T19, R13)", () => {
+  it("lays the code block out in two columns", () => {
+    // Stacked, the button cost a whole 44px row — and on a landscape phone with eight
+    // players that was the row that pushed the footer off the bottom of the card.
+    const block = rule(".codeblock");
+    expect(block).toContain("display:grid");
+    expect(block).toContain("grid-template-columns:auto auto");
+    expect(block).not.toContain("flex-direction:column");
+  });
+
+  it("spans the label and the link box, so only the code and button share the row", () => {
+    // Auto-placement puts the code in column 1 and the button in column 2. Anything
+    // that must not join them has to say so.
+    expect(rule(".codelabel")).toContain("grid-column:1/-1");
+    expect(rule(".linkbox")).toContain("grid-column:1/-1");
+  });
+});

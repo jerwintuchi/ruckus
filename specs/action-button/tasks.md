@@ -48,3 +48,9 @@
 - [ ] T7 — Played, on a phone
   Test: manual. Does the holder understand their button changed? That is the whole risk
   of a contextual control, and no test answers it.
+
+- [x] T10 [R6] — Drop the button's shadow so the ring is the only ink around it
+  Test: `controls.test.ts` — `#actionBtn` declares no `box-shadow`, and the pressed
+  state is a scale rather than a shadow swap, so nothing ink-coloured can reappear
+  beside the sweep
+

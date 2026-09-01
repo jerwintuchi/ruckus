@@ -67,3 +67,7 @@ what `btn` does — my error, in `touch-controls` T1 (RD-034).*
 - AC: a ring sweeps as the tumble recharges, with the remaining seconds to one decimal
 - AC: at zero the ring is full and the number is gone — a ready button shows no clutter
 - AC: the cooldown comes from the snapshot; the client never counts it independently
+- AC: **nothing else in ink sits next to the ring.** The button carries no drop shadow,
+      alone among the game's slabs: a hard offset shadow is the same ink as the ring,
+      3px below a stroke that sweeps 7px outside, and on the phone the two read as one
+      shape. The press is a scale instead, which needs no ink (RD-056)

@@ -386,6 +386,23 @@ describe("replaced elements are sized in pixels, never left to intrinsic (RD-044
   });
 });
 
+describe("the ring is the only ink beside the button (action-button T10, R6)", () => {
+  it("carries no drop shadow, alone among the game's slabs", () => {
+    // A hard offset shadow is the same ink as the ring, 3px below a stroke that
+    // sweeps 7px outside it. On the phone the two read as one shape and the sweep
+    // stopped registering — which is the whole point of the ring (RD-056).
+    expect(rule("#actionBtn")).not.toContain("box-shadow");
+  });
+
+  it("says it was pressed by shrinking, not by moving a shadow", () => {
+    const down = rule("#actionBtn.down");
+    expect(down).toContain("scale");
+    // The old press swapped one ink shadow for a shorter one. Nothing ink-coloured
+    // may come back beside the sweep, including for a sixteenth of a second.
+    expect(down).not.toContain("box-shadow");
+  });
+});
+
 describe("the icons carry their licence (RD-047)", () => {
   const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "icons.ts"), "utf8");
 
