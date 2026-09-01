@@ -2528,3 +2528,122 @@ opened a code I gave them and found it dead — once because my own edit to a se
 triggered `node --watch` and dropped every room (I7), once because the bots had finished
 and the room had retired. Both cost them a trip to their phone for something a
 fifteen-second screenshot would have caught.
+
+---
+
+## RD-074 — Prediction stops at the integrator, not at the rules
+
+*2026-09-01. Reverses RD-004's "no client-side prediction in v1", and supersedes the
+"Not this spec" note in `specs/responsiveness/requirements.md`. Netcode-invariant I6
+is rewritten in the same commit.*
+
+The first real phone playtest answered `responsiveness` T5. The verdict was "press
+feels much better now, but I want as little latency as possible" — and tuning had run
+out of road. Of the ~112 ms left before RTT, **70 ms is the interpolation buffer**, and
+no rate change removes it: raising the tick rate to 60 Hz would have bought ~48 ms at
+double the bandwidth and double the server CPU, and still left the buffer in the path.
+
+The request was for "the industry standard algorithm", explicitly without paying for it
+in bandwidth. That algorithm is prediction plus reconciliation, and it is cheap on the
+wire precisely because it moves *work* to the client rather than *packets* to the
+network: **+1.4%**, measured — 19 B per snapshot and 10 B per input against the 41 KiB/s
+worst case `responsiveness` T4 already measured.
+
+### Why RD-004's reasoning does not forbid this
+
+RD-004 rejected prediction because it "doubles the rules surface by putting a copy of
+every minigame in the client". **That reasoning is correct and is not being reversed.**
+It simply never applied to *position*:
+
+- `stepMovement` and `resolveCircleAabb` already live in `src/shared/src/sim/`, and I4
+  names that exact category — "vector math, collision resolution, RNG" — as belonging
+  there. The client runs **the same function the server runs**, not a second copy.
+- `ArenaDescriptor.solids` is already typed `Solid[]` and already reaches the client at
+  `roundStart`. The collision geometry needed no new channel.
+
+So the client gained a copy of the **integrator**, which was always shared, and gained
+no copy of any **rule**. The distinction is now written into I6 as *position versus
+outcome*: `alive`, scores, pickups, passes, tiles and shoves are never predicted.
+
+### What this cost that was not obvious
+
+**The server sends a position but not a velocity**, and velocity is state. The first
+implementation restored position on reconciliation and kept the current velocity, which
+integrates the same inputs twice and bends the predicted path away from the server's by
+a few millimetres per tick. It looked plausible and was wrong; the P1 property test —
+*replay must land where the server independently lands* — caught it immediately. The
+predictor now keeps two bodies: an acknowledged `base` carrying the velocity we
+predicted at that input, and the drawn body that replays onto a copy of it.
+
+Two more consequences worth naming:
+
+- **`ack` had to be per connection**, so `snap` is no longer one broadcast message. It
+  was already serialised per socket, so this cost structure nothing. RD-066 removed a
+  sequence number from `snap` for being a field nobody read; this one is read every
+  frame, which is the distinction that matters.
+- **Minigame movement modifiers had to become generic numbers.** A dash is predicted
+  because the shell echoes the player's own `speedMul`, and a jump because the round
+  declares `jumpSpeed` — neither names a minigame, so RD-009 still holds. `speedMul` is
+  reset by the shell before each tick so a round that stops scaling cannot leave a
+  stale multiplier for the next one to inherit.
+
+`falling-floor`'s holes are deliberately not predicted: the client passes a flat ground
+plane, so a local capsule keeps standing until the server says it fell. Falling is an
+outcome, and shipping tile state into the predictor is exactly the minigame knowledge
+RD-009 exists to keep out.
+
+**Still owed:** T8, on a phone. The number improving is not the claim — the risk this
+spec actually carries is that a mispredicted shove in `scramble` now reads as
+rubber-banding, and only a person holding the device can say whether it does.
+
+---
+
+## RD-075 — Three bugs behind a green suite, and what they had in common
+
+*2026-09-01, immediately after RD-074. Found by driving the real client and reasoning
+about rounds the tests never entered. 882 tests were passing throughout.*
+
+Prediction shipped with 19 tests asserting seven correctness properties, and all seven
+held. Three defects survived anyway, and none of them was a logic error — each was a
+case the tests **never entered**.
+
+**1. A falling player was drawn standing on nothing.** `stepMovement` clamps a body to
+the ground plane it is handed, and the client hands it a flat one. With a single
+unacknowledged input — the normal steady state, not an edge case — a player dropping
+through `falling-floor` was replayed back to `y = 0` every frame while everyone else
+watched them fall. Every existing test drove a player on flat ground, where the bug is
+invisible by construction. Height is now predicted **only where the round has a jump**,
+which is exactly the set of rounds whose floor is solid everywhere. The design document
+had said all along that falling is not predicted; the code predicted it *to zero*, which
+is not the same thing as not predicting it.
+
+**2. The body moved instantly and its orientation did not.** Position came from the
+predictor, `facing` and `speed` still came from the 70 ms interpolation buffer. So a
+change of direction turned the character late and it slid through the first frames of
+every movement. Before prediction these were at least *wrong together*; prediction made
+them disagree. Both are pure movement — every round derives facing as `atan2` of the
+player's own stick, identically — so both are predicted now.
+
+**3. Elimination snapped, which is the one correction R3 forbids.** Turning prediction
+off at death dropped the rendered position straight onto a snapshot 70 ms behind it — up
+to ~38 cm at full speed, unblended, at the instant the elimination animation plays. It
+now **freezes** instead: no further input is banked, the pending queue drains, and the
+existing correction blends the residue away. The machinery to do this properly was
+already there; the first implementation just reached past it.
+
+### The pattern
+
+All three live at a **boundary the properties did not cross**: a round type (falling),
+a channel (orientation rather than position), and a state transition (alive to out). A
+property test proves a thing over the inputs you give it, and every one of these was
+outside that set. The suite was not weak — it was *narrow*, and green is not evidence
+about a case that was never run.
+
+The cheapest guard against the next one is the same as this time: name the rounds and
+the transitions the feature touches, then check each explicitly. All three now have
+regression tests, and the suite is 895.
+
+**Still owed, and unchanged by any of this:** T8, on a phone. None of these three were
+found by feeling latency — they were found by asking which situations the tests had
+skipped. Whether a mispredicted shove reads as rubber-banding remains a question only a
+person holding the device can answer.

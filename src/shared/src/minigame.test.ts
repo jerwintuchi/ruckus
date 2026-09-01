@@ -38,7 +38,8 @@ const ctx = () => ({
   dt: 1 / 20,
   elapsed: 0,
   rng: makeRng(1),
-  players: [{ slot: 0, body: makeBody(vec()), alive: true, connected: true, facing: 0 }],
+  players: [{ slot: 0, body: makeBody(vec()), alive: true, connected: true, facing: 0,
+    lastAppliedSeq: 0, speedMul: 1 }],
   input: () => IDLE_INPUT,
 });
 

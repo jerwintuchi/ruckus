@@ -41,6 +41,8 @@ const mkPlayers = (n: number): PlayerRuntime[] =>
     alive: true,
     connected: true,
     facing: 0,
+    lastAppliedSeq: 0,
+    speedMul: 1,
   }));
 
 const ctxFor = (

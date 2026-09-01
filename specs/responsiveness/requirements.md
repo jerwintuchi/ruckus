@@ -40,5 +40,10 @@ is a spec and not a tweak.*
 
 ## Not this spec
 
-Client-side prediction. RD-004 rules it out for v1 on grounds this change does not
-alter: it puts a copy of every minigame in the client, which I1 forbids.
+~~Client-side prediction. RD-004 rules it out for v1 on grounds this change does not
+alter: it puts a copy of every minigame in the client, which I1 forbids.~~
+
+**SUPERSEDED by `specs/input-prediction/` (RD-074), 2026-09-01.** T5's playtest found
+this spec's tuning insufficient. The quoted objection still stands and is why prediction
+stops at the *integrator*: `stepMovement` is a shared primitive I4 already permits, and
+no minigame rule is predicted. Marked in place rather than deleted, per spec-workflow.

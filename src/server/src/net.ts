@@ -128,7 +128,8 @@ export class GameServer {
         this.broadcastRoom(room);
       },
       onRoundStart: (
-        game: { id: string; input: InputScheme; buttonLabel?: string; arena: (s: never) => unknown },
+        game: { id: string; input: InputScheme; buttonLabel?: string; jumpSpeed?: number;
+          arena: (s: never) => unknown },
         state: unknown,
       ) => {
         this.broadcast(room, {
@@ -142,6 +143,7 @@ export class GameServer {
           // absent key from one explicitly set to undefined, and a `stick` minigame has
           // no label at all.
           ...(game.buttonLabel === undefined ? {} : { buttonLabel: game.buttonLabel }),
+          jumpSpeed: game.jumpSpeed ?? 0,
         });
       },
       onSnapshot: (extra: unknown) => this.sendSnapshot(room, extra),
@@ -186,6 +188,7 @@ export class GameServer {
       roster: match.roster.map((r) => r.slot),
       input: live.game.input,
       ...(live.game.buttonLabel === undefined ? {} : { buttonLabel: live.game.buttonLabel }),
+      jumpSpeed: live.game.jumpSpeed ?? 0,
     });
   }
 
@@ -203,7 +206,21 @@ export class GameServer {
       a: quantAngle(p.facing),
       alive: p.alive,
     }));
-    this.broadcast(room, { t: "snap", players, extra: extra as never });
+    // Sent per connection, not broadcast: `ack` and `sm` describe the RECIPIENT, so a
+    // single shared message could not carry them (input-prediction R2). `broadcast`
+    // already loops over sockets and serialises per socket, so the only added cost is
+    // the two numbers themselves.
+    for (const conn of this.conns.values()) {
+      if (conn.room !== room) continue;
+      const mine = room.players.get(conn.slot)?.runtime;
+      this.send(conn.ws, {
+        t: "snap",
+        players,
+        extra: extra as never,
+        ack: mine?.lastAppliedSeq ?? 0,
+        sm: mine?.speedMul ?? 1,
+      });
+    }
   }
 
   private onConnect(ws: WebSocket): void {
@@ -286,7 +303,7 @@ export class GameServer {
         const p = conn.room.players.get(conn.slot);
         // R10: overwriting rather than queueing is the rate limit. A client sending a
         // thousand inputs a second simply has the last one read, at no extra cost.
-        if (p) p.input = { ax: msg.ax, ay: msg.ay, btn: msg.btn };
+        if (p) p.input = { ax: msg.ax, ay: msg.ay, btn: msg.btn, seq: msg.seq };
         return;
       }
 

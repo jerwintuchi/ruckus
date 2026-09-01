@@ -38,7 +38,7 @@ const GOLDEN = join(
 );
 
 /** Stable, deterministic, and different per player — never `Math.random()` (I3). */
-function scriptedInput(slot: number, tick: number): { ax: number; ay: number; btn: boolean } {
+function scriptedInput(slot: number, tick: number): { ax: number; ay: number; btn: boolean; seq: number } {
   const t = tick * TICK_DT + slot * 1.7;
   return {
     ax: Math.round(Math.cos(t * 0.9) * 1000) / 1000,
@@ -46,6 +46,9 @@ function scriptedInput(slot: number, tick: number): { ax: number; ay: number; bt
     // Each player presses on a different cycle, so button-driven rules get exercised
     // without every player pressing in lockstep.
     btn: (tick + slot * 7) % 23 < 4,
+    // Monotonic per player, so the transcript exercises the ack path the way a real
+    // client drives it (input-prediction R2).
+    seq: tick + 1,
   };
 }
 

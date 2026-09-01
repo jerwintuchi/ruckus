@@ -97,3 +97,42 @@ export const RESULT_MS = 4000;
  * Starvation still HOLDS the newest frame and never extrapolates (RD-004).
  */
 export const INTERP_DELAY_MS = 70;
+
+/* Prediction (input-prediction R2, R3). Other players still use the buffer above;
+   these govern only the local player's own capsule. */
+
+/**
+ * How many unacknowledged inputs the client keeps for replay.
+ *
+ * Two seconds at 30 Hz. The cap is what makes replay cost O(1) in the worst case
+ * rather than growing with session length (P4): a client whose acks stop arriving
+ * discards the oldest input rather than accumulating for ever.
+ */
+export const MAX_PENDING = 64;
+
+/**
+ * A correction further than this is taken whole rather than blended (R3).
+ *
+ * One tick of legitimate movement is `MAX_SPEED / TICK_HZ`, well under a metre, so
+ * only a genuine discontinuity — a respawn, a teleport, a round boundary — trips this.
+ * Smearing one of those across the arena would look far worse than the snap.
+ */
+export const SNAP_DISTANCE = 2.0;
+
+/**
+ * Time constant for blending a small correction away (R3, P6).
+ *
+ * Three snapshots. Long enough that a mispredicted shove is invisible, short enough
+ * that contact does not feel mushy. The decay is exponential rather than a linear
+ * lerp so it is framerate-independent without tracking when each correction began.
+ */
+export const CORRECTION_MS = 100;
+
+/**
+ * Below this, a residual correction is dropped rather than decayed further (R3).
+ *
+ * Positions travel quantized to centimetres (I5), so a residual under half a
+ * centimetre is smaller than anything the wire could have expressed. Carrying it is
+ * tracking the quantiser's noise, not the server's opinion.
+ */
+export const SNAP_EPSILON = 0.005;

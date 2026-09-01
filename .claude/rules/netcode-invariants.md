@@ -32,14 +32,24 @@ what the client must draw. Numbers are quantized before they go on the wire (pos
 angles to a byte). No strings in a per-tick snapshot — ids are indices into the
 round's roster, sent once at `ROUND_START`.
 
-## I6 — The client interpolates; it does not simulate
-The client renders **~70 ms** behind the newest snapshot and interpolates between the
-two that straddle its render clock — a little over two snapshots at 30 Hz, which is the
-same safety 100 ms bought at 20 Hz (RD-036). It never advances game state itself, and
-on starvation it **holds** the newest frame rather than extrapolating. There is
-**no client-side prediction in v1** (RD-004): a party game at this rate with
-interpolation feels fine, and prediction doubles the rules surface by putting a copy of
-every minigame in the client — which I1 forbids anyway.
+## I6 — The client interpolates others, predicts only itself
+**Other players** are rendered **~70 ms** behind the newest snapshot, interpolated
+between the two frames that straddle the render clock — a little over two snapshots at
+30 Hz, the same safety 100 ms bought at 20 Hz (RD-036). On starvation the client
+**holds** the newest frame and never extrapolates.
+
+**Your own capsule is predicted** (RD-074): the client runs the shared `stepMovement`
+on its own input immediately, stamps each input with a `seq`, and replays the
+unacknowledged ones onto the position the server acknowledges. Corrections are blended,
+not snapped.
+
+The line that matters is **position versus outcome**. Predicting position runs a
+*shared deterministic primitive* the client is already allowed to have under I4.
+Predicting an outcome would be a copy of a minigame's rules, which I1 forbids — so
+`alive`, scores, pickups, passes, tiles and shoves are **never** predicted and arrive
+by snapshot only. RD-004 ruled out prediction on the grounds that it "puts a copy of
+every minigame in the client"; that objection stands, and is exactly why prediction
+stops at the integrator.
 
 ## I7 — Match state is ephemeral
 Nothing about a live match is persisted. Rooms live in server memory. A restart

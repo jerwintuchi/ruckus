@@ -53,8 +53,12 @@ describe("nothing in the sim is measured in ticks (P3)", () => {
 describe("input is sent at the rate the server can read (T3, R3)", () => {
   it("derives the send interval from TICK_MS rather than a literal", () => {
     // These drifted apart once already: a 50ms send against a 33ms tick.
+    //
+    // Anchored on the cadence itself rather than on the connection check, which moved:
+    // the predictor steps on this same cadence whether or not the socket is up
+    // (input-prediction R1), so `net.connected` now gates only the send.
     const main = readFileSync(join(ROOT, "client", "src", "main.ts"), "utf8");
-    const send = main.slice(main.indexOf("net.connected && now - lastSent"));
+    const send = main.slice(main.indexOf("now - lastSent"));
     expect(send.slice(0, 80)).toContain("TICK_MS");
   });
 });

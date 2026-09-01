@@ -4,7 +4,7 @@
  * (I1, I6), and everything sent is an intention.
  */
 import {
-  TICK_MS, type PlayerView, type Prim, type ServerMsg, type WireAction,
+  TICK_MS, dequantPos, type PlayerView, type Prim, type ServerMsg, type WireAction,
 } from "@ruckus/shared";
 import {
   amOnRoster, initialState, reduce, rosterChange, shouldShowWaiting, type FlowEvent,
@@ -12,6 +12,7 @@ import {
 import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
+import { Predictor } from "./predict.ts";
 import { Renderer } from "./render.ts";
 import {
   CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui, applyMine, countdownAt,
@@ -65,6 +66,7 @@ for (const ev of ["pointerdown", "touchstart", "keydown"]) {
 }
 
 let mySlot = -1;
+const predictor = new Predictor();
 let host = -1;
 let players: PlayerView[] = [];
 let colours = new Map<number, string>();
@@ -159,6 +161,7 @@ function onMessage(msg: ServerMsg): void {
         net.buffer.clear();
         lastExtra = undefined;
         ui.clearHud();
+        ui.setSpectating(false);
         ui.hideBanner();
         controls.hide();
         roundSeen = false;
@@ -211,8 +214,20 @@ function onMessage(msg: ServerMsg): void {
       roundSeen = true;
       // The round says which controls it needs; the shell never asks which game it is.
       // A mid-round joiner is watching, not playing, and gets no controls (R4).
-      if (amOnRoster(msg.roster, mySlot)) controls.show(msg.buttonLabel);
-      else controls.hide();
+      // Prediction is per-round state and takes the round's own arena and jump speed
+      // (input-prediction R5). A mid-round joiner is watching, so it stays off for
+      // them until they are actually on a roster (R4, P7).
+      predictor.beginRound(msg.arena.solids ?? [], msg.jumpSpeed);
+      if (amOnRoster(msg.roster, mySlot)) {
+        controls.show(msg.buttonLabel);
+        ui.setSpectating(false);
+      } else {
+        // Watching this one, in for the next (spectating R2). Without this the arena
+        // simply plays on with no controls and no explanation.
+        controls.hide();
+        predictor.stop();
+        ui.setSpectating(true, roundLabelInfo?.round, roundLabelInfo?.of);
+      }
       introEndsAt = 0;
       ui.hideBanner();
       break;
@@ -220,6 +235,24 @@ function onMessage(msg: ServerMsg): void {
     case "snap": {
       const extra = (msg.extra ?? {}) as Record<string, unknown>;
       lastExtra = extra;
+      // Reconcile before anything else reads the frame (input-prediction R2). `alive`
+      // is the server's word and is never predicted (R4, P5): a dead player stops
+      // predicting and is rendered straight from the snapshot again.
+      if (mySlot >= 0) {
+        const me = msg.players.find((p) => p.slot === mySlot);
+        if (me && me.alive) {
+          predictor.reconcile(
+            { x: dequantPos(me.x), z: dequantPos(me.z) },
+            dequantPos(me.y),
+            msg.ack,
+            msg.sm,
+          );
+        } else if (me) {
+          // Out. Stop steering but keep settling, so the last predicted position
+          // converges on the server's instead of snapping to it (R3).
+          predictor.freeze();
+        }
+      }
       handler?.onSnapshot(renderer, extra);
       // The generic path every minigame gets for free.
       renderer.setPrims(extra.prims as Prim[] | undefined);
@@ -244,6 +277,9 @@ function onMessage(msg: ServerMsg): void {
       playing = false;
       controls.hide();
       ui.clearHud();
+      // The chip belongs to one round; a spectator is re-evaluated at the next
+      // roundStart, when the roster is known again.
+      ui.setSpectating(false);
       ui.showRoundEnd(msg.scores, players);
       sound.roundEnd();
       bannerUntil = performance.now() + 4000;
@@ -273,6 +309,8 @@ function onMessage(msg: ServerMsg): void {
 }
 
 let lastSent = 0;
+/** Wall clock of the previous rendered frame, so the correction decays in real time (P6). */
+let lastFrameAt = 0;
 function frame(now: number): void {
   requestAnimationFrame(frame);
 
@@ -281,10 +319,14 @@ function frame(now: number): void {
   // sending four times more than the server can ever read (R10). Derived from TICK_MS
   // rather than written as a literal, so the two cannot drift apart again — they did,
   // at 50ms against a 33ms tick (responsiveness T3).
-  if (net.connected && now - lastSent >= TICK_MS) {
+  if (now - lastSent >= TICK_MS) {
     lastSent = now;
     const i = input.read();
-    net.send({ t: "input", ax: i.ax, ay: i.ay, btn: i.btn });
+    // Stepped whether or not the socket is up: prediction is what makes the stick feel
+    // attached to the thumb, and a stall in the transport is exactly when that matters
+    // most (R1). `step` returns the sequence the server will acknowledge.
+    const seq = predictor.step(i.ax, i.ay, i.btn);
+    if (net.connected) net.send({ t: "input", ax: i.ax, ay: i.ay, btn: i.btn, seq });
   }
 
   // The drawn stick is a function of the input state, every frame (P1).
@@ -311,6 +353,25 @@ function frame(now: number): void {
     // The HUD reads the snapshot and nothing else — no minigame is named here (RD-009).
     ui.renderHud(lastExtra, roundLabelInfo ?? undefined);
     const lerped = net.buffer.sample(now);
+    // Everyone else comes from the interpolation buffer; YOU come from the predictor,
+    // with no buffer delay and no network wait (input-prediction R1). Overwritten in
+    // place rather than appended so a predictor that is off leaves the snapshot's own
+    // position exactly as it was (P7).
+    if (predictor.active) {
+      const me = lerped.find((p) => p.slot === mySlot);
+      if (me) {
+        const at = predictor.sample(now - lastFrameAt);
+        me.x = at.x;
+        me.y = at.y;
+        me.z = at.z;
+        // Orientation and animation travel with the position; leaving them on the
+        // buffer turned the character late and made it slide into every movement.
+        me.facing = at.facing;
+        me.speed = at.speed;
+        if (at.vy !== undefined) me.vy = at.vy;
+      }
+    }
+    lastFrameAt = now;
     // `mySlot` so you can find yourself among eight identical paper figures.
     renderer.syncPlayers(lerped, colours, now / 1000, mySlot);
     handler?.onFrame?.(renderer, now / 1000);

@@ -26,7 +26,7 @@ export interface Player {
   score: number;
   connected: boolean;
   /** Latest input this tick. Overwritten, never queued — R10 rate-limits by design. */
-  input: { ax: number; ay: number; btn: boolean };
+  input: { ax: number; ay: number; btn: boolean; seq: number };
   runtime: PlayerRuntime;
 }
 
@@ -77,8 +77,9 @@ export class Room {
       colour: PLAYER_COLOURS[slot % PLAYER_COLOURS.length]!,
       score: 0,
       connected: true,
-      input: { ax: 0, ay: 0, btn: false },
-      runtime: { slot, body: makeBody(vec()), alive: true, connected: true, facing: 0 },
+      input: { ax: 0, ay: 0, btn: false, seq: 0 },
+      runtime: { slot, body: makeBody(vec()), alive: true, connected: true, facing: 0,
+        lastAppliedSeq: 0, speedMul: 1 },
     };
     this.players.set(slot, player);
     if (this.connected.length === 1) this.host = slot;

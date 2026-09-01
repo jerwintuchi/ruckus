@@ -172,7 +172,7 @@ describe("Match input plumbing (T8, I2, I8)", () => {
       },
     };
     const { room, match } = setup([spy as Minigame<never>]);
-    room.players.get(0)!.input = { ax: 900, ay: -900, btn: false };
+    room.players.get(0)!.input = { ax: 900, ay: -900, btn: false, seq: 0 };
     match.requestStart(0);
     pump(match, INTRO_MS + 300);
     expect(seen.length).toBeGreaterThan(0);
@@ -190,7 +190,7 @@ describe("Match input plumbing (T8, I2, I8)", () => {
       },
     };
     const { room, match } = setup([spy as Minigame<never>]);
-    room.players.get(1)!.input = { ax: 1, ay: 0, btn: false };
+    room.players.get(1)!.input = { ax: 1, ay: 0, btn: false, seq: 0 };
     match.requestStart(0);
     pump(match, INTRO_MS + 100);
     room.leave(1);

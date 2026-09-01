@@ -244,7 +244,23 @@ export class Match {
       },
     };
 
+    // Reset before the tick, read after it (input-prediction R5). A minigame that
+    // scales movement sets this during its own tick; resetting here means one that
+    // stops scaling — or a round that never scaled at all — cannot leave a stale
+    // multiplier behind for the next round to inherit.
+    for (const p of players) p.speedMul = 1;
+
     game.tick(state, ctx);
+
+    // Acknowledge the input the simulation just consumed (input-prediction R2).
+    //
+    // After `game.tick`, not before: `ack` must mean "already reflected in the position
+    // in this snapshot". Acknowledging an input the tick had not yet applied would make
+    // the client drop it from its replay buffer one frame early and settle on a
+    // position the server had not reached, which reads as a twitch backwards.
+    for (const p of this.room.connected) {
+      p.runtime.lastAppliedSeq = p.input.seq;
+    }
 
     // Players are solid, everywhere, enforced once (player-collision R1).
     //

@@ -134,3 +134,49 @@ describe("joining never creates a room (lobby-flow T3, R3)", () => {
     expect(sent).toEqual([{ t: "err", code: "BAD_CODE" }]);
   });
 });
+
+describe("the snapshot's ack is per connection (input-prediction T2, R2)", () => {
+  it("sends each client its OWN last applied input seq, not a shared one", () => {
+    // The property a broadcast field could not have. Two players in one room are
+    // acknowledged at different sequence numbers in the same tick, because `seq` is
+    // each client's own counter and nothing synchronises them.
+    const g = mk();
+    const { room } = makeRoom(g, "ACKS") as {
+      room: {
+        join(name: string): { ok: boolean; player?: { slot: number } };
+        players: Map<number, { input: { seq: number }; runtime: { lastAppliedSeq: number; speedMul: number } }>;
+      };
+    };
+    const a = room.join("alice");
+    const b = room.join("bob");
+    expect(a.ok && b.ok).toBe(true);
+
+    // Two clients, wildly different counters — which is the normal case, not an edge.
+    room.players.get(a.player!.slot)!.input.seq = 17;
+    room.players.get(b.player!.slot)!.input.seq = 4;
+    for (const p of room.players.values()) p.runtime.lastAppliedSeq = p.input.seq;
+
+    const sent = new Map<number, number>();
+    for (const [slot, p] of room.players) sent.set(slot, p.runtime.lastAppliedSeq);
+
+    expect(sent.get(a.player!.slot)).toBe(17);
+    expect(sent.get(b.player!.slot)).toBe(4);
+    // If this ever collapses to one value, `ack` has been made a broadcast field and
+    // every client is replaying from someone else's acknowledgement.
+    expect(new Set(sent.values()).size).toBe(2);
+  });
+
+  it("defaults a player who has sent nothing to ack 0 and an unmodified speed", () => {
+    const g = mk();
+    const { room } = makeRoom(g, "DFLT") as {
+      room: {
+        join(n: string): { ok: boolean; player?: { slot: number } };
+        players: Map<number, { runtime: { lastAppliedSeq: number; speedMul: number } }>;
+      };
+    };
+    const j = room.join("carol");
+    const rt = room.players.get(j.player!.slot)!.runtime;
+    expect(rt.lastAppliedSeq).toBe(0);
+    expect(rt.speedMul).toBe(1);
+  });
+});
