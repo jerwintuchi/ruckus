@@ -141,6 +141,28 @@ document.head.append(style);
 const measured = insetOverride(location.search);
 if (measured) applyInsets(document.documentElement, measured);
 
+/**
+ * `?still=1` — settle every animation, for a repeatable photograph.
+ *
+ * The cards deal in, the waiting dots bounce forever and the toast fades. A shutter
+ * lands at an arbitrary point in each, so the same page photographed twice produced
+ * different pixels — which makes a visual baseline noise rather than a signal
+ * (RD-063). This does not remove the motion from the game: `kit.test.ts` still asserts
+ * the animations exist and still asserts they go under `prefers-reduced-motion`. It
+ * asks for the settled frame, which is the one a layout check is actually about.
+ */
+if (new URLSearchParams(location.search).get("still") === "1") {
+  const still = document.createElement("style");
+  still.textContent =
+    "*,*::before,*::after{animation:none!important;transition:none!important}" +
+    // A text caret blinks and a Blink scrollbar fades out. Neither is a CSS animation,
+    // so neither was caught by the rule above — and both are repainting pixels that a
+    // fingerprint then reads as "this screen changed".
+    "*{caret-color:transparent!important}" +
+    "::-webkit-scrollbar{display:none!important}";
+  document.head.append(still);
+}
+
 const overlay = document.createElement("div");
 document.body.append(overlay);
 

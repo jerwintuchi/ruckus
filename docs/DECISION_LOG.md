@@ -2134,3 +2134,37 @@ and still asserts no playwright, puppeteer or selenium. jsdom is opted into per 
 the 700 tests that need no DOM stay in Node and stay fast. It lays nothing out: **where**
 a thing sits remains a question for `gallery.sh` and a phone, and this changes none of the
 nine manual boxes.
+
+## RD-063 — There was nothing left to simulate (2026-09-01)
+
+Asked for automation across mobile and PC, and specifically to simulate adding to the
+home screen so the true viewport gets tested.
+
+**That part was already done, and the reason is worth stating.** Standalone changes
+exactly two observable things for this app: the viewport it is handed, and the
+safe-area insets. Nothing in `src/client` reads `display-mode` or
+`navigator.standalone` — now asserted by a test that walks every non-test source file,
+verified by adding such a read and watching it fail. Both numbers have been *replayed*
+rather than guessed since RD-055, from `?debug=1` on the device, and the landscape
+home-screen profile reported `chrome 0 wide, 0 tall`, which is the whole of what losing
+Safari's URL bar does. There is no third thing.
+
+So the work was the matrix, not the simulation. `tools/visuals.sh` shoots every gallery
+state across four screens — phone landscape and portrait installed, Safari portrait with
+its chrome, and a desktop — 60 images from one command, each viewport and inset carrying
+its provenance in the source.
+
+**The interesting part was making it repeatable.** The first baseline drifted against
+itself with no code change at all: cards deal in, waiting dots bounce, toasts fade, and a
+shutter lands at an arbitrary point in each. `?still=1` settles them. That took three
+passes, and each pass found a different kind of moving pixel — CSS animations, then a
+blinking text **caret**, then Blink's fading **scrollbar**, neither of the last two being
+an animation the first rule could reach.
+
+**Where it stops, honestly.** 58 of 60 rows then reproduce exactly. The residue is the
+`safari` profile's lobby, where eight rows are borderline against a 714pt card, so the
+overflow state itself flips between runs — a real property of the page at that size, not
+a flaw in the shooter. **It is therefore a signal to look, not a gate, and deliberately
+not wired into `pnpm check`.** A baseline that goes red on its own teaches people to
+ignore red, which is worse than having no baseline. This project already has one file
+whose whole purpose is that lesson.

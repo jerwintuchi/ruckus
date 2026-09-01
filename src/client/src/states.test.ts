@@ -5,7 +5,7 @@
  * verb, or the cooldown, or the toast falls out of it, the gallery goes on producing a
  * clean run while the thing it was built for stops being photographed.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ACTION_VERBS } from "@ruckus/shared";
@@ -77,5 +77,25 @@ describe("it is a page a person opens on the phone, not only a shooter target", 
     const walker = src.slice(src.indexOf("function walker()"));
     expect(walker).toContain("top:calc(6px + var(--safe-top))");
     expect(walker).toContain("left:calc(6px + var(--safe-left))");
+  });
+});
+
+describe("nothing branches on being installed to the home screen (RD-063)", () => {
+  it("never reads display-mode or navigator.standalone anywhere in the client", () => {
+    // This is what makes the harness's phone profiles honest. Standalone changes two
+    // observable things for this app — the viewport it is handed and the safe-area
+    // insets — and both are replayed from measurements. The moment some code asks
+    // whether it is installed, that stops being true and every screenshot taken in a
+    // headless desktop Chrome is quietly answering the wrong question.
+    const dir = join(here, "..");
+    const files = readdirSync(dir, { recursive: true, encoding: "utf8" })
+      .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"));
+    expect(files.length).toBeGreaterThan(5); // the walk found something
+    for (const f of files) {
+      const body = readFileSync(join(dir, f), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+      expect(body, f).not.toContain("display-mode");
+      expect(body, f).not.toContain("navigator.standalone");
+    }
   });
 });

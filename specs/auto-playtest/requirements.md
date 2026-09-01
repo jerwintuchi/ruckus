@@ -53,6 +53,20 @@ Each had passing tests. The suite verifies logic; none of it looks at the result
 - AC: it says what it still cannot answer — jsdom lays nothing out, so **where** a
       thing is remains a question for `gallery.sh` and a phone
 
+**R7**: One command covers every screen the game is played on.
+- AC: the matrix is mobile **and** PC — a phone in both orientations, Safari with its
+      chrome, and a desktop, so neither half rots while the other is being worked on
+- AC: every viewport and inset in it is **measured off the device**, with its
+      provenance recorded next to it, never estimated
+- AC: "add to home screen" needs no separate simulation: it changes only the viewport
+      and the insets, and nothing in `src/client` may branch on `display-mode` or
+      `navigator.standalone` — asserted, so it cannot start to
+- AC: a repeatable still frame — animations, caret and scrollbar settled — so the same
+      page twice gives the same pixels and a difference means something
+- AC: it reports **which screens changed** since the last accepted run
+- AC: it is a signal to look, **not a gate**: it is not wired into `pnpm check`, because
+      a baseline that goes red on its own teaches people to ignore red
+
 **R3**: It is honest about what it cannot answer.
 - AC: it renders in software, so it says nothing about frame rate — `bench.html` on a
       real phone remains the only source for that

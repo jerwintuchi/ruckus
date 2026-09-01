@@ -29,3 +29,11 @@
   round with no label draws no button. **Verified by reintroducing the bugs:** RD-054
   fails one test, RD-042 fails six.
 
+- [x] T6 [R7] — `tools/visuals.sh`, the profile matrix, and `?still=1` in
+  `src/client/src/states.ts`
+  Test: `states.test.ts` — nothing in the client reads `display-mode` or
+  `navigator.standalone`, which is what lets a desktop Chrome stand in for an installed
+  phone at all (verified by adding such a read and watching it fail); the run itself —
+  two consecutive passes over 60 images differ in at most the one row whose overflow
+  genuinely flips
+
