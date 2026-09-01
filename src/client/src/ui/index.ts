@@ -5,3 +5,4 @@ export { CONTROLS_CSS, Controls, BUTTON_MIN_PX, STICK_BASE_PX, STICK_REST_OPACIT
 export {
   makeSafeProbe, readInsets, viewportReport, insetOverride, applyInsets, type Insets,
 } from "./probe.ts";
+export { Sound, MUTE_KEY, type Ctx, type StorageLike } from "../kit/sound.ts";

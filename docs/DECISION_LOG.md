@@ -2299,3 +2299,39 @@ Two lessons, both already written elsewhere in this file and both re-learned any
 `innerHeight` was consistent to the pixel and not what any layout used. And I read a
 screenshot as evidence while the dev server was down, so it was a stale image; the tool
 had exited non-zero and I had piped its output to /dev/null.
+
+## RD-068 — Sound, synthesised, and silent until touched (2026-09-01)
+
+The last unbuilt feature. T1–T3 of `specs/audio/`; T4 and T5 need a phone and a room.
+
+**No audio files, and the reason is the same one as everything else here.** `kit_check`
+rejects `.mp3/.wav/.ogg` on RD-001's grounds, so `sound.ts` builds every noise from
+oscillators, envelopes and filtered noise — the argument that produced the procedural
+textures (RD-020), applied to a second medium. Three generators: a `blip` for the count,
+a `thud` for an elimination, a three-note `sting` that rises for a win and falls for an
+ending. Nothing is pooled, because four moments in ten minutes does not justify a pool
+and an unbounded pool is the failure this note exists to prevent.
+
+**The context is injected, which is what makes it testable at all.** A fake records the
+graph, so the assertions are about shape and duration — the only things a unit test can
+say. Whether any of it is *good* is T5, in a room, and nothing here replaces that.
+
+**Silent until a gesture, and the source is asserted to contain no `new AudioContext`.**
+Browsers require it and so does courtesy: a link opened in a room full of people must not
+shout before anyone has touched anything. Mute is a boolean in `localStorage`, read once,
+and deliberately **not** in `flow.ts` — it is a device preference, not screen state, and
+putting it in the reducer would put it in the totality property for no benefit. It
+survives storage that throws, which private mode does.
+
+**The elimination is an event, not a state.** `alive` is false on every snapshot after
+someone goes out, so without the previous frame to compare against, one elimination is a
+thud thirty times a second. And the memory clears at a round boundary — without that the
+first snapshot of a new round replays every elimination from the last one, which is
+RD-050's shape in a different channel.
+
+**Two things the build itself found.** The mute button is the third control whose
+children are its icon, so it got a mounted test rather than a source-text one — RD-042
+has now cost this project three separate times. And adding it to the code block wrapped
+it onto a row of its own, because that grid had exactly two columns; the footer went off
+the bottom again, in the state fixed two commits ago. One column per icon button now, and
+the test counts the buttons rather than pinning the number.

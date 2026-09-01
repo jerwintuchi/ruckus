@@ -171,7 +171,10 @@ const overlay = document.createElement("div");
 document.body.append(overlay);
 
 const noop = (): void => {};
-const ui = new Ui(overlay, { onCreate: noop, onJoin: noop, onStart: noop, onEvent: noop });
+const ui = new Ui(overlay, {
+  onCreate: noop, onJoin: noop, onStart: noop, onEvent: noop,
+  onToggleMute: () => false,
+});
 const controls = new Controls(document.body, new InputController(document.body));
 
 const NAMES = Object.keys(STATES);

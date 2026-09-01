@@ -132,10 +132,12 @@ input::placeholder{color:var(--text-dim)}
  * row, and on a landscape phone with eight players that row was the one that pushed
  * "waiting for X to start" off the bottom of the card. Its offset shadow also landed
  * on the divider rule underneath. A grid does it without touching the markup: the
- * label and the link box span both columns, so the code and the button are the only
- * two things that share a line.
+ * label and the link box span EVERY column, so the code and the icon buttons are the
+ * only things that share a line. One column per icon button: auto-placement wrapped the
+ * mute button onto a row of its own the moment it was added, which cost the row the
+ * footer needed (audio T2).
  */
-.codeblock{display:grid;grid-template-columns:auto auto;
+.codeblock{display:grid;grid-template-columns:auto auto auto;
   align-items:center;justify-content:center;column-gap:6px;row-gap:3px;
   padding-bottom:10px;border-bottom:3px solid var(--ink)}
 .codelabel{grid-column:1/-1;

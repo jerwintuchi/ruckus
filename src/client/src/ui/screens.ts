@@ -16,6 +16,10 @@ export interface UiHandlers {
   onJoin(code: string, name: string): void;
   onStart(): void;
   onEvent(event: FlowEvent): void;
+  /** Flip mute and report the new state. Not a FlowEvent: it is a device preference,
+   *  not screen state, and putting it in the reducer would put it in the totality
+   *  property for no benefit (audio design). */
+  onToggleMute(): boolean;
 }
 
 export class Ui {
@@ -60,6 +64,22 @@ export class Ui {
     }
     this.q("#startBtn").addEventListener("click", () => this.handlers.onStart());
     this.q("#shareBtn").addEventListener("click", () => void this.share());
+    this.q("#muteBtn").addEventListener("click", () => this.setMuted(this.handlers.onToggleMute()));
+  }
+
+  /**
+   * Draw the mute state. Swaps two paths; never touches the button's text.
+   *
+   * Assigning `textContent` to a button whose children are its icon destroys them —
+   * that is RD-042, and it cost a whole playtest to find the first time.
+   */
+  setMuted(muted: boolean): void {
+    this.q("#muteOn").hidden = muted;
+    this.q("#muteOff").hidden = !muted;
+    const label = muted ? "unmute" : "mute";
+    const btn = this.q("#muteBtn");
+    btn.setAttribute("aria-label", label);
+    btn.setAttribute("title", label);
   }
 
   private q(sel: string): HTMLElement {
@@ -369,6 +389,18 @@ const TEMPLATE = `
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <rect x="9" y="9" width="11" height="12" rx="2"></rect>
           <path d="M5 15V5a2 2 0 0 1 2-2h8"></path>
+        </svg>
+      </button>
+      <!--
+        Mute, beside the invite (audio R3). Two paths in one button: the speaker body
+        is always drawn, the waves and the slash swap. Not textContent — the RD-042
+        lesson is that assigning text to a button with children destroys them.
+      -->
+      <button id="muteBtn" class="iconbtn" aria-label="mute" title="mute">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M11 5 6 9H2v6h4l5 4z"></path>
+          <path id="muteOn" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"></path>
+          <path id="muteOff" d="M22 9l-6 6M16 9l6 6" hidden></path>
         </svg>
       </button>
       <input id="linkBox" class="linkbox" readonly style="display:none">

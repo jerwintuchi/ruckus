@@ -262,7 +262,14 @@ describe("the room code and its copy button share a line (lobby-flow T19, R13)",
     // players that was the row that pushed the footer off the bottom of the card.
     const block = rule(".codeblock");
     expect(block).toContain("display:grid");
-    expect(block).toContain("grid-template-columns:auto auto");
+    // One column per icon button beside the code. With two, adding mute wrapped it to
+    // a row of its own and the footer went off the bottom again.
+    expect(block).toContain("grid-template-columns:auto auto auto");
+    const lobby = readFileSync(
+      join(dirname(new URL(import.meta.url).pathname), "screens.ts"), "utf8");
+    const codeblock = lobby.slice(lobby.indexOf('class="codeblock"'), lobby.indexOf('id="linkBox"'));
+    const icons = (codeblock.match(/class="iconbtn"/g) ?? []).length;
+    expect(icons, "one grid column per icon button beside the code").toBe(2);
     expect(block).not.toContain("flex-direction:column");
   });
 

@@ -74,7 +74,10 @@ const players = (n: number, connected = true): PlayerView[] =>
     slot, name: `p${slot}`, colour: "#1ab0ff", score: 0, connected,
   }));
 
-const noop = { onCreate: () => {}, onJoin: () => {}, onStart: () => {}, onEvent: () => {} };
+const noop = {
+  onCreate: () => {}, onJoin: () => {}, onStart: () => {}, onEvent: () => {},
+  onToggleMute: () => false,
+};
 
 /** A flow state shaped for whichever screen a test is about. */
 const lobby = (over: Partial<FlowState> = {}): FlowState => ({

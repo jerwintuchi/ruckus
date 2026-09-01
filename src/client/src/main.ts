@@ -15,6 +15,7 @@ import { Net } from "./net.ts";
 import { Renderer } from "./render.ts";
 import {
   CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui, countdownAt,
+  Sound, type Ctx,
   makeSafeProbe, readInsets, viewportReport, insetOverride, applyInsets,
 } from "./ui/index.ts";
 
@@ -46,6 +47,23 @@ const input = new InputController(document.body);
 // put them since it was written, and nothing read it (touch-controls T3).
 const controls = new Controls(document.body, input);
 
+/**
+ * Sound, silent until touched (audio T3, R3, R5).
+ *
+ * The factory is not called here: a link opened in a room full of people must not shout
+ * before anyone has pressed anything, and browsers require the gesture anyway. Every
+ * trigger below is a message the client already handles — the server never learns audio
+ * exists, and the protocol is untouched.
+ */
+const sound = new Sound(
+  () => new (window.AudioContext ?? (window as { webkitAudioContext?: typeof AudioContext })
+    .webkitAudioContext!)() as unknown as Ctx,
+  (() => { try { return window.localStorage; } catch { return null; } })(),
+);
+for (const ev of ["pointerdown", "touchstart", "keydown"]) {
+  window.addEventListener(ev, () => sound.unlock(), { once: false, passive: true });
+}
+
 let mySlot = -1;
 let host = -1;
 let players: PlayerView[] = [];
@@ -58,6 +76,10 @@ let bannerUntil = 0;
 let introEndsAt = 0;
 let roundLabelInfo: { name: string; round: number; of: number } | null = null;
 let lastExtra: Record<string, unknown> | undefined;
+/** Who was alive in the previous snapshot, so an elimination is an EVENT not a state. */
+const aliveLast = new Map<number, boolean>();
+/** The last count drawn, so a tick sounds once rather than every frame. */
+let lastCount = 0;
 let handler: ClientMinigame | undefined;
 
 const net = new Net(serverUrl(), onMessage);
@@ -88,8 +110,15 @@ const ui = new Ui(overlay, {
   },
   onStart: () => net.send({ t: "start" }),
   onEvent: dispatch,
+  onToggleMute: () => {
+    sound.setMuted(!sound.muted);
+    return sound.muted;
+  },
 });
 ui.render(flow);
+// Paint the remembered preference before anything is shown, so a muted device never
+// flashes an unmuted control.
+ui.setMuted(sound.muted);
 
 function serverUrl(): string {
   const override = new URLSearchParams(location.search).get("server");
@@ -168,6 +197,10 @@ function onMessage(msg: ServerMsg): void {
       // and blink out immediately (RD-050).
       net.buffer.clear();
       lastExtra = undefined;
+      // Per-round too: without this the first snapshot of a new round replays every
+      // elimination from the last one, which is RD-050's shape in a different channel.
+      aliveLast.clear();
+      lastCount = 0;
       // Looked up, never branched on: main.ts knows no minigame by name (RD-009).
       handler = clientMinigame(msg.game);
       handler?.onRoundStart?.(renderer);
@@ -191,6 +224,12 @@ function onMessage(msg: ServerMsg): void {
       // never a minigame id).
       const actions = extra.actions as Record<number, WireAction> | undefined;
       if (actions && mySlot >= 0) controls.setAction(actions[mySlot]);
+      // Someone went out. Read off `alive`, which the snapshot already carries for the
+      // renderer — no new wire traffic, and the same sound for everyone including you.
+      for (const p of msg.players) {
+        if (!p.alive && aliveLast.get(p.slot) !== false) sound.eliminated();
+        aliveLast.set(p.slot, p.alive);
+      }
       break;
     }
 
@@ -199,6 +238,7 @@ function onMessage(msg: ServerMsg): void {
       controls.hide();
       ui.clearHud();
       ui.showRoundEnd(msg.scores, players);
+      sound.roundEnd();
       bannerUntil = performance.now() + 4000;
       break;
 
@@ -211,6 +251,7 @@ function onMessage(msg: ServerMsg): void {
       net.buffer.clear();
       lastExtra = undefined;
       ui.showMatchEnd(players.find((p) => p.slot === msg.winner), players, msg.totals);
+      sound.matchEnd(msg.winner === mySlot);
       bannerUntil = performance.now() + 4000;
       break;
 
@@ -243,7 +284,16 @@ function frame(now: number): void {
   controls.update();
 
   // The count is derived from the server's deadline, never ticked locally.
-  if (introEndsAt) ui.setCountdown(countdownAt(introEndsAt, now));
+  if (introEndsAt) {
+    const n = countdownAt(introEndsAt, now);
+    // Once per number, not once per frame: `setCountdown` already dedupes the DOM, and
+    // the sound has to dedupe for the same reason.
+    if (n !== lastCount) {
+      lastCount = n;
+      if (n > 0) sound.countdown(n);
+    }
+    ui.setCountdown(n);
+  }
 
   if (bannerUntil && now > bannerUntil) {
     bannerUntil = 0;
