@@ -2021,3 +2021,29 @@ not a fix: the code is the thing read aloud across a room, the waiting note is n
 **A backtick in a CSS template-literal comment, the fifth time.** Recording the count and
 nothing else — the compiler catches it every time, in seconds, and three notes about it
 have not changed the habit. The guard works; the note does not.
+
+## RD-060 — The gallery is a page, so open it on the phone (2026-09-01)
+
+RD-059 built the state gallery for the shooter. Asked to prepare sessions so the states
+could be *seen*, and the obvious thing was already true: it is a web page. Opening it on
+the phone gets what no screenshot of mine ever will — real WebKit, real safe areas, real
+touch targets under an actual thumb.
+
+So it stopped being a shooter target and became something to walk. The bare page is an
+index of tappable rows in the game's own vocabulary; each state carries a prev / name /
+next bar. Two details that are the whole difference between useful and not:
+
+**The bar sits top-left, the one corner nothing uses.** The stick owns bottom-left, the
+button bottom-right, the gauge top-centre. Harness chrome that covers the thing being
+inspected is worse than no harness.
+
+**The links carry the query flags forward.** `?insets=` and `?surface=` are what make a
+view match the device; losing them on the first tap would quietly turn a phone walk into
+a desktop one, which is exactly the failure RD-052 was about.
+
+Fifteen ghost rows rather than fifteen yellow buttons — an index is for scanning, and
+only one row is the thing you came for.
+
+**This does not move a manual task.** Every state here is fabricated, so the page proves
+layout on a real device and still says nothing about whether the game *reaches* the
+state. `shoot.sh` covers that half, and the specs still say "played on a phone".

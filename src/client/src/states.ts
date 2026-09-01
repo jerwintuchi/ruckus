@@ -96,6 +96,11 @@ const STATES: Record<string, (ui: Ui, controls: Controls, show: (s: FlowState) =
   }),
   "round-end": (ui) => ui.showRoundEnd(
     Object.fromEntries(EIGHT.map((p, i) => [p.slot, 7 - i])), EIGHT),
+  "match-end": (ui) => ui.showMatchEnd(
+    EIGHT[0], EIGHT, Object.fromEntries(EIGHT.map((p, i) => [p.slot, 21 - i * 3]))),
+  "menu": (_u, _c, show) => show(initialState()),
+  "join": (_u, _c, show) => show(reduce(
+    reduce(initialState(), { t: "setName", name: "jerwin" }), { t: "wantJoin" })),
 };
 
 /**
@@ -135,17 +140,86 @@ const noop = (): void => {};
 const ui = new Ui(overlay, { onCreate: noop, onJoin: noop, onStart: noop, onEvent: noop });
 const controls = new Controls(document.body, new InputController(document.body));
 
-const name = new URLSearchParams(location.search).get("state") ?? "";
+const NAMES = Object.keys(STATES);
+const params = new URLSearchParams(location.search);
+const name = params.get("state") ?? "";
+/** Carry the profile flags between pages, so a phone walk keeps its overrides. */
+const carry = (to: string): string => {
+  const q = new URLSearchParams(params);
+  if (to) q.set("state", to); else q.delete("state");
+  return `?${q}`;
+};
+
 const enter = STATES[name];
 if (enter) {
   enter(ui, controls, (s) => ui.render(s));
+  walker();
 } else {
-  // No state named: list them, so the shooter and a human get the same index.
-  const list = document.createElement("pre");
-  list.style.cssText = "font:13px ui-monospace,monospace;padding:14px;white-space:pre-wrap";
-  list.textContent = "states:\n  " + Object.keys(STATES).join("\n  ");
-  document.body.append(list);
+  index();
 }
 
-/** Every state this page can draw, for the shooter and for the test. */
-export const STATE_NAMES = Object.keys(STATES);
+/**
+ * The index, in the game's own vocabulary rather than a bare list.
+ *
+ * This is a page a person opens ON THE PHONE — which is the only place the insets, the
+ * touch targets and WebKit are real. So it has to be tappable, not just readable.
+ */
+function index(): void {
+  const wrap = document.createElement("div");
+  wrap.className = "overlay";
+  wrap.style.cssText = "pointer-events:auto;overflow-y:auto;justify-content:flex-start";
+  const card = document.createElement("div");
+  card.className = "card";
+  card.style.cssText = "margin:auto;max-width:min(430px,92vw)";
+  card.innerHTML = "<h1>states</h1><div class=\"dim\">tap one — this is the real UI</div>";
+  for (const n of NAMES) {
+    const a = document.createElement("a");
+    a.href = carry(n);
+    a.textContent = n;
+    a.style.cssText = "text-decoration:none";
+    const b = document.createElement("button");
+    // Ghost, not primary: fifteen yellow buttons is a wall, not a list. This is an
+    // index to scan, and only one of them is the thing you came for.
+    b.className = "ghost";
+    b.textContent = n;
+    b.style.cssText = "width:100%;text-align:left";
+    a.append(b);
+    a.replaceChildren(b);
+    card.append(a);
+  }
+  wrap.append(card);
+  document.body.append(wrap);
+}
+
+/**
+ * Previous / next / index, pinned top-left.
+ *
+ * Harness chrome, deliberately in the one corner no control uses: the stick owns
+ * bottom-left, the button bottom-right and the gauge top-centre. Without it, walking
+ * twelve states on a phone is twelve trips through the browser's back button.
+ */
+function walker(): void {
+  const i = NAMES.indexOf(name);
+  const bar = document.createElement("div");
+  bar.style.cssText =
+    "position:fixed;z-index:40;display:flex;gap:6px;align-items:center;" +
+    "top:calc(6px + var(--safe-top));left:calc(6px + var(--safe-left));" +
+    "font:600 12px Fredoka,ui-rounded,system-ui,sans-serif;opacity:.75";
+  const link = (label: string, to: string): HTMLElement => {
+    const a = document.createElement("a");
+    a.href = carry(to);
+    a.textContent = label;
+    a.style.cssText =
+      "display:inline-block;min-width:30px;min-height:30px;line-height:30px;" +
+      "text-align:center;padding:0 8px;border-radius:9px;text-decoration:none;" +
+      "background:var(--card);color:var(--ink);border:2px solid var(--ink)";
+    return a;
+  };
+  bar.append(
+    link("‹", NAMES[(i - 1 + NAMES.length) % NAMES.length]!),
+    link(name, ""),
+    link("›", NAMES[(i + 1) % NAMES.length]!),
+  );
+  document.body.append(bar);
+}
+

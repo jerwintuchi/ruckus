@@ -57,3 +57,25 @@ describe("the gallery covers what a live shot misses", () => {
     }
   });
 });
+
+describe("it is a page a person opens on the phone, not only a shooter target", () => {
+  it("lists every state as something tappable", () => {
+    // The phone is the only place the insets, the touch targets and WebKit are real,
+    // so the index has to be usable there rather than merely readable (RD-060).
+    expect(src).toContain("createElement(\"a\")");
+    expect(src).toContain("createElement(\"button\")");
+  });
+
+  it("carries the profile flags between states", () => {
+    // ?insets= and ?surface= are what make a shot match the device. Losing them on
+    // the first tap would quietly turn a phone walk into a desktop one.
+    expect(src).toContain("new URLSearchParams(params)");
+  });
+
+  it("keeps its own chrome out of every corner a control uses", () => {
+    // The stick owns bottom-left, the button bottom-right, the gauge top-centre.
+    const walker = src.slice(src.indexOf("function walker()"));
+    expect(walker).toContain("top:calc(6px + var(--safe-top))");
+    expect(walker).toContain("left:calc(6px + var(--safe-left))");
+  });
+});
