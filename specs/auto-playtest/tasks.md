@@ -37,3 +37,17 @@
   two consecutive passes over 60 images differ in at most the one row whose overflow
   genuinely flips
 
+- [x] T7 [R8] — The golden transcript: `src/server/src/transcript.test.ts` and
+  `docs/technical/match-transcript.txt`
+  Test: itself — a whole match over the real registry at a fixed seed; plus a
+  determinism check and a "this really was a whole match" check so it cannot go
+  trivially green. **Verified by drift:** changing `MAX_SPEED` by 0.1 fails it.
+
+- [x] T8 [R9] — Wire and assertion guards: `src/shared/src/wire-hygiene.test.ts` and
+  `src/client/src/ui/assertions.test.ts`
+  Test: themselves, and the guard file checks that it recognises the exact line that
+  shipped RD-055 rather than trusting its own regex
+  *Both found real things on their first run: `snap.seq` was `Date.now() & 0xffff`,
+  unread by the client, on every snapshot at 30 Hz; and four live tests asserted a CSS
+  property by name alone.*
+

@@ -208,7 +208,9 @@ describe("the count is emphasis, not the message (round-brief R3)", () => {
   });
 
   it("reserves its line, so the card does not jump when the number appears", () => {
-    expect(rule(".count")).toContain("min-height");
+    // A full line of it: min-height:0 would satisfy "has a min-height" and reserve
+    // nothing, which is the bug this test is for.
+    expect(rule(".count")).toContain("min-height:1em");
   });
 });
 
@@ -232,7 +234,8 @@ describe("eight rows fit a landscape phone (lobby-flow T18, R13)", () => {
 
   it("marks the local player's row distinctly from a disconnected one", () => {
     expect(rule(".row.me")).toContain("var(--card-dim)");
-    expect(rule(".row.gone")).toContain("opacity");
+    // Faded, not invisible: a disconnected player is still on the board.
+    expect(rule(".row.gone")).toMatch(/opacity:0?\.[1-9]/);
   });
 });
 
@@ -278,7 +281,9 @@ describe("capped-width text stays centred in the card (lobby-flow R3, R5)", () =
     // left-hung box and the whole message sits off to one side.
     for (const sel of [".err", ".rule"]) {
       const r = rule(sel);
-      expect(r, sel).toContain("max-width");
+      // A cap with an actual number on it — "has a max-width" is satisfied by
+      // max-width:none, which caps nothing at all.
+      expect(r, sel).toMatch(/max-width:\s*\d/);
       expect(r, sel).toMatch(/margin(-inline)?:0? ?auto/);
     }
   });

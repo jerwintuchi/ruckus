@@ -67,6 +67,26 @@ Each had passing tests. The suite verifies logic; none of it looks at the result
 - AC: it is a signal to look, **not a gate**: it is not wired into `pnpm check`, because
       a baseline that goes red on its own teaches people to ignore red
 
+**R8**: Behaviour cannot drift unnoticed.
+- AC: a whole match, real minigames, fixed seed and scripted inputs, recorded and
+      compared against a committed transcript — so a retuned constant, a changed score,
+      a changed rotation or an extra RNG call fails a test instead of a playtest
+- AC: the transcript is **readable**, so a diff is reviewed rather than regenerated on
+      reflex; snapshots are digested, not recorded whole
+- AC: it asserts its own determinism, since a flaky golden file trains people to
+      regenerate without looking
+- AC: it asserts it recorded a *whole* match, so it cannot silently become trivial
+- AC: a diff is a question, never a verdict: regenerating is deliberate and lands in
+      the same commit as the change that caused it
+
+**R9**: The wire and the tests are guarded against their own known failure shapes.
+- AC: every `ServerMsg` field has a reader in the client — a field nobody reads is
+      bytes on every message and a lie in the type
+- AC: no message payload is built from `Date.now()`; durations cross the wire, never
+      instants
+- AC: no test asserts a value-carrying CSS property by NAME alone — the property is
+      the obviously-required part and the value is the part that is actually wrong
+
 **R3**: It is honest about what it cannot answer.
 - AC: it renders in software, so it says nothing about frame rate — `bench.html` on a
       real phone remains the only source for that

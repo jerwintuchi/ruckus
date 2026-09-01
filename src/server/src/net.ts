@@ -203,7 +203,7 @@ export class GameServer {
       a: quantAngle(p.facing),
       alive: p.alive,
     }));
-    this.broadcast(room, { t: "snap", seq: Date.now() & 0xffff, players, extra: extra as never });
+    this.broadcast(room, { t: "snap", players, extra: extra as never });
   }
 
   private onConnect(ws: WebSocket): void {

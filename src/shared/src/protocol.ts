@@ -72,7 +72,11 @@ export type ServerMsg =
       input: InputScheme;
       buttonLabel?: string;
     }
-  | { t: "snap"; seq: number; players: SnapPlayer[]; extra: MinigameSnapshot }
+  // No sequence number: WebSocket delivers in order and without gaps, so one would be
+  // a field nobody could act on — and this one was `Date.now() & 0xffff`, a wall-clock
+  // value that wrapped every 65 seconds and that the client never read (RD-066). I5:
+  // a snapshot carries only what the client must draw.
+  | { t: "snap"; players: SnapPlayer[]; extra: MinigameSnapshot }
   | { t: "roundEnd"; scores: Record<number, number>; totals: Record<number, number> }
   | { t: "matchEnd"; totals: Record<number, number>; winner: number }
   | { t: "err"; code: ErrCode }

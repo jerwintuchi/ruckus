@@ -2227,3 +2227,40 @@ round start and read by nothing at all.
 used one clock. The new ones use two, and state the negative alongside the positive — an
 *instant* must NOT survive the same skew — so the fix cannot be quietly undone. Verified
 by reintroducing the bug rather than assuming.
+
+## RD-066 — Tests for the shapes this project actually gets wrong (2026-09-01)
+
+Asked for regression coverage that stops drift. The useful question was not "what is
+untested" — it was **"what has actually broken here, and what shape was it?"** Three
+answers, three guards.
+
+**Behaviour drifting with nothing to catch it.** Nothing tested a *match*; everything
+tested a unit. So a retuned constant, a changed score, a changed rotation or one extra
+RNG call earlier in a round could all land green. `transcript.test.ts` drives the real
+registry at a fixed seed with scripted inputs and diffs a whole match against a committed
+record. Changing `MAX_SPEED` by 0.1 fails it — checked, not assumed.
+
+The design choice that matters is that **the transcript is readable**: 116 lines, in
+which you can watch players go out (`actions{4}` → `{3}` → `{2}`) and sweepers spawn. A
+golden file nobody can read is a golden file nobody reviews, and an unreviewed golden
+file is regenerated on reflex — which is worse than not having one, because it launders
+a change into the baseline. It also asserts its own determinism and that it recorded a
+whole match, so it cannot quietly go trivial.
+
+**Dead and skewed wire fields.** `wire-hygiene.test.ts` asserts every `ServerMsg` field
+has a reader in the client and that no message payload is built from `Date.now()`. It
+found `snap.seq` on its first run: `Date.now() & 0xffff`, wrapping every 65 seconds,
+**read by nothing**, on every snapshot at 30 Hz. WebSocket already delivers in order, so
+a sequence number is a field nobody could act on. Removed.
+
+**Tests that assert the property instead of the value.** Five defects this week shipped
+green under exactly one shape — `toContain("max-height")`, `toContain("width")`,
+`RING_PX > BUTTON_MIN_PX` — where the property name is the obviously-required part and
+the value is the part that is actually wrong. `assertions.test.ts` fails such an
+assertion at the point it is written, and checks that it recognises the literal line that
+shipped RD-055 rather than trusting its own regex. It found four live offenders, all now
+asserting values.
+
+**The pattern behind all three:** every one is a *class* of defect this repo has already
+paid for, turned into something that fails at the keyboard. None of them would have been
+found by asking what percentage of lines are covered.
