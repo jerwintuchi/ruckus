@@ -284,6 +284,14 @@ input::placeholder{color:var(--text-dim)}
 .gauge .bar > i{display:block;height:100%;background:var(--highlight);
   width:var(--pct,100%);transition:width .12s linear}
 .gauge.urgent .bar > i{background:#e6484d}
+/* Watching, not playing (spectating R2). A slab, so it keeps the shadow every other
+   card has — it is paper on the table, not a control printed on it (kit-rules). */
+.spectate{gap:7px;color:var(--ink)}
+.spectate .eye{width:9px;height:9px;border-radius:50%;background:var(--highlight);
+  border:2px solid var(--ink);animation:spectate-pulse 1.6s ease-in-out infinite}
+/* No reduced-motion rule of its own: the global animation:none!important below
+   already stops this, and a second media block splits the one the guards read. */
+@keyframes spectate-pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
 /* Entrances overshoot and settle — nothing simply fades (R10). */
 @keyframes deal{

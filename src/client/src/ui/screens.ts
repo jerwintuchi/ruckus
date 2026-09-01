@@ -46,6 +46,7 @@ export class Ui {
   private readonly joining: HTMLElement;
   private readonly lobby: HTMLElement;
   private readonly banner: HTMLElement;
+  private spectating: { round?: number; of?: number } | null = null;
   private readonly scoreboard: HTMLElement;
   private readonly hud: HTMLElement;
   private readonly toastEl: HTMLElement;
@@ -203,7 +204,34 @@ export class Ui {
   renderHud(extra: HudData | undefined, label?: { name: string; round: number; of: number }): void {
     const gauges = renderHud(extra);
     const round = label ? roundLabel(label.name, label.round, label.of) : "";
-    this.hud.innerHTML = round + gauges;
+    this.hud.innerHTML = round + this.spectateChip() + gauges;
+  }
+
+  /**
+   * Watching this round, playing the next one (spectating R2).
+   *
+   * A mid-round joiner DOES get `roundStart` — the server sends the round in progress
+   * so there is something to look at — which sets `roundSeen` and takes the waiting
+   * card away. The arena then plays on with no controls and nothing saying why, which
+   * reads as being broken rather than as being early. Reported from the first phone
+   * playtest.
+   *
+   * A chip in the HUD rather than the waiting overlay, because R3 wants the arena
+   * *visible* while you wait: an overlay that explains the wait by hiding the thing
+   * you are waiting to watch trades one dead screen for another.
+   */
+  setSpectating(on: boolean, round?: number, of?: number): void {
+    this.spectating = on ? { ...(round === undefined ? {} : { round }), ...(of === undefined ? {} : { of }) } : null;
+  }
+
+  private spectateChip(): string {
+    if (!this.spectating) return "";
+    const { round, of } = this.spectating;
+    // Says which round you are in from, when it knows — a wait with a shape (R2).
+    const when = round !== undefined && of !== undefined && round < of
+      ? `in for round ${round + 1}`
+      : "in next round";
+    return `<div class="gauge spectate"><span class="eye"></span>watching · ${when}</div>`;
   }
 
   clearHud(): void {
