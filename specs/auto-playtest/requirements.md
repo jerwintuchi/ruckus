@@ -31,6 +31,19 @@ Each had passing tests. The suite verifies logic; none of it looks at the result
 - AC: images are written **outside the working tree**, so `kit_check` needs no exception
       and the Kit stays closed
 
+**R5**: Every screen can be photographed, including the ones a live shot races.
+- AC: a state that lasts a second or two — a toast, a cooldown sweep, a countdown digit
+      — can be held still and photographed
+- AC: a state that needs a full lobby, a failed join, or a specific action verb can be
+      reached without arranging a match
+- AC: it mounts the **real** `Ui` and `Controls` with the real stylesheets. A gallery
+      of hand-built lookalikes documents itself, not the game
+- AC: every action verb the server can send has a state, since the blank icon (RD-054)
+      was a defect only rounds opening on one particular verb could show
+- AC: it is a separate entry point and never reaches the game bundle
+- AC: it proves **layout, not reachability** — nothing here talks to a server, so it
+      cannot catch a state the game fails to arrive at, and says so
+
 **R3**: It is honest about what it cannot answer.
 - AC: it renders in software, so it says nothing about frame rate — `bench.html` on a
       real phone remains the only source for that

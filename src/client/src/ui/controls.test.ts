@@ -18,6 +18,7 @@ import { STICK_RADIUS } from "../input.ts";
 import { ACTION_VERBS } from "@ruckus/shared";
 import { ICON_VERBS, iconLabel, iconPath } from "./icons.ts";
 import { UI } from "./kit.ts";
+const UI_OUTLINE = UI.outline;
 
 /**
  * One rule body out of the stylesheet, so a claim can be made about it.
@@ -400,6 +401,24 @@ describe("the ring is the only ink beside the button (action-button T10, R6)", (
     // The old press swapped one ink shadow for a shorter one. Nothing ink-coloured
     // may come back beside the sweep, including for a sixteenth of a second.
     expect(down).not.toContain("box-shadow");
+  });
+});
+
+describe("the cooldown number clears the ring (RD-059)", () => {
+  it("sits below the sweep, not below the button", () => {
+    // The ring hangs an outline plus RING_GAP past the button on every side, so a
+    // number offset from the BUTTON lands on the sweep — dark ink on dark ink, at the
+    // one moment the number is worth reading.
+    const num = rule("#cooldownNum");
+    expect(num).toContain(`top:calc(100% + ${UI_OUTLINE + RING_GAP + 4}px)`);
+  });
+
+  it("clears it by more than the ring's own reach", () => {
+    // Stated as arithmetic rather than a literal, so changing RING_GAP moves the
+    // number with it instead of silently putting it back under the stroke.
+    const num = rule("#cooldownNum");
+    const offset = Number(/top:calc\(100% \+ (\d+)px\)/.exec(num)?.[1]);
+    expect(offset).toBeGreaterThan(UI_OUTLINE + RING_GAP);
   });
 });
 

@@ -32,7 +32,7 @@ These are disagreements between what a spec says and what the tree contains.
 | `spectating` | 🟡 dormant | 2 | 1 | 1 | 2026-09-01 | — |
 | `touch-controls` | 🟡 dormant | 8 | 1 | 0 | 2026-08-31 | — |
 | `visual-direction` | 🟡 dormant | 15 | 1 | 3 | 2026-08-31 | — |
-| `auto-playtest` | ✅ done | 3 | 0 | 0 | 2026-08-31 | — |
+| `auto-playtest` | ✅ done | 4 | 0 | 0 | 2026-08-31 | — |
 | `minigame-falling-floor` | ✅ done | 7 | 0 | 0 | 2026-08-31 | — |
 | `minigame-hot-potato` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |
 | `minigame-scramble` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |

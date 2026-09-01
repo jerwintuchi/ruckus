@@ -11,3 +11,14 @@
 - [x] T3 [R3, R4] — Write down what it cannot see
   Test: `docs/` — the limits are recorded where the next person will look, so a green
   screenshot is never mistaken for a passed playtest
+
+- [x] T4 [R5] — The state gallery: `src/client/states.html`, `src/client/src/states.ts`
+  and `tools/gallery.sh`
+  Test: `states.test.ts` — there is a state for every action verb the server can send,
+  and for each transient screen that has already produced a bug (the toast, the
+  cooldown sweep, the countdown); the page is a separate entry that `main.ts` never
+  imports; it names no minigame, by wire id or display name
+  *Found RD-059 on its first run — the cooldown number was drawn on top of the ring,
+  dark ink on dark ink, at the one moment the number is worth reading. No live
+  screenshot had ever contained a cooldown at all.*
+

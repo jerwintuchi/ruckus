@@ -1982,3 +1982,42 @@ portrait block" by slicing from the first match — so it started asserting thin
 the toast. That test was right and the CSS was wrong: there should be one description of
 what upright looks like. Folded into the existing query, and the count of portrait
 queries is now asserted to be one, so the ambiguity cannot come back.
+
+## RD-059 — A gallery for the screens a live shot keeps missing (2026-09-01)
+
+Asked whether I could take over the playtesting. Mostly the honest answer is no — feel,
+latency, frame rate and WebKit are not available to me. But two of my failures this week
+were not limits of physics, they were limits of the harness, and those are fixable.
+
+**`shoot.sh` cannot photograph half the UI.** A toast lasts 2.2 seconds. A cooldown ring
+sweeps past in 1.4. A player's own action button only exists if the shutter opens during
+a round they are on the roster of, which the virtual clock cannot arrange (RD-054). Four
+real bugs this week lived in exactly those screens, and every one was found by a human
+looking at a phone because no automated shot could contain them.
+
+`states.html` mounts the **real** `Ui` and `Controls` with the real stylesheets and puts
+them into one named state on demand. `tools/gallery.sh` walks the list. The states that
+self-clear are re-armed on an interval rather than pinned by hand — holding the real code
+path open, not faking its end state.
+
+**It found a bug on its first run.** `#cooldownNum` was offset from the BUTTON, and the
+ring hangs an outline plus RING_GAP past the button on every side, so the digits were
+drawn on the sweep — dark ink on dark ink, at the one moment the number is worth reading.
+Offset from the ring now, with the arithmetic in the test so changing RING_GAP moves the
+number rather than quietly putting it back underneath.
+
+**What it deliberately does not do.** Nothing here talks to a server, so it cannot catch a
+state the game fails to REACH. The blank action button had two causes — a memo that never
+drew, and a spectator being handed a button at all — and this page would have shown the
+first and been blind to the second. That is why it is an addition to `shoot.sh` and not a
+replacement: one proves the game arrives at a state, the other proves the state looks
+right, and the specs' manual tasks still say "played on a phone".
+
+**A remaining overlap, recorded rather than churned.** With eight players in landscape the
+lobby card fills the viewport, so a fixed toast overlaps *something*. It now covers the
+"waiting for X to start" line for two seconds instead of the room code. That is a choice,
+not a fix: the code is the thing read aloud across a room, the waiting note is not.
+
+**A backtick in a CSS template-literal comment, the fifth time.** Recording the count and
+nothing else — the compiler catches it every time, in seconds, and three notes about it
+have not changed the habit. The guard works; the note does not.

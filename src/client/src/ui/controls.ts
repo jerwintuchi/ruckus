@@ -148,8 +148,16 @@ export const CONTROLS_CSS = `
 /* Only drawn while it means something: a full ring on a ready button is clutter. */
 #actionBtn:not(.cooling) #cooldownRing{opacity:0}
 
-/* The number sits UNDER the button, clear of the icon rather than across it. */
-#cooldownNum{position:absolute;left:0;right:0;top:calc(100% + 4px);text-align:center;
+/*
+ * The number sits under the RING, not under the button.
+ *
+ * An offset of 100% plus 4px is 4px below the button's own box — and the ring hangs an
+ * outline plus RING_GAP past that on every side, so the digits landed on the sweep:
+ * dark ink on dark ink, at the one moment the number is worth reading. Found in the
+ * state gallery, which is the first thing able to hold a cooldown still (RD-059).
+ */
+#cooldownNum{position:absolute;left:0;right:0;
+  top:calc(100% + ${UI.outline + RING_GAP + 4}px);text-align:center;
   font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:13px;
   color:var(--ink);font-variant-numeric:tabular-nums;pointer-events:none}
 
