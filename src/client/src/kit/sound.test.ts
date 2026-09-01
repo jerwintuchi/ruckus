@@ -9,7 +9,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  MAX_SOUND_MS, MUTE_KEY, Sound, blip, sting, thud,
+  FULL_VOLUME, MAX_SOUND_MS, MUTE_KEY, Sound, VOLUME_KEY, blip, sting, thud,
   type Ctx, type StorageLike,
 } from "./sound.ts";
 
@@ -237,5 +237,87 @@ describe("main.ts triggers each moment exactly once (T3, R2)", () => {
   it("ticks the countdown once per number, not once per frame", () => {
     const frame = main.slice(main.indexOf("if (introEndsAt)"));
     expect(frame).toContain("if (n !== lastCount)");
+  });
+});
+
+describe("master volume (in-game-menu T1, R2)", () => {
+  const store = (init: Record<string, string> = {}): StorageLike & { data: Record<string, string> } => {
+    const data = { ...init };
+    return { data, getItem: (k) => data[k] ?? null, setItem: (k, v) => { data[k] = v; } };
+  };
+
+  it("defaults to full and remembers the step, not the gain (P2)", () => {
+    // The INDEX is stored: a stored 0.7 would quietly become a different level the day
+    // the curve is retuned, and what the player chose was "mid".
+    const s1 = store();
+    const a = new Sound(fakeCtx, s1);
+    expect(a.volumeStep).toBe(FULL_VOLUME);
+    a.setVolumeStep(1);
+    expect(s1.data[VOLUME_KEY]).toBe("1");
+    expect(new Sound(fakeCtx, s1).volumeStep).toBe(1);
+  });
+
+  it("falls back to FULL on a corrupt or out-of-range stored value, never to silence (P2)", () => {
+    // Starting silent because localStorage returned rubbish is indistinguishable, to
+    // the person holding the phone, from the game being broken.
+    for (const bad of ["", "  ", "nope", "-1", "99", "NaN", "1e999"]) {
+      expect(new Sound(fakeCtx, store({ [VOLUME_KEY]: bad })).volumeStep).toBe(FULL_VOLUME);
+    }
+  });
+
+  it("clamps anything handed to it rather than trusting the caller", () => {
+    const a = new Sound(fakeCtx, store());
+    a.setVolumeStep(-5);
+    expect(a.volumeStep).toBe(0);
+    a.setVolumeStep(500);
+    expect(a.volumeStep).toBe(FULL_VOLUME);
+    a.setVolumeStep(Number.NaN);
+    expect(a.volumeStep).toBe(FULL_VOLUME);
+  });
+
+  it("keeps volume and mute independent, so unmuting returns to the chosen level (P1)", () => {
+    const s1 = store();
+    const a = new Sound(fakeCtx, s1);
+    a.setVolumeStep(1);
+    a.setMuted(true);
+    // Muting must not destroy the level...
+    expect(a.volumeStep).toBe(1);
+    a.setMuted(false);
+    // ...and unmuting returns to it, with no interaction beyond both ending in silence.
+    expect(a.volumeStep).toBe(1);
+    expect(s1.data[VOLUME_KEY]).toBe("1");
+  });
+
+  it("puts a master gain between the voices and the destination", () => {
+    const ctx = fakeCtx();
+    const a = new Sound(() => ctx, store());
+    a.unlock();
+    const before = ctx.connections;
+    a.eliminated();
+    // The voice connected to something, and the master had already connected out.
+    expect(ctx.connections).toBeGreaterThan(before);
+    expect(a.gain).toBe(1);
+  });
+
+  it("reports a gain of zero at the off step, by the gain and not by muting", () => {
+    const a = new Sound(fakeCtx, store());
+    a.setVolumeStep(0);
+    expect(a.gain).toBe(0);
+    // One concept per control: the off step does not secretly set `muted`.
+    expect(a.muted).toBe(false);
+  });
+
+  it("keeps currentTime live for the voices, not frozen at unlock", () => {
+    // A spread proxy would snapshot `currentTime`, and every envelope after the first
+    // would be scheduled in the past and never sound.
+    let t = 0;
+    const ctx = fakeCtx();
+    Object.defineProperty(ctx, "currentTime", { get: () => t });
+    const a = new Sound(() => ctx, store());
+    a.unlock();
+    t = 5;
+    const started = ctx.started;
+    a.eliminated();
+    expect(ctx.started).toBeGreaterThan(started);
   });
 });

@@ -76,7 +76,10 @@ describe("it is a page a person opens on the phone, not only a shooter target", 
     // The stick owns bottom-left, the button bottom-right, the gauge top-centre.
     const walker = src.slice(src.indexOf("function walker()"));
     expect(walker).toContain("top:calc(6px + var(--safe-top))");
-    expect(walker).toContain("left:calc(6px + var(--safe-left))");
+    // Top-RIGHT: the settings opener took the top-left (in-game-menu R1), and the
+    // gallery's chrome must never sit on a control or the harness photographs itself.
+    expect(walker).toContain("right:calc(6px + var(--safe-right))");
+    expect(walker).not.toContain("left:calc(6px + var(--safe-left))");
   });
 });
 

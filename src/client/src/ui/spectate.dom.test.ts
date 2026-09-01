@@ -20,7 +20,7 @@ const mount = () => {
   document.body.append(root);
   const ui = new Ui(root, {
     onCreate: () => {}, onJoin: () => {}, onStart: () => {}, onEvent: () => {},
-    onToggleMute: () => false,
+    onToggleMute: () => false, onQuit: () => {}, onVolume: () => {},
   });
   return { ui, root, hud: () => (root.querySelector("#hud") as HTMLElement).innerHTML };
 };

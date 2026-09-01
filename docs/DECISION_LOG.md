@@ -2647,3 +2647,64 @@ regression tests, and the suite is 895.
 found by feeling latency — they were found by asking which situations the tests had
 skipped. Whether a mispredicted shove reads as rubber-banding remains a question only a
 person holding the device can answer.
+
+---
+
+## RD-076 — A menu, and quitting as the disconnect path
+
+*2026-09-01. `specs/in-game-menu/`, from the first phone playtest: "a menu or settings
+in-game would be nice for volume and option to quit the room/session and also in the
+main menu."*
+
+Three choices worth recording.
+
+**Volume is four steps, not a slider.** A drag is the one control a thumb has to be
+precise with, and the Kit has no draggable widget outside the stick itself — adding one
+would mean new press/drag handling and its own reduced-motion story, for a setting
+nobody adjusts twice a session. Four segments are the same slab construction the rest
+of the interface already uses. The **index** is persisted, never the gain: a stored
+`0.7` would quietly become a different level the day the curve is retuned, and what the
+player chose was "mid".
+
+Volume and mute stay **independent**. Muting preserves the chosen level so unmuting
+returns to it, and step zero is silence by setting the gain to zero rather than by
+secretly flipping `muted` — one concept per control. A corrupt or out-of-range stored
+value falls back to FULL and never to silence: a game that starts mute because
+`localStorage` returned rubbish is indistinguishable, to the person holding it, from a
+game that is broken.
+
+The master gain needed no change to any voice. `Ctx` is an interface with a
+`destination`, so `Sound` hands the voices a proxy pointing at the master node. Written
+out rather than spread, because the methods live on `AudioContext.prototype` and
+`currentTime` is a live getter — a spread would have copied no methods and frozen the
+clock at the moment of unlocking, so every envelope after the first would have been
+scheduled in the past and never sounded.
+
+**Quitting IS the disconnect path.** No new message, no new server state, no server file
+touched. `net.close()` and the server's existing handler does the rest: inert capsule,
+scored out at round end, room retired when the last player leaves (I8, RD-024). Two code
+paths for one outcome is how the second one rots — and only the disconnect path is
+exercised by every dropped phone in every real game. A test asserts the protocol gains
+no `leave`/`quit` variant, so this cannot drift.
+
+The only subtlety: `ws.onclose` reports a transport failure, and a quit the player asked
+for is not one. It is detached before closing, or choosing "leave the room" would have
+shown them a connection error on the way out.
+
+**The menu does not pause.** The server never stops (I1), and a menu that looked like a
+pause it could not deliver would be a lie. The round runs behind it and a player who
+opens it mid-round will probably lose that round. That is the honest behaviour.
+
+### What the screenshot caught, again
+
+The opener was placed first in `#hud`, which centres its children — so a requirement
+that named the **top-left corner** produced a button in the middle of the screen. Two
+tests passed over it, because both asserted it was *in the HUD*, which it was. Pinning
+it absolute then put it under the gallery's own walker, which had owned the top-left
+since it was written; the walker moved to the top-right. A harness that photographs its
+own chrome sitting on a control is worse than no harness.
+
+It also drove a real design fix: the opener is now its own fixed element rather than
+part of the per-frame HUD, because R1 wants it in the lobby and on the round-over card
+too — and a button rebuilt every frame needs its listener rebound every frame, which is
+the RD-042 shape waiting to happen.

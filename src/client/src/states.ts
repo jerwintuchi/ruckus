@@ -96,6 +96,13 @@ const STATES: Record<string, (ui: Ui, controls: Controls, show: (s: FlowState) =
   },
   "waiting": (ui) => { ui.render(inMatch()); ui.showWaiting(2, 5); },
   // Watching a round you are not in, with the arena still visible behind (R2, R3).
+  // The settings panel over a live round (in-game-menu T5).
+  "menu-ingame": (ui) => {
+    ui.render(inMatch());
+    ui.renderHud(undefined, { name: "the round", round: 2, of: 5 });
+    ui.setInRoom(true);
+    ui.openSettings(2);
+  },
   "spectating": (ui) => { ui.render(inMatch()); ui.setSpectating(true, 2, 5); ui.renderHud(undefined, { name: "the round", round: 2, of: 5 }); },
   "countdown": (ui) => { ui.render(inMatch()); hold(() => {
     ui.showIntro("A Round Name", "One sentence, which is the whole explanation.", 2, 5);
@@ -222,7 +229,7 @@ document.body.append(overlay);
 const noop = (): void => {};
 const ui = new Ui(overlay, {
   onCreate: noop, onJoin: noop, onStart: noop, onEvent: noop,
-  onToggleMute: () => false,
+  onToggleMute: () => false, onQuit: () => {}, onVolume: () => {},
 });
 const controls = new Controls(document.body, new InputController(document.body));
 
@@ -289,7 +296,10 @@ function walker(): void {
   const bar = document.createElement("div");
   bar.style.cssText =
     "position:fixed;z-index:40;display:flex;gap:6px;align-items:center;" +
-    "top:calc(6px + var(--safe-top));left:calc(6px + var(--safe-left));" +
+    // Top-RIGHT since in-game-menu put the settings opener in the top-left. The rule
+    // is that the gallery's own chrome never sits on a control, or the harness starts
+    // photographing itself instead of the game.
+    "top:calc(6px + var(--safe-top));right:calc(6px + var(--safe-right));" +
     "font:600 12px Fredoka,ui-rounded,system-ui,sans-serif;opacity:.75";
   const link = (label: string, to: string): HTMLElement => {
     const a = document.createElement("a");

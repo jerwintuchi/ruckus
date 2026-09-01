@@ -16,7 +16,7 @@ const mount = (onToggleMute: () => boolean) => {
   document.body.append(root);
   const ui = new Ui(root, {
     onCreate: () => {}, onJoin: () => {}, onStart: () => {}, onEvent: () => {},
-    onToggleMute,
+    onToggleMute, onQuit: () => {}, onVolume: () => {},
   });
   return { ui, root, btn: root.querySelector("#muteBtn") as HTMLButtonElement };
 };

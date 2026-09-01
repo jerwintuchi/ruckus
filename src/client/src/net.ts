@@ -171,6 +171,28 @@ export class Net {
     ws.onclose = () => this.onMsg({ t: "err", code: "BAD_MSG" });
   }
 
+  /**
+   * Leave deliberately (in-game-menu R3).
+   *
+   * Detaches `onclose` before closing: that handler exists to report a transport
+   * failure, and a quit the player asked for is not one. Without this, choosing
+   * "leave the room" would show them a connection error on the way out.
+   *
+   * Nothing is sent. Quitting IS the disconnect path — the server already marks the
+   * runtime inert, scores it out at round end and retires an empty room (I8, RD-024) —
+   * so a new message type would be a second way to cause one outcome, and the second
+   * one always rots.
+   */
+  close(): void {
+    const ws = this.ws;
+    this.ws = null;
+    if (!ws) return;
+    ws.onclose = null;
+    ws.onmessage = null;
+    try { ws.close(); } catch { /* already gone */ }
+    this.buffer.clear();
+  }
+
   send(msg: unknown): void {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
   }

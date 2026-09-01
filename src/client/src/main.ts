@@ -116,7 +116,37 @@ const ui = new Ui(overlay, {
     sound.setMuted(!sound.muted);
     return sound.muted;
   },
+  onVolume: (step) => sound.setVolumeStep(step),
+  /**
+   * Leave the room and go home (in-game-menu R3).
+   *
+   * Everything per-round is torn down for the same reason a round boundary tears it
+   * down (RD-050): a body, a buffer and a predictor are all per-round state, and one
+   * left behind is a ghost in the next room this client joins.
+   */
+  onQuit: () => {
+    net.close();
+    predictor.stop();
+    renderer.clearWorld();
+    renderer.setPrims([]);
+    lastExtra = undefined;
+    aliveLast.clear();
+    handler = undefined;
+    playing = false;
+    roundSeen = false;
+    roundLabelInfo = null;
+    introEndsAt = 0;
+    controls.hide();
+    ui.clearHud();
+    ui.setSpectating(false);
+    ui.hideBanner();
+    flow = initialState();
+    ui.setInRoom(false);
+    ui.render(flow);
+  },
 });
+// The HUD's opener needs the level, which main.ts owns because it owns the sound.
+ui.onOpenSettings = () => ui.openSettings(sound.volumeStep);
 ui.render(flow);
 // Paint the remembered preference before anything is shown, so a muted device never
 // flashes an unmuted control.
@@ -135,6 +165,8 @@ function onMessage(msg: ServerMsg): void {
   switch (msg.t) {
     case "welcome":
       mySlot = msg.slot;
+      // In a room now, so the settings opener appears (in-game-menu R1).
+      ui.setInRoom(true);
       // The controls adopt your colour here and nowhere else (ui-identity R5).
       applyMine(document.documentElement, msg.slot);
       host = msg.host;

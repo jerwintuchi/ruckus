@@ -9,6 +9,7 @@ import { MAX_PLAYERS, type PlayerView } from "@ruckus/shared";
 import type { FlowEvent, FlowState } from "../flow.ts";
 import { createState, joinState, standings, startState, type Standing } from "../flow.ts";
 import { colourFor, escapeHtml } from "./kit.ts";
+import { VOLUME_STEPS } from "../kit/sound.ts";
 import { renderHud, rollTo, roundLabel, type HudData } from "./hud.ts";
 
 export interface UiHandlers {
@@ -20,6 +21,10 @@ export interface UiHandlers {
    *  not screen state, and putting it in the reducer would put it in the totality
    *  property for no benefit (audio design). */
   onToggleMute(): boolean;
+  /** Leave the room entirely and go back to the main menu (in-game-menu R3). */
+  onQuit(): void;
+  /** Set the master level by step index (R2). */
+  onVolume(step: number): void;
 }
 
 /**
@@ -47,6 +52,9 @@ export class Ui {
   private readonly lobby: HTMLElement;
   private readonly banner: HTMLElement;
   private spectating: { round?: number; of?: number } | null = null;
+  private readonly settings: HTMLElement;
+  /** Set by main.ts, which owns the sound and therefore the current step. */
+  onOpenSettings: (() => void) | null = null;
   private readonly scoreboard: HTMLElement;
   private readonly hud: HTMLElement;
   private readonly toastEl: HTMLElement;
@@ -65,6 +73,7 @@ export class Ui {
     this.joining = this.q("#joining");
     this.lobby = this.q("#lobby");
     this.banner = this.q("#banner");
+    this.settings = this.q("#settings");
     this.toastEl = this.q("#toast");
     this.scoreboard = this.q("#scoreboard");
     this.hud = this.q("#hud");
@@ -86,6 +95,12 @@ export class Ui {
     this.q("#startBtn").addEventListener("click", () => this.handlers.onStart());
     this.q("#shareBtn").addEventListener("click", () => void this.share());
     this.q("#muteBtn").addEventListener("click", () => this.setMuted(this.handlers.onToggleMute()));
+    this.q("#gearBtn").addEventListener("click", () => this.onOpenSettings?.());
+    this.q("#closeSettings").addEventListener("click", () => this.closeSettings());
+    this.q("#quitBtn").addEventListener("click", () => {
+      this.closeSettings();
+      this.handlers.onQuit();
+    });
   }
 
   /**
@@ -222,6 +237,53 @@ export class Ui {
    */
   setSpectating(on: boolean, round?: number, of?: number): void {
     this.spectating = on ? { ...(round === undefined ? {} : { round }), ...(of === undefined ? {} : { of }) } : null;
+  }
+
+  /**
+   * The settings panel (in-game-menu R1, R4).
+   *
+   * Opening it changes nothing about the round: no wire traffic, no predictor
+   * interaction, and the arena keeps rendering behind it (P4). A player who opens this
+   * mid-round is standing still in a live arena and will probably lose it — which is
+   * the honest behaviour, because the server did not stop.
+   */
+  openSettings(step: number): void {
+    this.renderSteps(step);
+    this.settings.style.display = "flex";
+  }
+
+  closeSettings(): void {
+    this.settings.style.display = "none";
+  }
+
+  /**
+   * Show or hide the opener (R1).
+   *
+   * On whenever the client is in a room — lobby, live round, round-over card — and off
+   * on the main menu, where "leave the room" would have nothing to leave.
+   */
+  setInRoom(inRoom: boolean): void {
+    this.q("#gearBtn").style.display = inRoom ? "flex" : "none";
+    if (!inRoom) this.closeSettings();
+  }
+
+  get settingsOpen(): boolean {
+    return this.settings.style.display === "flex";
+  }
+
+  /** Four segments; exactly one is marked, in the player's own colour (R2, R5). */
+  private renderSteps(step: number): void {
+    const host = this.q("#volSteps");
+    host.innerHTML = VOLUME_STEPS.map((_, i) =>
+      `<button class="step${i === step ? " on" : ""}" data-step="${i}" ` +
+      `aria-label="volume ${i}" aria-pressed="${i === step}"></button>`).join("");
+    for (const el of Array.from(host.querySelectorAll(".step"))) {
+      el.addEventListener("click", () => {
+        const i = Number((el as HTMLElement).dataset.step ?? 0);
+        this.handlers.onVolume(i);
+        this.renderSteps(i);
+      });
+    }
   }
 
   private spectateChip(): string {
@@ -455,6 +517,35 @@ const TEMPLATE = `
 <div id="toast" class="toast"></div>
 
 <div id="banner" class="overlay" style="display:none"></div>
+
+<!--
+  The settings opener (in-game-menu R1). Its own fixed element rather than part of the
+  HUD: the HUD is rewritten every frame and only while a round is playing, and R1 wants
+  this reachable in the lobby and on the round-over card too. Bound once, shown whenever
+  the client is in a room.
+-->
+<button id="gearBtn" class="iconbtn gear" aria-label="settings" title="settings" style="display:none">
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M4 7h16M4 12h16M4 17h16"></path>
+  </svg>
+</button>
+
+<!--
+  Settings (in-game-menu R1). Reachable in a live round from the HUD's top-left, the
+  one corner no control uses. It does NOT pause: the server never stops (I1), and a
+  menu that looked like a pause it could not deliver would be a lie.
+-->
+<div id="settings" class="overlay" style="display:none">
+  <div class="card">
+    <h2>settings</h2>
+    <div class="setrow">
+      <span class="setlabel">sound</span>
+      <div id="volSteps" class="steps"></div>
+    </div>
+    <button id="closeSettings">back to the game</button>
+    <button id="quitBtn" class="danger">leave the room</button>
+  </div>
+</div>
 
 <!--
   Portrait nudge (arena-framing T5). Always in the DOM; a media query decides whether

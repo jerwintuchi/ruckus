@@ -78,7 +78,7 @@ const players = (n: number, connected = true): PlayerView[] =>
 
 const noop = {
   onCreate: () => {}, onJoin: () => {}, onStart: () => {}, onEvent: () => {},
-  onToggleMute: () => false,
+  onToggleMute: () => false, onQuit: () => {}, onVolume: () => {},
 };
 
 /** A flow state shaped for whichever screen a test is about. */

@@ -30,20 +30,18 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 <!-- Max 20 lines. Pointer + next actions only. No history. -->
 
-Phase: **One feature left, then the phone.**
+Phase: **The phone, and nothing else.**
 
-`specs/input-prediction/` is built, with T8 — the phone — still open (RD-074). Your own
-capsule is predicted and reconciled; everyone else stays interpolated. I6 draws the line
-as **position versus outcome**: the client runs the shared integrator and predicts no rule.
+`specs/in-game-menu/` and `specs/input-prediction/` are built, each with one open box
+and each of those a playtest (RD-074, RD-076). **There is no keyboard work left in
+Ruckus**: every open box in every spec is now a manual task needing a device.
 
-Next and last build work: an **in-game menu** — volume, quit the room, and the same
-from the main menu. It needs a spec; nothing else does.
+They batch. One Hot Potato round at eight players answers `find-yourself` T4,
+`spectating` T3, `flat-controls` T4 and `action-button` T7 together. `input-prediction`
+T8 and `responsiveness` T5 are the same question asked twice.
 
-Behind it, **15 manual boxes**, every one needing a phone. They batch: one Hot Potato
-round at eight players answers `find-yourself` T4, `spectating` T3, `flat-controls` T4
-and `action-button` T7 together. The one that can invalidate work is
-`input-prediction` T8 — if a mispredicted shove reads as rubber-banding, the
-correction needs retuning.
+The one that can invalidate work is **`input-prediction` T8** — if a mispredicted shove
+reads as rubber-banding, the correction needs retuning and RD-074 was the wrong call.
 
 Also owed on hardware: `bench.html` p95 (RD-028) and `specs/audio/` T4-T5.
 
