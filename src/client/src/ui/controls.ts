@@ -38,6 +38,21 @@ export const STICK_HOME_PX = 96;
  */
 export const COOLDOWN_FULL_S = 1.4;
 
+/**
+ * The verb the button is drawing before any snapshot arrives — deliberately not a verb.
+ *
+ * `setAction` only rewrites the icon when the verb *changes*, so this value is a claim
+ * about what the DOM already shows. It was `"tumble"`, while the markup shipped an
+ * empty path: every round whose opening verb is `tumble` — Scramble, and everyone not
+ * holding the bomb in Hot Potato — memoised the first draw away and rendered a blank
+ * disc for the whole round (RD-054). `null` is the only value that cannot collide with
+ * a verb the server can send, and the test below asserts exactly that.
+ */
+export const INITIAL_VERB = null;
+
+/** What the markup ships in the icon's `d`, and therefore what INITIAL_VERB means. */
+export const NO_ICON_PATH = "";
+
 /** The icon's drawn size. Explicit pixels — see the note on `#actionIconSvg`. */
 export const ICON_PX = 38;
 
@@ -163,7 +178,7 @@ export const CONTROLS_HTML = `
   <div id="stickKnob"></div>
   <button id="actionBtn" hidden>
     <svg id="actionIconSvg" viewBox="0 0 ${ICON_BOX} ${ICON_BOX}" aria-hidden="true" focusable="false">
-      <path id="actionIcon" d=""></path>
+      <path id="actionIcon" d="${NO_ICON_PATH}"></path>
     </svg>
     <span id="actionHint" hidden></span>
     <svg id="cooldownRing" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
@@ -223,7 +238,12 @@ export class Controls {
   private readonly hint: HTMLElement;
   private surface: Surface;
   private label = "";
-  private verb: ActionVerb = "tumble";
+  /**
+   * The verb currently DRAWN, or null when nothing is. Not `"tumble"`: the markup
+   * ships `d=""`, so a default of `"tumble"` is the field claiming a picture the DOM
+   * does not have — and the memo below then skips drawing it (RD-054).
+   */
+  private verb: ActionVerb | null = INITIAL_VERB;
 
   constructor(host: HTMLElement, private readonly input: InputController) {
     const wrap = document.createElement("div");

@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   BUTTON_MIN_PX, CONTROLS_CSS, CONTROLS_HTML, GUIDE_OPACITY, STICK_BASE_PX,
   STICK_REST_OPACITY, ICON_PX, RING_PX, RING_GAP, RING_CIRCUMFERENCE, guessSurface,
-  forcedSurface,
+  forcedSurface, INITIAL_VERB, NO_ICON_PATH,
 } from "./controls.ts";
 import { STICK_RADIUS } from "../input.ts";
 import { ACTION_VERBS } from "@ruckus/shared";
@@ -276,6 +276,32 @@ describe("the button keeps its icon (RD-042)", () => {
     const paint = src.slice(src.indexOf("private paint()"), src.indexOf("\n  }", src.indexOf("private paint()")));
     expect(paint).not.toContain("button.textContent");
     expect(paint).toContain("aria-label");
+  });
+});
+
+describe("the first icon of a round is actually drawn (RD-054)", () => {
+  it("starts drawing no verb at all, so the first snapshot cannot be memoised away", () => {
+    // setAction rewrites the icon only when the verb CHANGES, so this field is a
+    // claim about what the DOM already shows. Any real verb here is a lie for the
+    // round that opens on it — which is why Scramble drew a blank yellow disc.
+    for (const verb of ACTION_VERBS) {
+      expect(INITIAL_VERB, verb).not.toBe(verb);
+    }
+  });
+
+  it("agrees with the markup it is describing", () => {
+    // The pair is the whole invariant: an empty path in the HTML and a non-verb in
+    // the field. If either drifts the button goes blank again, silently.
+    expect(NO_ICON_PATH).toBe("");
+    expect(CONTROLS_HTML).toContain(`<path id="actionIcon" d="${NO_ICON_PATH}">`);
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+    expect(src).toContain("private verb: ActionVerb | null = INITIAL_VERB;");
+  });
+
+  it("has a shape for every verb, so drawing one can never fall back to blank", () => {
+    for (const verb of ACTION_VERBS) {
+      expect(iconPath(verb), verb).not.toBe(NO_ICON_PATH);
+    }
   });
 });
 

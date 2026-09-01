@@ -1815,3 +1815,36 @@ size that has stopped changing.
 **This still does not make a desktop a phone.** It makes the phone able to say what it
 is, in one screenshot, without a round trip per number. WebKit behaviour and frame rate
 remain unavailable here, and `arena-framing` T6 is still a manual task.
+
+## RD-054 — Two bugs behind one blank yellow disc (2026-09-01)
+
+The screenshot from RD-053 showed the action button as an empty circle. Two unrelated
+causes, both invisible to 700 passing tests.
+
+**The memo lied about what was drawn.** `setAction` rewrites the icon only when the verb
+*changes*, and the field holding the drawn verb was initialised to `"tumble"` while the
+markup shipped `d=""`. So every round whose opening verb is `tumble` — Scramble, and
+everyone not holding the bomb in Hot Potato — skipped the only draw it was ever going to
+get. It looked fine in testing because Hot Potato's holder goes `tumble → pass → tumble`,
+and the second transition writes the path the first one should have.
+
+The fix is not a better comparison. It is that **the field is a claim about the DOM**, so
+its initial value has to be one the DOM can actually satisfy: `INITIAL_VERB = null`, with
+`NO_ICON_PATH` shared by the markup, and a test asserting no verb the server can send
+equals the initial one. That test fails against the old value — checked, not assumed.
+
+**A spectator was handed a control that did nothing.** RD-046 made mid-round join work by
+fixing the round roster at `beginPlay`, and a joiner is in the audience but not on it.
+The shell still called `controls.show(...)` unconditionally, and the server correctly
+sends no action for someone not in the round — so the button appeared with no verb behind
+it and swallowed taps. `spectating` R4 is new: watching hides the controls, never the
+game. The roster was already in the `ROUND_START` payload, so this costs no wire traffic.
+
+**RD-046 caused this one too**, in the same way it caused RD-052: making mid-round join
+real turned a corner that had never been reachable into one the code runs every match.
+
+**And the harness cannot see the other half.** `--virtual-time-budget` runs the page's
+clock far ahead of the server's, so a shot always lands mid-round — it can photograph the
+spectator and never the player who sat in a lobby and then played. That is now written
+into `spec-workflow.md` beside the other things a screenshot cannot answer, because the
+failure mode of a diagnostic is believing the half it can see is the whole picture.

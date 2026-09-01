@@ -23,13 +23,13 @@ These are disagreements between what a spec says and what the tree contains.
 |---|---|---:|---:|---:|---|---|
 | `audio` | 🟡 dormant | 0 | 5 | 0 | 2026-08-31 | MISSING |
 | `shell` | 🟡 dormant | 18 | 1 | 0 | 2026-08-31 | MISSING |
-| `arena-framing` | 🟢 active | 6 | 1 | 0 | 2026-08-31 | — |
+| `arena-framing` | 🟢 active | 6 | 1 | 0 | 2026-09-01 | — |
 | `action-button` | 🟡 dormant | 9 | 1 | 0 | 2026-08-31 | — |
 | `lobby-flow` | 🟡 dormant | 17 | 1 | 0 | 2026-08-31 | — |
 | `player-collision` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
 | `responsiveness` | 🟡 dormant | 3 | 1 | 1 | 2026-08-31 | — |
 | `round-lifecycle` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
-| `spectating` | 🟡 dormant | 1 | 1 | 1 | 2026-08-31 | — |
+| `spectating` | 🟡 dormant | 2 | 1 | 1 | 2026-08-31 | — |
 | `touch-controls` | 🟡 dormant | 8 | 1 | 0 | 2026-08-31 | — |
 | `visual-direction` | 🟡 dormant | 15 | 1 | 3 | 2026-08-31 | — |
 | `auto-playtest` | ✅ done | 3 | 0 | 0 | 2026-08-31 | — |

@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ERROR_TEXT, NAME_MAX, createState, standings, initialState, joinState, nameState, reduce, rosterChange, shouldShowWaiting, startState, type FlowEvent, type FlowState } from "./flow.ts";
+import {
+  amOnRoster, ERROR_TEXT, NAME_MAX, createState, standings, initialState, joinState, nameState, reduce, rosterChange, shouldShowWaiting, startState, type FlowEvent, type FlowState } from "./flow.ts";
 import { makeRng, type ErrCode, type PlayerView } from "@ruckus/shared";
 
 const SCREENS = ["MENU", "CREATING", "JOINING", "LOBBY", "IN_MATCH"];
@@ -354,5 +357,28 @@ describe("everyone is on the board (lobby-flow T17, R13)", () => {
 
   it("handles an empty roster without inventing a row", () => {
     expect(standings([], {})).toEqual([]);
+  });
+});
+
+describe("a spectator is not handed controls that do nothing (spectating R4)", () => {
+  it("plays when on the round's roster, watches when not", () => {
+    expect(amOnRoster([0, 1, 2], 1)).toBe(true);
+    // The mid-round joiner: in the room, in the audience, not in the round (RD-046).
+    expect(amOnRoster([0, 1, 2], 5)).toBe(false);
+  });
+
+  it("never counts the unassigned slot as playing", () => {
+    // -1 is the slot before `welcome` arrives. `[].includes(-1)` is false by luck;
+    // this pins it on purpose, because a roster is a list of slots and -1 is not one.
+    expect(amOnRoster([], -1)).toBe(false);
+    expect(amOnRoster([-1], -1)).toBe(false);
+  });
+
+  it("is what main.ts gates the controls on, not an unconditional show", () => {
+    // The button was shown to a mid-round joiner with no verb behind it, so it drew
+    // as a blank disc that still swallowed taps.
+    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "main.ts"), "utf8");
+    expect(src).toContain("if (amOnRoster(msg.roster, mySlot)) controls.show(msg.buttonLabel);");
+    expect(src).not.toMatch(/^\s*controls\.show\(msg\.buttonLabel\);/m);
   });
 });

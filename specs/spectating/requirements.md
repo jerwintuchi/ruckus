@@ -35,3 +35,17 @@ and a test defending a leaderboard nobody was on.
 **R3**: Watching is never a dead screen.
 - AC: the arena, the other players and the HUD stay live while spectating — losing is
       supposed to be worth watching (vision pillar 3), which requires something to watch
+
+**R4**: A spectator is not given controls that do nothing.
+- AC: the stick and the action button are hidden for a player who is watching a round
+      they are not on the roster of
+- AC: they appear at the next `ROUND_START` whose roster includes that player
+- AC: the arena, the other players and the HUD stay live regardless (R3) — this hides
+      the *controls*, never the game
+- AC: no new wire traffic: `ROUND_START` already carries the round's roster
+
+*Found by screenshotting a mid-round joiner (RD-053). They were handed a live action
+button with no verb behind it — the server sends no action for someone who is not in
+the round — so it rendered as a blank disc that swallowed taps. A control that cannot
+do anything is the same failure as a control nobody can see (RD-035): the picture the
+player is reading disagrees with the state the game is in.*

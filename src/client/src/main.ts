@@ -7,7 +7,7 @@ import {
   TICK_MS, type PlayerView, type Prim, type ServerMsg, type WireAction,
 } from "@ruckus/shared";
 import {
-  initialState, reduce, rosterChange, shouldShowWaiting, type FlowEvent,
+  amOnRoster, initialState, reduce, rosterChange, shouldShowWaiting, type FlowEvent,
 } from "./flow.ts";
 import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
@@ -165,7 +165,9 @@ function onMessage(msg: ServerMsg): void {
       playing = true;
       roundSeen = true;
       // The round says which controls it needs; the shell never asks which game it is.
-      controls.show(msg.buttonLabel);
+      // A mid-round joiner is watching, not playing, and gets no controls (R4).
+      if (amOnRoster(msg.roster, mySlot)) controls.show(msg.buttonLabel);
+      else controls.hide();
       introEndsAt = 0;
       ui.hideBanner();
       break;

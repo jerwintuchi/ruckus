@@ -201,6 +201,20 @@ export const shouldShowWaiting = (state: MatchState, roundSeen: boolean): boolea
   state !== "LOBBY" && !roundSeen;
 
 /**
+ * Is this player IN the round that is starting, or watching it? (spectating R4)
+ *
+ * A mid-round joiner is in the audience and not on the roster (RD-046), and the server
+ * sends no action for someone who is not in the round — so their button arrived with
+ * no verb behind it and drew as a blank disc that still swallowed taps. Being handed a
+ * control that cannot do anything is the same failure as a control nobody can see
+ * (RD-035).
+ *
+ * `-1` is the slot before `welcome` arrives, and must never read as playing.
+ */
+export const amOnRoster = (roster: readonly number[], slot: number): boolean =>
+  slot >= 0 && roster.includes(slot);
+
+/**
  * Can this player press Join, and if not, what should they be told? (P5)
  *
  * The Start button has always explained itself. Join did not: it was `disabled` with

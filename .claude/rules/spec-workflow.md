@@ -104,7 +104,11 @@ this look right*. It cannot answer:
 - *does it hold 60 fps* — `bench.html` on a real phone is the only source (RD-028)
 - *does it feel right* — latency, the stick under a thumb, whether a jump is judgeable
 - *would a stranger work this out* — which is what most manual tasks actually ask
-- anything about safe areas, notches, or the browser chrome on a real device
+- anything about safe areas, notches, or the browser chrome on a real device —
+  `?debug=1` is what answers those, and only from a phone (RD-053)
+- *any state that needs waiting for* — `--virtual-time-budget` runs the page's clock
+  far ahead of the server's, so the shot always lands mid-round. It cannot photograph
+  a player who joined a lobby and then played, which is most of the game (RD-054)
 
 **A screenshot never ticks a manual box.** Every spec's final task says "played on a
 phone" for reasons this tool does not change.

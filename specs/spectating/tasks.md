@@ -10,6 +10,12 @@
   removed under `prefers-reduced-motion` while the text stays; `protocol.test.ts` —
   no new message exists
 
+- [x] T4 [R4] — `amOnRoster` in `src/client/src/flow.ts`, applied at `roundStart` in
+  `src/client/src/main.ts`
+  Test: `flow.test.ts` — a slot on the roster plays, one absent from it watches, and
+  the unassigned slot (-1, before `welcome`) never counts as playing; `main` is
+  asserted to gate `controls.show` on it rather than calling it unconditionally
+
 - [ ] T3 [R3] — Watched, on a phone
   Test: manual. Two thirds of a Hot Potato round is spent eliminated. Is it worth
   watching, and can you tell who is still in?
