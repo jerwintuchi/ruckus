@@ -15,7 +15,7 @@ import { Net } from "./net.ts";
 import { Renderer } from "./render.ts";
 import {
   CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui, countdownAt,
-  makeSafeProbe, readInsets, viewportReport,
+  makeSafeProbe, readInsets, viewportReport, insetOverride, applyInsets,
 } from "./ui/index.ts";
 
 // The two typefaces are a runtime CDN dependency, not an asset file, with a declared
@@ -28,6 +28,11 @@ document.head.append(font);
 const style = document.createElement("style");
 style.textContent = UI_CSS + CONTROLS_CSS;
 document.head.append(style);
+
+// `?insets=T,R,B,L` replays a real phone's safe areas for the screenshot harness. Runs
+// before anything is drawn, and does nothing at all without the parameter (RD-055).
+const measured = insetOverride(location.search);
+if (measured) applyInsets(document.documentElement, measured);
 
 const canvas = document.createElement("canvas");
 document.body.append(canvas);

@@ -1848,3 +1848,50 @@ clock far ahead of the server's, so a shot always lands mid-round — it can pho
 spectator and never the player who sat in a lobby and then played. That is now written
 into `spec-workflow.md` beside the other things a screenshot cannot answer, because the
 failure mode of a diagnostic is believing the half it can see is the whole picture.
+
+## RD-055 — The phone answered, so stop guessing (2026-09-01)
+
+RD-053 built the readout. Two screenshots from the device settled three things.
+
+**The measurements**, from the iPhone in RD-029, added to the home screen:
+
+| | viewport | chrome | safe insets |
+|---|---|---|---|
+| landscape, home screen | 874x402 dpr3 | none | t0 r62 b20 **l62** |
+| portrait, home screen | 402x812 dpr3 | 62 tall | t62 r0 b34 l0 |
+| portrait, Safari | 402x714 dpr3 | **160 tall** | — |
+
+Three things follow. The harness's guessed landscape profile — 874x402 at dpr 3 — was
+**exactly right**, but only for the home-screen case: in Safari the URL bar takes 160
+CSS points in portrait, so the two paths are different games to lay out. And in
+landscape the notch is at the **side**: 124 points of width, 14% of the viewport, that
+every desktop screenshot has been handing out for free.
+
+**Replaying insets, rather than pretending to have them.** A desktop browser reports 0
+on all four sides and no flag changes it. So every rule now spends `var(--safe-*)`, the
+four variables are defined from `env()` in exactly one place, and `?insets=T,R,B,L`
+substitutes measured values. A test asserts no rule calls `env()` directly, because one
+stray call site is a control that ignores the override and lands where no phone would
+put it. The probe reads the variables too, not raw `env()` — a diagnostic that disagrees
+with the layout it is describing is worse than none.
+
+This is a **replay, not an emulator**, and the difference is worth keeping in view:
+change device and these numbers are simply wrong. `shoot.sh` carries them as measured
+constants with their provenance, not as defaults that look authoritative.
+
+**And the lobby card was cut off by the screen edge.** `lobby-flow` T18 claimed the card
+"scrolls internally rather than growing past the viewport", and its test asserted the
+rule merely contained `max-height`. It contained `max-height:94vh` — against the
+*viewport*, which lets the card claim the overlay's padding and the safe insets on top
+of its own space. On the device the last player's name was sliced in half. It is
+`max-height:100%` now, bounded by the overlay's content box, plus the `min-height:0`
+without which a flex item ignores the bound entirely.
+
+**That is the third test this week that pinned the bug it was written beside** — after
+`width:100%` on the canvas and `width:60%` on the button. The pattern is a test asserting
+that a property is *present* rather than what it is *set to*. This one now names the
+value and forbids viewport units outright.
+
+**A backtick in a CSS template-literal comment, for the third time** (RD-036, RD-043).
+Caught by `tsc` in seconds each time, so it costs little — but three occurrences is a
+habit, not an accident: comments inside these template literals get no backticks.

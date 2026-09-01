@@ -92,11 +92,43 @@ export function makeSafeProbe(doc: Document): HTMLElement {
   Object.assign(el.style, {
     position: "fixed", top: "0", left: "0", width: "0", height: "0",
     visibility: "hidden", pointerEvents: "none",
-    paddingTop: "env(safe-area-inset-top)",
-    paddingRight: "env(safe-area-inset-right)",
-    paddingBottom: "env(safe-area-inset-bottom)",
-    paddingLeft: "env(safe-area-inset-left)",
+    // The same variables every rule spends, not raw env(): if an override is in
+    // force the readout has to report what the layout is actually using, or the
+    // diagnostic and the page disagree about the screen they are on.
+    paddingTop: "var(--safe-top)",
+    paddingRight: "var(--safe-right)",
+    paddingBottom: "var(--safe-bottom)",
+    paddingLeft: "var(--safe-left)",
   });
   doc.body.append(el);
   return el;
+}
+
+/**
+ * `?insets=T,R,B,L` — substitute measured safe-area insets (RD-055).
+ *
+ * A desktop browser reports 0 on all four sides and there is no flag that changes it,
+ * so a screenshot silently draws the controls where no phone would put them. These are
+ * numbers a real device reported through `viewportReport`, fed back in: not a guess at
+ * a phone, a replay of one.
+ *
+ * Four non-negative numbers or nothing. A partial or malformed value is ignored rather
+ * than half-applied — a layout shifted by a typo is worse than one that ignored it.
+ */
+export function insetOverride(search: string): Insets | null {
+  const raw = new URLSearchParams(search).get("insets");
+  if (!raw) return null;
+  const parts = raw.split(",").map((v) => Number(v.trim()));
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n) || n < 0)) return null;
+  const [top, right, bottom, left] = parts as [number, number, number, number];
+  return { top, right, bottom, left };
+}
+
+/** Write an override onto the root element, where the `--safe-*` variables live. */
+export function applyInsets(root: { style: { setProperty(k: string, v: string): void } },
+  insets: Insets): void {
+  root.style.setProperty("--safe-top", `${insets.top}px`);
+  root.style.setProperty("--safe-right", `${insets.right}px`);
+  root.style.setProperty("--safe-bottom", `${insets.bottom}px`);
+  root.style.setProperty("--safe-left", `${insets.left}px`);
 }

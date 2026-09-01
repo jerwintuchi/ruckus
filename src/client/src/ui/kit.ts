@@ -44,6 +44,14 @@ export const UI_CSS = `
   --text:${PAPER.text};
   --text-dim:${PAPER.textDim};
   --highlight:${PAPER.highlight};
+  /* The four safe-area insets, once, so every rule spends them by name.
+     Indirected through a variable rather than calling env() at each site so the
+     screenshot harness can substitute a real phone's measured values — a desktop
+     browser reports 0 on all four sides and cannot be told otherwise (RD-055). */
+  --safe-top:env(safe-area-inset-top);
+  --safe-right:env(safe-area-inset-right);
+  --safe-bottom:env(safe-area-inset-bottom);
+  --safe-left:env(safe-area-inset-left);
   --outline:${UI.outline}px;
   --radius:${UI.radius}px;
   --shadow:${UI.shadowOffset}px ${UI.shadowOffset}px 0 var(--ink);
@@ -77,8 +85,8 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 .overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;
   justify-content:center;flex-direction:column;gap:14px;pointer-events:none;
   text-align:center;
-  padding:calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
-          calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left))}
+  padding:calc(16px + var(--safe-top)) calc(16px + var(--safe-right))
+          calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left))}
 
 /* A panel IS a slab: flat fill, ink outline, hard offset shadow, no blur. */
 .card{pointer-events:auto;background:var(--card);color:var(--text);
@@ -155,7 +163,7 @@ input::placeholder{color:var(--text-dim)}
  * need dismissing — a copy confirmation that blocks Start would be worse than silence.
  */
 .toast{position:fixed;z-index:20;left:50%;transform:translate(-50%,-16px);
-  top:calc(12px + env(safe-area-inset-top));
+  top:calc(12px + var(--safe-top));
   background:var(--ink);color:var(--card);
   border-radius:999px;padding:9px 18px;
   font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;font-size:14px;
@@ -185,8 +193,8 @@ input::placeholder{color:var(--text-dim)}
 
 /* The HUD sits above the arena, out of both thumb corners (R11). */
 #hud{position:fixed;top:0;left:0;right:0;z-index:5;
-  padding:calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
-          10px calc(14px + env(safe-area-inset-left));
+  padding:calc(10px + var(--safe-top)) calc(14px + var(--safe-right))
+          10px calc(14px + var(--safe-left));
   display:flex;justify-content:center;gap:10px;pointer-events:none}
 .gauge{background:var(--card);border:3px solid var(--ink);border-radius:999px;
   box-shadow:3px 3px 0 var(--ink);padding:5px 14px;
@@ -233,7 +241,7 @@ input::placeholder{color:var(--text-dim)}
 #rotate{display:none}
 @media (orientation:portrait){
   #rotate{position:fixed;z-index:20;left:0;right:0;
-    bottom:calc(14px + env(safe-area-inset-bottom));
+    bottom:calc(14px + var(--safe-bottom));
     display:flex;justify-content:center;pointer-events:none}
   #rotate span{background:var(--card);color:var(--text);
     border:var(--outline) solid var(--ink);border-radius:999px;
@@ -247,12 +255,20 @@ input::placeholder{color:var(--text-dim)}
   90%{transform:rotate(7deg)}
 }
 
-/* Landscape phones: short viewports get tighter, never scrolled (R11, T17). */
+/* Landscape phones: short viewports get tighter, and scroll INSIDE the card (T18). */
 @media (max-height:430px){
   /* Tighter, but never inside the chrome: the insets survive the squeeze. */
-  .overlay{padding:calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right))
-           calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left))}
-  .card{padding:12px 18px;gap:7px;max-height:94vh;overflow-y:auto}
+  .overlay{padding:calc(8px + var(--safe-top)) calc(8px + var(--safe-right))
+           calc(8px + var(--safe-bottom)) calc(8px + var(--safe-left))}
+  /* 100% of the OVERLAY's content box, not 94vh. Against the viewport the card is
+     allowed the padding and the safe insets as well as its own space, so it grew past
+     the overlay by exactly that much and the last row was cut off by the screen edge —
+     photographed on the device, with a player's name sliced in half (RD-055).
+     min-height:0 is what lets a flex item shrink below its content at all, and
+     without it the max-height above is quietly ignored. */
+  .card{padding:12px 18px;gap:7px;max-height:100%;min-height:0;overflow-y:auto}
+  /* Eight rows is the design maximum, so buy back the height they need. */
+  .row{padding:3px 2px}
   h1{font-size:26px}
   .code{font-size:34px}
   button{min-height:${UI.minTarget}px;padding:8px 20px;font-size:16px}

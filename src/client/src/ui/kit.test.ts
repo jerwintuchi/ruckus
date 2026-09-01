@@ -116,14 +116,14 @@ describe("the browser's chrome never covers anything (arena-framing T4, R4)", ()
     // played in — a top-only inset would miss it entirely.
     const overlay = rule(".overlay");
     for (const side of ["top", "right", "bottom", "left"]) {
-      expect(overlay, side).toContain(`env(safe-area-inset-${side})`);
+      expect(overlay, side).toContain(`var(--safe-${side})`);
     }
   });
 
   it("insets the HUD, which is pinned to the very edge", () => {
     const hud = rule("#hud");
     for (const side of ["top", "right", "left"]) {
-      expect(hud, side).toContain(`env(safe-area-inset-${side})`);
+      expect(hud, side).toContain(`var(--safe-${side})`);
     }
   });
 
@@ -133,7 +133,7 @@ describe("the browser's chrome never covers anything (arena-framing T4, R4)", ()
     const short = UI_CSS.slice(UI_CSS.indexOf("@media (max-height:430px)"));
     const overlay = short.slice(short.indexOf(".overlay{"), short.indexOf("}", short.indexOf(".overlay{")));
     for (const side of ["top", "right", "bottom", "left"]) {
-      expect(overlay, side).toContain(`env(safe-area-inset-${side})`);
+      expect(overlay, side).toContain(`var(--safe-${side})`);
     }
   });
 
@@ -167,7 +167,7 @@ describe("portrait says what to do and blocks nothing (arena-framing T5, R5, P4)
     expect(block).toContain("bottom:");
     expect(block).not.toContain("inset:0");
     // And it clears the home indicator while it is down there.
-    expect(block).toContain("env(safe-area-inset-bottom)");
+    expect(block).toContain("var(--safe-bottom)");
   });
 
   it("keeps the message under reduced motion, and drops only the movement", () => {
@@ -218,12 +218,37 @@ describe("eight rows fit a landscape phone (lobby-flow T18, R13)", () => {
     // rows rather than two. The card must stay on screen and scroll within itself.
     const short = UI_CSS.slice(UI_CSS.indexOf("@media (max-height:430px)"));
     const card = short.slice(short.indexOf(".card{"), short.indexOf("}", short.indexOf(".card{")));
-    expect(card).toContain("max-height");
     expect(card).toContain("overflow-y:auto");
+    // Bounded by the OVERLAY, never the viewport. This test used to say only
+    // `toContain("max-height")`, which `94vh` satisfied — and 94vh lets the card claim
+    // the overlay's padding and the safe insets on top of its own space, so the last
+    // row was sliced by the screen edge on the real device (RD-055).
+    expect(card).toContain("max-height:100%");
+    expect(card).not.toMatch(/max-height:[\d.]+v[hw]/);
+    // A flex item will not shrink below its content without this, so the max-height
+    // above would be quietly ignored.
+    expect(card).toContain("min-height:0");
   });
 
   it("marks the local player's row distinctly from a disconnected one", () => {
     expect(rule(".row.me")).toContain("var(--card-dim)");
     expect(rule(".row.gone")).toContain("opacity");
+  });
+});
+
+describe("the insets are spent by name, so they can be replayed (RD-055)", () => {
+  it("defines all four variables from env(), once", () => {
+    // Every rule says var(--safe-*); exactly one place says env(). That one place is
+    // what an override can replace, and a desktop browser cannot be told otherwise.
+    for (const side of ["top", "right", "bottom", "left"]) {
+      expect(UI_CSS, side).toContain(`--safe-${side}:env(safe-area-inset-${side})`);
+    }
+  });
+
+  it("leaves no rule calling env() directly", () => {
+    // A single stray call site is a control that ignores the override and lands
+    // somewhere no phone would put it — the exact failure this exists to prevent.
+    const declarations = UI_CSS.replace(/--safe-\w+:env\(safe-area-inset-\w+\);/g, "");
+    expect(declarations).not.toContain("env(safe-area-inset");
   });
 });

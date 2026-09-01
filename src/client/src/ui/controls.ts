@@ -88,8 +88,8 @@ export const CONTROLS_CSS = `
 
 /* The button is a real element with a real hit area — see the note in input.ts. */
 #actionBtn{position:fixed;
-  right:calc(${STICK_HOME_PX / 2}px + env(safe-area-inset-right));
-  bottom:calc(${STICK_HOME_PX / 2}px + env(safe-area-inset-bottom));
+  right:calc(${STICK_HOME_PX / 2}px + var(--safe-right));
+  bottom:calc(${STICK_HOME_PX / 2}px + var(--safe-bottom));
   width:${BUTTON_MIN_PX}px;height:${BUTTON_MIN_PX}px;padding:0;border-radius:50%;
   border:var(--outline) solid var(--ink);background:var(--highlight);color:var(--ink);
   box-shadow:0 ${UI.shadowOffset}px 0 var(--ink);
@@ -154,8 +154,8 @@ export const CONTROLS_CSS = `
 
 /* The keyboard guide, for a player who has a keyboard. */
 #keyGuide{position:fixed;
-  left:calc(14px + env(safe-area-inset-left));
-  bottom:calc(12px + env(safe-area-inset-bottom));
+  left:calc(14px + var(--safe-left));
+  bottom:calc(12px + var(--safe-bottom));
   display:flex;align-items:center;gap:10px;
   opacity:${GUIDE_OPACITY};pointer-events:none;
   font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;font-size:13px;
@@ -371,8 +371,8 @@ export class Controls {
    * are one convention rather than two.
    */
   private home(): void {
-    const left = `calc(${STICK_HOME_PX}px + env(safe-area-inset-left))`;
-    const top = `calc(100% - ${STICK_HOME_PX}px - env(safe-area-inset-bottom))`;
+    const left = `calc(${STICK_HOME_PX}px + var(--safe-left))`;
+    const top = `calc(100% - ${STICK_HOME_PX}px - var(--safe-bottom))`;
     for (const el of [this.base, this.knob]) {
       el.style.left = left;
       el.style.top = top;

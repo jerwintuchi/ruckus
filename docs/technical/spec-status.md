@@ -29,7 +29,7 @@ These are disagreements between what a spec says and what the tree contains.
 | `player-collision` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
 | `responsiveness` | 🟡 dormant | 3 | 1 | 1 | 2026-08-31 | — |
 | `round-lifecycle` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
-| `spectating` | 🟡 dormant | 2 | 1 | 1 | 2026-08-31 | — |
+| `spectating` | 🟡 dormant | 2 | 1 | 1 | 2026-09-01 | — |
 | `touch-controls` | 🟡 dormant | 8 | 1 | 0 | 2026-08-31 | — |
 | `visual-direction` | 🟡 dormant | 15 | 1 | 3 | 2026-08-31 | — |
 | `auto-playtest` | ✅ done | 3 | 0 | 0 | 2026-08-31 | — |

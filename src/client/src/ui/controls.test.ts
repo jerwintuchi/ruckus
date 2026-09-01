@@ -91,14 +91,16 @@ describe("the button says what it does, and only exists when there is one (T4, R
 describe("controls sit inside the safe area (T6, R5)", () => {
   it("keeps the button clear of the home indicator and the notch", () => {
     const btn = rule("#actionBtn");
-    expect(btn).toContain("env(safe-area-inset-right)");
-    expect(btn).toContain("env(safe-area-inset-bottom)");
+    expect(btn).toContain("var(--safe-right)");
+    expect(btn).toContain("var(--safe-bottom)");
   });
 
   it("homes the resting stick inside the safe area too", () => {
     const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
     const home = src.slice(src.indexOf("private home()"), src.indexOf("\n  }", src.indexOf("private home()")));
-    expect(home).toContain("safe-area-inset-");
+    // Spent by name now, so the harness can replay a real phone's values (RD-055).
+    expect(home).toContain("var(--safe-left)");
+    expect(home).toContain("var(--safe-bottom)");
   });
 });
 
@@ -166,8 +168,8 @@ describe("the controls suit the device being held (T8, T9, R6)", () => {
 
   it("keeps the guide inside the safe area, like every other control (R5)", () => {
     const guide = rule("#keyGuide");
-    expect(guide).toContain("env(safe-area-inset-left)");
-    expect(guide).toContain("env(safe-area-inset-bottom)");
+    expect(guide).toContain("var(--safe-left)");
+    expect(guide).toContain("var(--safe-bottom)");
   });
 
   it("only lets a real event switch surfaces", () => {

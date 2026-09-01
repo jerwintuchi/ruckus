@@ -7,7 +7,9 @@
  * that it is not a guess made on a desktop.
  */
 import { describe, expect, it } from "vitest";
-import { NO_INSETS, px, readInsets, viewportReport } from "./probe.ts";
+import {
+  NO_INSETS, applyInsets, insetOverride, px, readInsets, viewportReport,
+} from "./probe.ts";
 
 /** The device from RD-029, portrait, Safari with its chrome showing. */
 const PHONE_PORTRAIT = {
@@ -80,5 +82,34 @@ describe("the screen report (R4)", () => {
   it("prints the insets compactly enough to read off a photograph of a phone", () => {
     const r = viewportReport(PHONE_PORTRAIT, { top: 59, right: 0, bottom: 34, left: 0 });
     expect(r.safe).toBe("t59 r0 b34 l0");
+  });
+});
+
+describe("replaying a real phone's safe areas (RD-055)", () => {
+  it("accepts the four numbers a phone actually reported", () => {
+    // Measured on the iPhone from RD-029, landscape, added to the home screen:
+    // t0 r62 b20 l62. 124 CSS points of the width that a desktop shot treats as free.
+    expect(insetOverride("?insets=0,62,20,62")).toEqual({ top: 0, right: 62, bottom: 20, left: 62 });
+    // And portrait from the same device.
+    expect(insetOverride("?insets=62,0,34,0")).toEqual({ top: 62, right: 0, bottom: 34, left: 0 });
+  });
+
+  it("ignores anything malformed rather than half-applying it", () => {
+    // A layout shifted by a typo is worse than one that ignored the parameter.
+    expect(insetOverride("")).toBeNull();
+    expect(insetOverride("?insets=0,62,20")).toBeNull();
+    expect(insetOverride("?insets=0,62,20,62,4")).toBeNull();
+    expect(insetOverride("?insets=0,-62,20,62")).toBeNull();
+    expect(insetOverride("?insets=a,b,c,d")).toBeNull();
+    expect(insetOverride("?surface=touch")).toBeNull();
+  });
+
+  it("writes the same variable names the stylesheet spends", () => {
+    const set = new Map<string, string>();
+    applyInsets({ style: { setProperty: (k, v) => void set.set(k, v) } },
+      { top: 0, right: 62, bottom: 20, left: 62 });
+    expect(set.get("--safe-left")).toBe("62px");
+    expect(set.get("--safe-bottom")).toBe("20px");
+    expect(set.get("--safe-top")).toBe("0px");
   });
 });
