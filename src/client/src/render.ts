@@ -182,13 +182,23 @@ export class Renderer {
     for (const p of prims) this.prims.add(buildPrim(p));
   }
 
-  syncPlayers(players: LerpedPlayer[], colours: Map<number, string>, t: number): void {
+  /**
+   * @param mine the local player's slot, or -1 for a spectator and for the moments
+   *             before `welcome`. Exactly one character is ever marked, because
+   *             `setMine` is called only where a character is BUILT (find-yourself P1).
+   */
+  syncPlayers(
+    players: LerpedPlayer[], colours: Map<number, string>, t: number, mine = -1,
+  ): void {
     const seen = new Set<number>();
     for (const p of players) {
       seen.add(p.slot);
       let c = this.characters.get(p.slot);
       if (!c) {
-        c = new Character(colours.get(p.slot) ?? PALETTE.accent, p.slot);
+        const colour = colours.get(p.slot) ?? PALETTE.accent;
+        c = new Character(colour, p.slot);
+        // Here and nowhere else: called per frame it would be a caret per frame.
+        if (p.slot === mine && mine >= 0) c.setMine(colour);
         this.characters.set(p.slot, c);
         this.dynamics.add(c.root);
       }

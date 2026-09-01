@@ -151,17 +151,17 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
     </div>
     <div class="stamp">
       <span class="badge ok">all green</span><br>
-      <b>2026-09-01 10:11 UTC</b><br>
-      <code>df0cfc3</code> docs(specs): flat controls, find yourself, ui identity — RD-069
+      <b>2026-09-01 10:41 UTC</b><br>
+      <code>367cb2d</code> docs(specs): the buttons are yours, the paper is not — RD-070, ui-identity R5
     </div>
   </header>
 
   <div class="metrics">
     <div class="metric"><b>4</b><span>Minigames shipped</span></div>
-    <div class="metric"><b>147</b><span>Tasks done <em>/ 27 open</em></span></div>
-    <div class="metric"><b>772</b><span>Tests</span></div>
+    <div class="metric"><b>160</b><span>Tasks done <em>/ 14 open</em></span></div>
+    <div class="metric"><b>815</b><span>Tests</span></div>
     <div class="metric"><b>3,362</b><span>Eager context tokens</span></div>
-    <div class="metric"><b>70</b><span>Decisions logged</span></div>
+    <div class="metric"><b>71</b><span>Decisions logged</span></div>
   </div>
 
   <section>
@@ -182,7 +182,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
 <li class="guard guard--ok">
           <span class="guard__state">pass</span>
           <span class="guard__label">Spec registry matches the tree</span>
-          <span class="guard__detail">spec registry OK — 20 spec(s), 3 flagged</span>
+          <span class="guard__detail">spec registry OK — 20 spec(s), 0 flagged</span>
         </li>
     </ul>
   </section>
@@ -242,26 +242,10 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
         <tr>
           <td><code>flat-controls</code></td>
           <td><span class="chip chip--active">active</span></td>
-          <td class="num">0</td>
-          <td class="num">4</td>
-          <td class="bar"><span style="--pct:0%"></span></td>
-          <td class="flags"><span class="flag">MISSING</span></td>
-        </tr>
-<tr>
-          <td><code>find-yourself</code></td>
-          <td><span class="chip chip--dormant">dormant</span></td>
-          <td class="num">0</td>
-          <td class="num">4</td>
-          <td class="bar"><span style="--pct:0%"></span></td>
-          <td class="flags"><span class="flag">LIKELY-SHIPPED</span></td>
-        </tr>
-<tr>
-          <td><code>ui-identity</code></td>
-          <td><span class="chip chip--dormant">dormant</span></td>
-          <td class="num">0</td>
-          <td class="num">8</td>
-          <td class="bar"><span style="--pct:0%"></span></td>
-          <td class="flags"><span class="flag">LIKELY-SHIPPED</span></td>
+          <td class="num">3</td>
+          <td class="num">1</td>
+          <td class="bar"><span style="--pct:75%"></span></td>
+          <td class="flags"><span class=ok-dash>—</span></td>
         </tr>
 <tr>
           <td><code>action-button</code></td>
@@ -285,6 +269,14 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
           <td class="num">3</td>
           <td class="num">2</td>
           <td class="bar"><span style="--pct:60%"></span></td>
+          <td class="flags"><span class=ok-dash>—</span></td>
+        </tr>
+<tr>
+          <td><code>find-yourself</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">3</td>
+          <td class="num">1</td>
+          <td class="bar"><span style="--pct:75%"></span></td>
           <td class="flags"><span class=ok-dash>—</span></td>
         </tr>
 <tr>
@@ -333,6 +325,14 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
           <td class="num">8</td>
           <td class="num">1</td>
           <td class="bar"><span style="--pct:89%"></span></td>
+          <td class="flags"><span class=ok-dash>—</span></td>
+        </tr>
+<tr>
+          <td><code>ui-identity</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">7</td>
+          <td class="num">1</td>
+          <td class="bar"><span style="--pct:88%"></span></td>
           <td class="flags"><span class=ok-dash>—</span></td>
         </tr>
 <tr>
@@ -409,7 +409,8 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
     <p class="lead">Append-only. Newest first. Each records what was decided, the context
     that forced it, and what follows.</p>
     <ol class="decisions">
-      <li><span class="rd">RD-070</span><span class="rd__t">The buttons are yours; the paper is not</span><time>2026-09-01</time></li>
+      <li><span class="rd">RD-071</span><span class="rd__t">Three specs built: flat, findable, and yours</span><time>2026-09-01</time></li>
+<li><span class="rd">RD-070</span><span class="rd__t">The buttons are yours; the paper is not</span><time>2026-09-01</time></li>
 <li><span class="rd">RD-069</span><span class="rd__t">A shadow means an object, and a circle is not one</span><time>2026-09-01</time></li>
 <li><span class="rd">RD-068</span><span class="rd__t">Sound, synthesised, and silent until touched</span><time>2026-09-01</time></li>
 <li><span class="rd">RD-067</span><span class="rd__t">The round clock, the short lobby, and a number I should not have trusted</span><time>2026-09-01</time></li>
@@ -505,7 +506,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
   </section>
 
   <footer>
-    8,031 lines of source, 9,395 lines of test.
+    8,375 lines of source, 9,858 lines of test.
     Generated by <code>tools/status_html.py</code> from the spec registry, the minigame
     sources and the decision log — regenerate and republish after any change.
   </footer>

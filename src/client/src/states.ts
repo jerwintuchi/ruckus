@@ -23,9 +23,10 @@ import { initialState, reduce, type FlowState } from "./flow.ts";
 import { InputController } from "./input.ts";
 import {
   CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui,
-  applyInsets, insetOverride,
+  applyInsets, applyMine, insetOverride,
 } from "./ui/index.ts";
-import { ACTION_VERBS, type PlayerView, type WireAction } from "@ruckus/shared";
+import { ACTION_VERBS, PLAYER_COLOURS, type PlayerView, type WireAction } from "@ruckus/shared";
+import { iconPath } from "./ui/icons.ts";
 
 /**
  * Keep a self-clearing state on screen.
@@ -105,6 +106,52 @@ const STATES: Record<string, (ui: Ui, controls: Controls, show: (s: FlowState) =
   "match-end": (ui) => {
     ui.render(inMatch());
     ui.showMatchEnd(EIGHT[0], EIGHT, Object.fromEntries(EIGHT.map((p, i) => [p.slot, 21 - i * 3])));
+  },
+  /**
+   * Every control, in every player's colour, in one frame (ui-identity R5).
+   *
+   * Eight separate screenshots cannot be compared; a contact sheet can. This is also
+   * the only view that answers the question the contrast maths protects but does not
+   * judge — whether the maroon player's interface is as pleasant as the mint one.
+   */
+  "swatches": (_u, _c, show) => {
+    show(initialState());
+    document.querySelectorAll(".overlay").forEach((el) => el.remove());
+    const wrap = document.createElement("div");
+    wrap.style.cssText =
+      "position:fixed;inset:0;overflow:auto;display:grid;gap:6px;padding:8px;" +
+      "grid-template-columns:repeat(4,1fr);align-content:start;" +
+      "font:600 11px Fredoka,ui-rounded,system-ui,sans-serif";
+    PLAYER_COLOURS.forEach((colour, slot) => {
+      const cell = document.createElement("div");
+      applyMine(cell, slot);
+      cell.style.cssText += ";display:flex;align-items:center;gap:6px;padding:6px 8px;" +
+        "background:var(--card);border:3px solid var(--ink);border-radius:14px";
+      const swatch = document.createElement("span");
+      swatch.style.cssText =
+        "width:16px;height:16px;border-radius:5px;border:2px solid var(--ink);flex:0 0 auto;" +
+        `background:${colour}`;
+      const label = document.createElement("button");
+      label.textContent = "start";
+      label.style.cssText = "flex:1;min-width:0;padding:6px 10px;font-size:13px";
+      const icon = document.createElement("button");
+      icon.className = "iconbtn";
+      icon.innerHTML =
+        '<svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"></path>' +
+        '<path d="M15.5 8.5a5 5 0 0 1 0 7"></path></svg>';
+      const act = document.createElement("button");
+      act.id = "swatchAction";
+      act.innerHTML =
+        `<svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;` +
+        `stroke:var(--mine-ink);stroke-width:2.4"><path d="${iconPath("tumble")}"/></svg>`;
+      act.style.cssText =
+        "width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;flex:0 0 auto;" +
+        "background:var(--mine);border:4px solid var(--ink);display:flex;" +
+        "align-items:center;justify-content:center";
+      cell.append(swatch, label, icon, act);
+      wrap.append(cell);
+    });
+    document.body.append(wrap);
   },
   "menu": (_u, _c, show) => show(initialState()),
   "join": (_u, _c, show) => show(reduce(

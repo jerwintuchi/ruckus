@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_COLOURS as SHARED_COLOURS } from "@ruckus/shared";
-import { PALETTE, PAPER, PLAYER_COLOURS, hexToInt } from "./palette.ts";
+import {
+  PALETTE, PAPER, PLAYER_COLOURS, contrast, hexToInt, luminance, readableInk, tint,
+} from "./palette.ts";
 
 /* sRGB -> CIE Lab, then CIE76 deltaE. Enough to catch "these two look the same". */
 
@@ -154,6 +156,56 @@ describe("the arena moved to paper stock (visual-direction T4, R3)", () => {
   it("still declares every token as well-formed hex", () => {
     for (const [name, hex] of Object.entries({ ...PALETTE, ...PAPER })) {
       expect(hex, name).toMatch(/^#[0-9a-f]{6}$/);
+    }
+  });
+});
+
+describe("your colour is readable, measured not hoped (ui-identity T6, R5)", () => {
+  it("computes real WCAG luminance, checked against known values", () => {
+    // The maths itself, pinned first — every claim below rests on it, so a test that
+    // compared these functions to themselves would prove nothing.
+    expect(luminance("#ffffff")).toBeCloseTo(1, 4);
+    expect(luminance("#000000")).toBeCloseTo(0, 4);
+    expect(contrast("#ffffff", "#000000")).toBeCloseTo(21, 1);
+  });
+
+  it("gives every player a readable label on a tinted button", () => {
+    // 4.5:1 is the text threshold. Raw maroon is 1.72:1, which is why the tint exists.
+    for (const c of PLAYER_COLOURS) {
+      expect(contrast(tint(c), PAPER.ink), c).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("gives every player a readable glyph on a full-strength icon button", () => {
+    // 3:1 is the threshold for a graphical object, which a thick icon is.
+    for (const c of PLAYER_COLOURS) {
+      expect(contrast(c, readableInk(c)), c).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("pins the failures that make the rule necessary", () => {
+    // Regression, not trivia. If someone later decides the tint is fussy and drops it,
+    // these are the numbers that say why it was there.
+    const maroon = PLAYER_COLOURS[7]!;
+    expect(contrast(maroon, PAPER.ink)).toBeLessThan(2);
+    const forest = PLAYER_COLOURS[6]!;
+    expect(contrast(forest, PAPER.ink)).toBeLessThan(4.5);
+    expect(contrast(forest, PAPER.card)).toBeLessThan(4.5);
+  });
+
+  it("leaves the palette itself alone", () => {
+    // Load-bearing for colour-blindness and for distinctness at phone size. A button
+    // fill is not worth retuning them for.
+    expect(PLAYER_COLOURS).toHaveLength(8);
+    expect(PLAYER_COLOURS[7]).toBe("#870909");
+    expect(PLAYER_COLOURS[6]).toBe("#08865a");
+  });
+
+  it("tints toward paper, never away from it", () => {
+    for (const c of PLAYER_COLOURS) {
+      expect(luminance(tint(c)), c).toBeGreaterThan(luminance(c));
+      expect(tint(c, 1)).toBe(PAPER.card.toLowerCase());
+      expect(tint(c, 0)).toBe(c.toLowerCase());
     }
   });
 });

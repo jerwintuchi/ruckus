@@ -195,3 +195,36 @@ describe("a round boundary empties everything that holds round state (RD-050)", 
     expect(lobby).toContain("buffer.clear");
   });
 });
+
+describe("exactly one character is marked as yours (find-yourself T2, R1, R3)", () => {
+  // `Renderer` cannot be constructed here: its constructor makes a WebGLRenderer and
+  // there is no GL context in Node. The behaviour that matters — built once, idempotent,
+  // dies with the character — is covered in `character.test.ts` against a real
+  // Character. What is left is WHERE the call sits, and that is a source claim, made
+  // honestly rather than dressed up as a behavioural one.
+  const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "render.ts"), "utf8");
+
+  it("marks only where a character is BUILT, never per frame", () => {
+    // Called in the per-frame path it would be a caret per frame, which is eight
+    // hundred a round.
+    const sync = src.slice(src.indexOf("syncPlayers("), src.indexOf("clearWorld"));
+    const build = sync.slice(sync.indexOf("if (!c) {"), sync.indexOf("this.dynamics.add"));
+    expect(build).toContain("setMine(colour)");
+    expect((sync.match(/setMine\(/g) ?? [])).toHaveLength(1);
+  });
+
+  it("marks nobody for a spectator, or before welcome", () => {
+    // -1 is the slot of a mid-round joiner with no character, and of every client
+    // before `welcome` arrives (the spectating R4 shape).
+    const sync = src.slice(src.indexOf("syncPlayers("), src.indexOf("clearWorld"));
+    expect(sync).toContain("p.slot === mine && mine >= 0");
+    expect(sync).toContain("mine = -1");
+  });
+
+  it("gives the caret the player's own colour, not the accent fallback", () => {
+    // So the caret, the lobby dot and the character are one colour by construction.
+    const sync = src.slice(src.indexOf("syncPlayers("), src.indexOf("clearWorld"));
+    expect(sync).toContain("const colour = colours.get(p.slot) ?? PALETTE.accent");
+    expect(sync).toContain("new Character(colour, p.slot)");
+  });
+});

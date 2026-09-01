@@ -61,3 +61,56 @@ export type PaletteKey = keyof typeof PALETTE;
 export function hexToInt(hex: string): number {
   return Number.parseInt(hex.replace("#", ""), 16);
 }
+
+/**
+ * Your colour, on the controls (ui-identity R5, P7).
+ *
+ * The eight player colours were chosen for distinctness against an arena and for two
+ * common colour-blindness types. They were NOT chosen as a surface behind a label, and
+ * it shows: an ink label on raw maroon is 1.72:1, and `forest` fails against ink AND
+ * against paper, so no automatic light-or-dark choice rescues it. Hence a tint for
+ * anything carrying text, and a luminance-picked glyph for anything that does not
+ * (RD-070). The palette itself is untouched — retuning eight colours for a role they
+ * were never chosen for would cost the role they were.
+ */
+
+/** How far a text button's fill is mixed toward paper. Worst case then reads 4.90:1. */
+export const TINT_FOR_LABEL = 0.45;
+
+const channels = (hex: string): [number, number, number] => [
+  Number.parseInt(hex.slice(1, 3), 16),
+  Number.parseInt(hex.slice(3, 5), 16),
+  Number.parseInt(hex.slice(5, 7), 16),
+];
+
+const hex = (c: readonly number[]): string =>
+  "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+
+/** WCAG relative luminance. The real formula, so the tests measure rather than compare. */
+export function luminance(colour: string): number {
+  const lin = channels(colour).map((v) => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * lin[0]! + 0.7152 * lin[1]! + 0.0722 * lin[2]!;
+}
+
+/** WCAG contrast ratio between two colours, 1..21. */
+export function contrast(a: string, b: string): number {
+  const [x, y] = [luminance(a), luminance(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/** Mix a colour toward the paper stock. `t` of 1 is paper. */
+export function tint(colour: string, t = TINT_FOR_LABEL): string {
+  const [a, b] = [channels(colour), channels(PAPER.card)];
+  return hex(a.map((v, i) => v * (1 - t) + b[i]! * t));
+}
+
+/** Ink or paper, whichever can actually be read on this colour. */
+export function readableInk(colour: string): string {
+  return contrast(colour, PAPER.ink) >= contrast(colour, PAPER.card)
+    ? PAPER.ink
+    : PAPER.card;
+}
+

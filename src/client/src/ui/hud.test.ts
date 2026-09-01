@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { COUNT_FROM, myCount, renderHud, roundLabel, countdownAt } from "./hud.ts";
+import { COUNT_FROM, myCount, renderHud, rollTo, roundLabel, countdownAt } from "./hud.ts";
 import { INTRO_MS } from "@ruckus/shared";
 const SERVER = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "server", "src");
 import { MINIGAMES } from "../../../server/src/minigames/index.ts";
@@ -194,5 +194,70 @@ describe("two devices count together, whatever their clocks say (RD-065)", () =>
     expect(net).toContain("of: ROUNDS_PER_MATCH");
     const intro = net.slice(net.indexOf('t: "intro"'), net.indexOf('t: "intro"') + 400);
     expect(intro).not.toContain("Date.now()");
+  });
+});
+
+describe("scores roll, and are correct at every instant (ui-identity T2, R2, P2)", () => {
+  const cell = () => ({ textContent: null as string | null });
+  /** A clock and a scheduler under the test's control. */
+  const rig = () => {
+    const queue: (() => void)[] = [];
+    let t = 0;
+    return {
+      now: () => t,
+      schedule: (fn: () => void) => { queue.push(fn); },
+      advance: (ms: number) => { t += ms; const q = queue.splice(0); for (const f of q) f(); },
+      pending: () => queue.length,
+    };
+  };
+
+  it("writes the FINAL value before it animates anything", () => {
+    // The property everything else rests on. The obvious implementation counts
+    // forwards and leaves a wrong number if interrupted — and this card is interrupted
+    // constantly, because the next round starts.
+    const el = cell();
+    const r = rig();
+    rollTo(el, 0, 7, r.now, r.schedule);
+    expect(el.textContent).toBe("7");
+  });
+
+  it("still reads correctly if the card is destroyed mid-roll", () => {
+    const el = cell();
+    const r = rig();
+    rollTo(el, 0, 12, r.now, r.schedule, 600);
+    r.advance(200);           // a third of the way
+    const midway = Number(el.textContent);
+    expect(midway).toBeGreaterThan(0);
+    expect(midway).toBeLessThan(12);
+    // Nothing more is scheduled by the test: the element is simply abandoned. The
+    // guarantee is that it was correct the instant rollTo returned.
+  });
+
+  it("lands exactly on the target", () => {
+    const el = cell();
+    const r = rig();
+    rollTo(el, 0, 9, r.now, r.schedule, 600);
+    r.advance(600);
+    expect(el.textContent).toBe("9");
+    r.advance(10);
+    expect(r.pending()).toBe(0);
+  });
+
+  it("writes integers only — a score never flickers through 2.3", () => {
+    const el = cell();
+    const r = rig();
+    const seen: string[] = [];
+    rollTo(el, 0, 5, r.now, r.schedule, 400);
+    for (let i = 0; i < 8; i++) { r.advance(50); seen.push(el.textContent!); }
+    for (const v of seen) expect(v, v).toMatch(/^-?\d+$/);
+  });
+
+  it("does nothing at all when the value did not change", () => {
+    // Stillness is the information: a player who gained nothing must not animate.
+    const el = cell();
+    const r = rig();
+    rollTo(el, 4, 4, r.now, r.schedule);
+    expect(el.textContent).toBe("4");
+    expect(r.pending()).toBe(0);
   });
 });

@@ -361,3 +361,35 @@ describe("eight players fit landscape Safari's 292 points (RD-067)", () => {
       .toBeLessThan(UI_CSS.indexOf("@media (max-height:340px)"));
   });
 });
+
+describe("the wordmark and the slot strip in CSS (ui-identity T1, T4)", () => {
+  it("tilts the letters like a dealt hand, and keeps them under reduced motion", () => {
+    expect(rule("h1.mark .ch")).toContain("rotate(");
+    const reduced = UI_CSS.slice(UI_CSS.indexOf("@media (prefers-reduced-motion"));
+    expect(reduced).toContain("h1.mark .ch{transform:none}");
+  });
+
+  it("references no image, anywhere", () => {
+    // kit_check enforces this on the tree; this enforces it on the stylesheet, where
+    // a url() would not be a file in the repo and would slip past.
+    expect(UI_CSS).not.toContain("url(");
+  });
+
+  it("draws eight slots and hides them where the rows need the room", () => {
+    // At 292 points the eight rows and the room code win; the strip is a second view
+    // of what the rows already say (P5, measured in RD-067).
+    expect(UI_CSS).toContain(".slot{width:14px;height:14px");
+    expect(UI_CSS).toContain(".slots{grid-column:1/-1");
+    const i = UI_CSS.indexOf("@media (max-height:340px)");
+    expect(UI_CSS.slice(i, UI_CSS.indexOf("\n}", i))).toContain(".slots{display:none}");
+  });
+
+  it("distinguishes eliminated from disconnected in more than one way (P6)", () => {
+    // Out and gone reading the same is worse than showing neither.
+    const out = rule(".row.out .nm") + rule(".row.out .dot");
+    const gone = rule(".row.gone");
+    expect(out).toContain("line-through");
+    expect(gone).toMatch(/opacity:0?\.[1-9]/);
+    expect(out).not.toBe(gone);
+  });
+});

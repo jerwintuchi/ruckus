@@ -49,6 +49,15 @@ export function blinkVisible(elapsed: number): boolean {
 /** Meshes per character, asserted so the 8-on-screen budget cannot drift (T12). */
 export const MESHES_PER_CHARACTER = 7;
 
+/**
+ * The caret above your own head, as a fraction of a character's height
+ * (find-yourself R1).
+ *
+ * Derived, not a literal, so it follows the figure if the proportions ever change.
+ */
+export const CARET_SIZE = 0.30;
+export const CARET_GAP = 0.22;
+
 export class Character {
   readonly root = new Group();
   private readonly pivot = new Group();
@@ -61,6 +70,8 @@ export class Character {
   private readonly shadow: Mesh;
   /** Frame time at which this player went out, or null while they are in. */
   private outAt: number | null = null;
+  /** The "this one is you" caret, or null for everybody else (find-yourself R2). */
+  private caret: Mesh | null = null;
   private lastT = 0;
 
   constructor(colour: string, slot: number) {
@@ -137,6 +148,27 @@ export class Character {
     // writing over it — the first version set the fade once and then undid it 60 times
     // a second.
     (this.shadow.material as { opacity: number }).opacity = 0.34 * shrink;
+  }
+
+  /**
+   * Mark this character as the local player's (find-yourself R1, R2, P1-P4).
+   *
+   * Built once, as a child of the pivot — so it rides the existing bob rather than
+   * running a clock of its own, and `ROUND_START` rebuilding characters destroys it for
+   * free. Nothing to clean up is the property RD-050 was about.
+   *
+   * Idempotent: `syncPlayers` runs every frame and exactly one caret must ever exist.
+   */
+  setMine(colour: string): void {
+    if (this.caret) return;
+    // A slab like every other part, so it needs no new material and no new idiom. Wide
+    // and short, pointing down: a caret rather than a flag, which would occlude the
+    // player behind it (R2).
+    const c = slab(colour, CARET_SIZE, CARET_SIZE * 0.62, SLAB_DEPTH);
+    c.position.y = BODY.height + CARET_GAP;
+    c.rotation.z = Math.PI / 4;
+    this.caret = c;
+    this.pivot.add(c);
   }
 
   setVisible(v: boolean): void {

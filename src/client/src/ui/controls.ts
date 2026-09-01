@@ -97,8 +97,16 @@ export const CONTROLS_CSS = `
   pointer-events:none;transform:translate(-50%,-50%)}
 #stickBase{width:${STICK_BASE_PX}px;height:${STICK_BASE_PX}px;background:var(--card);
   opacity:${STICK_REST_OPACITY};transition:opacity .12s ease-out}
+/*
+ * No shadow, and this one was never cosmetic (RD-069).
+ *
+ * A hard zero-blur offset on a CIRCLE does not read as depth. It reads as a second
+ * circle, down and to the right — so a knob sitting exactly in the middle of its base
+ * looked lopsided, and the first phone playtest reported the joypad as mis-positioned.
+ * The anchor was moved in response and fixed nothing, because the anchor was fine.
+ */
 #stickKnob{width:${Math.round(STICK_BASE_PX * 0.46)}px;height:${Math.round(STICK_BASE_PX * 0.46)}px;
-  background:var(--highlight);box-shadow:var(--shadow);
+  background:var(--mine);
   opacity:${STICK_REST_OPACITY};transition:opacity .12s ease-out}
 #controls.live #stickBase,#controls.live #stickKnob{opacity:1}
 
@@ -107,7 +115,7 @@ export const CONTROLS_CSS = `
   right:calc(${STICK_HOME_PX / 2}px + var(--safe-right));
   bottom:calc(${STICK_HOME_PX / 2}px + var(--safe-bottom));
   width:${BUTTON_MIN_PX}px;height:${BUTTON_MIN_PX}px;padding:0;border-radius:50%;
-  border:var(--outline) solid var(--ink);background:var(--highlight);color:var(--ink);
+  border:var(--outline) solid var(--ink);background:var(--mine);color:var(--mine-ink);
   font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:15px;
   letter-spacing:.04em;
   display:flex;align-items:center;justify-content:center;position:fixed;
@@ -134,10 +142,10 @@ export const CONTROLS_CSS = `
  * The canvas did it in RD-031 and the cooldown ring did it in RD-043; this is the third
  * time, which is why there is now a test rather than another comment (RD-044).
  */
-#actionIconSvg{width:${ICON_PX}px;height:${ICON_PX}px;fill:none;stroke:var(--ink);
+#actionIconSvg{width:${ICON_PX}px;height:${ICON_PX}px;fill:none;stroke:var(--mine-ink);
   stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 /* Some Lucide glyphs are solid shapes rather than strokes; this one wants a fill. */
-#actionIconSvg.solid path{fill:var(--ink)}
+#actionIconSvg.solid path{fill:var(--mine-ink)}
 
 /*
  * The cooldown ring, sized EXPLICITLY (R6).
@@ -196,7 +204,7 @@ export const CONTROLS_CSS = `
 #keyGuide[hidden]{display:none}
 #keyGuide kbd{display:inline-block;min-width:22px;padding:3px 6px;text-align:center;
   background:var(--card);border:3px solid var(--ink);border-radius:7px;
-  box-shadow:0 2px 0 var(--ink);font:inherit;font-size:12px}
+  font:inherit;font-size:12px}
 
 /* Short landscape phones: keep the controls clear of the thumbs' own knuckles. */
 @media (max-height:430px){

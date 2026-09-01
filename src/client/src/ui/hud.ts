@@ -90,3 +90,38 @@ export function countdownAt(endsAt: number, now: number): number {
   if (remaining > COUNT_FROM * 1000) return 0;
   return Math.ceil(remaining / 1000);
 }
+
+/**
+ * Roll a score from its old value to its new one (ui-identity T2, R2, P2).
+ *
+ * **The final value is written first and the animation walks backwards from the old
+ * one.** The obvious implementation counts forwards and leaves a wrong number behind
+ * if it is interrupted — and this card is interrupted constantly, because the next
+ * round starts. Written this way, a card torn down at any frame still reads correctly.
+ *
+ * Integers only: a score that flickers through 2.3 is not a score.
+ */
+export const ROLL_MS = 600;
+
+export function rollTo(
+  el: { textContent: string | null },
+  from: number,
+  to: number,
+  now: () => number,
+  schedule: (fn: () => void) => void,
+  ms = ROLL_MS,
+): void {
+  // Correct first, animated second. Everything after this line is decoration.
+  el.textContent = String(to);
+  if (from === to || ms <= 0) return;
+  const started = now();
+  const step = (): void => {
+    const p = Math.min(1, (now() - started) / ms);
+    // Ease out, so it lands rather than stops.
+    const eased = 1 - (1 - p) * (1 - p);
+    el.textContent = String(Math.round(from + (to - from) * eased));
+    if (p < 1) schedule(step);
+  };
+  schedule(step);
+}
+

@@ -3,7 +3,9 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Mesh, MeshBasicMaterial, type Material } from "three";
 import { PLAYER_COLOURS } from "@ruckus/shared";
-import { BODY, Character, MESHES_PER_CHARACTER, OUT_BLINK_S, blinkVisible } from "./character.ts";
+import {
+  BODY, CARET_GAP, CARET_SIZE, Character, MESHES_PER_CHARACTER, OUT_BLINK_S, blinkVisible,
+} from "./character.ts";
 import { EDGE_FACES, FRONT_FACE, SLAB_DEPTH, materialForFace } from "./paper.ts";
 import { PAPER } from "./palette.ts";
 
@@ -226,5 +228,52 @@ describe("going out is an event, not a state (round-lifecycle T3, R3, P3, P4)", 
     expect(c.root.visible).toBe(true);
     const pivot = c.root.children[0]!;
     expect(Math.abs(pivot.children[4]!.rotation.x), "and it animates").toBeGreaterThan(0);
+  });
+});
+
+describe("finding yourself among eight identical figures (find-yourself T1, T3)", () => {
+  const meshes = (c: Character): number => {
+    let n = 0;
+    c.root.traverse((o) => { if ((o as { isMesh?: boolean }).isMesh) n++; });
+    return n;
+  };
+
+  it("costs exactly one mesh, and only for you", () => {
+    // MESHES_PER_CHARACTER is the 8-on-screen budget. The caret is one more, on one
+    // character — so the budget moves by one, not by eight.
+    const plain = new Character("#1ab0ff", 0);
+    const mine = new Character("#1ab0ff", 0);
+    mine.setMine("#1ab0ff");
+    expect(meshes(plain)).toBe(MESHES_PER_CHARACTER);
+    expect(meshes(mine)).toBe(MESHES_PER_CHARACTER + 1);
+  });
+
+  it("is built once however many times it is asked for", () => {
+    // syncPlayers runs every frame; a caret per frame would be eight hundred a round.
+    const c = new Character("#69f982", 3);
+    for (let i = 0; i < 50; i++) c.setMine("#69f982");
+    expect(meshes(c)).toBe(MESHES_PER_CHARACTER + 1);
+  });
+
+  it("sits above the crown, sized from BODY.height and not a literal", () => {
+    // Derived, so it follows the figure if the proportions ever change.
+    const c = new Character("#ff3f18", 1);
+    c.setMine("#ff3f18");
+    let caretY = -1;
+    c.root.traverse((o) => { if (o.position.y > BODY.height) caretY = o.position.y; });
+    expect(caretY).toBeCloseTo(BODY.height + CARET_GAP, 5);
+    expect(CARET_SIZE).toBeLessThan(BODY.headSize);
+  });
+
+  it("leaves with the player, through the same blink the body uses", () => {
+    // Not a second timer: the caret is inside the group the blink already hides, so
+    // there is no path by which it outlives the character (P3).
+    const c = new Character("#870909", 7);
+    c.setMine("#870909");
+    c.update(0, 0, 0, 0, 0);
+    c.setEliminated();
+    c.update(0, 0, 0, 0, OUT_BLINK_S + 0.01);
+    expect(c.root.visible).toBe(false);
+    expect(blinkVisible(OUT_BLINK_S + 0.01)).toBe(false);
   });
 });

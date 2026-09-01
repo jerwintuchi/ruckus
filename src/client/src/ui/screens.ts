@@ -5,11 +5,11 @@
  * one construction: flat fill, ink outline, hard offset shadow. `flow.ts` owns which
  * screen is showing; this only draws what it is handed.
  */
-import type { PlayerView } from "@ruckus/shared";
+import { MAX_PLAYERS, type PlayerView } from "@ruckus/shared";
 import type { FlowEvent, FlowState } from "../flow.ts";
 import { createState, joinState, standings, startState, type Standing } from "../flow.ts";
 import { colourFor, escapeHtml } from "./kit.ts";
-import { renderHud, roundLabel, type HudData } from "./hud.ts";
+import { renderHud, rollTo, roundLabel, type HudData } from "./hud.ts";
 
 export interface UiHandlers {
   onCreate(name: string): void;
@@ -20,6 +20,24 @@ export interface UiHandlers {
    *  not screen state, and putting it in the reducer would put it in the totality
    *  property for no benefit (audio design). */
   onToggleMute(): boolean;
+}
+
+/**
+ * The wordmark (ui-identity T1, R1).
+ *
+ * Six letter-slabs, each tilted a degree or two in alternating directions — the `deal`
+ * idiom the cards already use, applied to type. Colours come from PLAYER_COLOURS by
+ * index, so the name and the roster are one palette by construction rather than by
+ * choice, and there is no second visual system to keep in step.
+ *
+ * They are spans of text, not paths: a webfont that never arrives costs the tilt, not
+ * the name (P1).
+ */
+export function wordmark(word = "ruckus"): string {
+  return [...word]
+    .map((ch, i) =>
+      `<span class="ch" style="--i:${i};color:${colourFor(i)}">${escapeHtml(ch)}</span>`)
+    .join("");
 }
 
 export class Ui {
@@ -34,6 +52,8 @@ export class Ui {
   private toastTimer = 0;
   /** Whose row to mark as "you" on a results card. */
   private mySlot = -1;
+  /** Who went out during the round now ending, for the card (R4). */
+  private outThisRound = new Set<number>();
   /** Kept so the share button can build a link without being handed state again. */
   private code = "";
 
@@ -73,6 +93,40 @@ export class Ui {
    * Assigning `textContent` to a button whose children are its icon destroys them —
    * that is RD-042, and it cost a whole playtest to find the first time.
    */
+  /**
+   * Roll every score that is worth rolling (R2, P2, P3).
+   *
+   * From zero to the value, which needs no remembered previous state and makes the
+   * "stillness is information" rule fall out for free: a player who gained nothing has
+   * a zero, and a zero does not animate.
+   *
+   * `rollTo` writes the FINAL value before it starts, so a card torn down mid-roll —
+   * which happens constantly, because the next round begins — still reads correctly.
+   */
+  private rollScores(): void {
+    const reduced = typeof window !== "undefined"
+      && typeof window.matchMedia === "function"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Optional at every step: the roll is decoration and must never be the reason a
+    // scoreboard fails to appear. The card is already correct before this runs.
+    const found = this.banner.querySelectorAll?.(".sc");
+    if (!found) return;
+    for (const el of Array.from(found)) {
+      const to = Number((el as HTMLElement).dataset.to);
+      if (!Number.isFinite(to) || to === 0) continue;
+      if (reduced || typeof requestAnimationFrame !== "function") {
+        el.textContent = String(to);
+        continue;
+      }
+      rollTo(el as HTMLElement, 0, to,
+        () => performance.now(), (fn) => { requestAnimationFrame(fn); });
+    }
+  }
+
+  /** Told by the snapshot loop, cleared at every round start. */
+  markOut(slot: number): void { this.outThisRound.add(slot); }
+  clearOut(): void { this.outThisRound.clear(); }
+
   setMuted(muted: boolean): void {
     this.q("#muteOn").hidden = muted;
     this.q("#muteOff").hidden = !muted;
@@ -134,6 +188,7 @@ export class Ui {
       this.code = state.code;
       this.q("#roomCode").textContent = state.code;
       this.renderScores(state.players);
+      this.renderSlots(state.players);
 
       const s = startState(state);
       const btn = this.q("#startBtn") as HTMLButtonElement;
@@ -153,6 +208,20 @@ export class Ui {
 
   clearHud(): void {
     this.hud.innerHTML = "";
+  }
+
+  /**
+   * Eight chips, filled where a slot is taken (R3, P4).
+   *
+   * Derived from the same roster the rows are, so the two cannot disagree about how
+   * many people are here — which is the only way a second view of one fact is worth
+   * having.
+   */
+  private renderSlots(players: PlayerView[]): void {
+    const taken = new Set(players.map((p) => p.slot));
+    this.q("#slots").innerHTML = Array.from({ length: MAX_PLAYERS }, (_, i) =>
+      `<span class="slot${taken.has(i) ? " on" : ""}"` +
+      `${taken.has(i) ? ` style="background:${colourFor(i)}"` : ""}></span>`).join("");
   }
 
   /**
@@ -276,11 +345,15 @@ export class Ui {
     return rows
       .map((r) => {
         const me = r.player.slot === this.mySlot ? " me" : "";
+        // Two different absences. `gone` is disconnected — the player is not here.
+        // `out` is eliminated — they are here and finished, which is a different thing
+        // and must not look the same (R4, P6).
         const gone = r.player.connected ? "" : " gone";
-        return `<div class="row${me}${gone}">` +
+        const out = this.outThisRound.has(r.player.slot) ? " out" : "";
+        return `<div class="row${me}${gone}${out}">` +
           `<span class="dot" style="background:${colourFor(r.player.slot)}"></span>` +
           `<span class="nm">${escapeHtml(r.player.name)}</span>` +
-          `<span class="sc">${prefix}${r.points}</span></div>`;
+          `<span class="sc" data-to="${r.points}">${prefix}${r.points}</span></div>`;
       })
       .join("");
   }
@@ -290,6 +363,7 @@ export class Ui {
     // a bad round vanished from the board entirely (R13).
     const rows = this.standingRows(standings(players, scores), "+");
     this.banner.innerHTML = `<div class="card tilt"><div class="big">round over</div>${rows}</div>`;
+    this.rollScores();
     this.banner.style.display = "flex";
   }
 
@@ -311,6 +385,7 @@ export class Ui {
       // Nobody should be left wondering whether that was the end of the evening (R12).
       `<p class="rule">back to the lobby — start again whenever you like</p></div>`;
     this.banner.style.display = "flex";
+    this.rollScores();
   }
 
   /**
@@ -352,7 +427,7 @@ const TEMPLATE = `
 
 <div id="menu" class="overlay">
   <div class="card">
-    <h1>ruckus</h1>
+    <h1 class="mark">${wordmark()}</h1>
     <p class="tagline">8 players · 5 rounds · 10 minutes</p>
     <input id="name" placeholder="your name" maxlength="12" autocomplete="off">
     <button id="createBtn">create a room</button>
@@ -404,6 +479,8 @@ const TEMPLATE = `
         </svg>
       </button>
       <input id="linkBox" class="linkbox" readonly style="display:none">
+      <!-- Eight slots, filled or empty: "how many more" without counting rows (R3). -->
+      <div id="slots" class="slots"></div>
     </div>
     <div id="scoreboard"></div>
     <button id="startBtn">start</button>

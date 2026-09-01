@@ -14,7 +14,7 @@ import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
 import { Renderer } from "./render.ts";
 import {
-  CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui, countdownAt,
+  CONTROLS_CSS, Controls, FONT_LINK, UI_CSS, Ui, applyMine, countdownAt,
   Sound, type Ctx,
   makeSafeProbe, readInsets, viewportReport, insetOverride, applyInsets,
 } from "./ui/index.ts";
@@ -133,6 +133,8 @@ function onMessage(msg: ServerMsg): void {
   switch (msg.t) {
     case "welcome":
       mySlot = msg.slot;
+      // The controls adopt your colour here and nowhere else (ui-identity R5).
+      applyMine(document.documentElement, msg.slot);
       host = msg.host;
       dispatch({ t: "welcome", slot: msg.slot, code: msg.code, host: msg.host });
       // Put the code in the URL so "send them this link" is the whole invite flow,
@@ -201,6 +203,7 @@ function onMessage(msg: ServerMsg): void {
       // elimination from the last one, which is RD-050's shape in a different channel.
       aliveLast.clear();
       lastCount = 0;
+      ui.clearOut();
       // Looked up, never branched on: main.ts knows no minigame by name (RD-009).
       handler = clientMinigame(msg.game);
       handler?.onRoundStart?.(renderer);
@@ -227,7 +230,11 @@ function onMessage(msg: ServerMsg): void {
       // Someone went out. Read off `alive`, which the snapshot already carries for the
       // renderer — no new wire traffic, and the same sound for everyone including you.
       for (const p of msg.players) {
-        if (!p.alive && aliveLast.get(p.slot) !== false) sound.eliminated();
+        if (!p.alive && aliveLast.get(p.slot) !== false) {
+          sound.eliminated();
+          // Remembered for the round card: out is not the same as disconnected.
+          ui.markOut(p.slot);
+        }
         aliveLast.set(p.slot, p.alive);
       }
       break;
@@ -304,7 +311,8 @@ function frame(now: number): void {
     // The HUD reads the snapshot and nothing else — no minigame is named here (RD-009).
     ui.renderHud(lastExtra, roundLabelInfo ?? undefined);
     const lerped = net.buffer.sample(now);
-    renderer.syncPlayers(lerped, colours, now / 1000);
+    // `mySlot` so you can find yourself among eight identical paper figures.
+    renderer.syncPlayers(lerped, colours, now / 1000, mySlot);
     handler?.onFrame?.(renderer, now / 1000);
   }
   renderer.render();

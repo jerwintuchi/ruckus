@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { ERROR_TEXT, initialState, type FlowState } from "../flow.ts";
-import type { PlayerView } from "@ruckus/shared";
-import { Ui } from "./screens.ts";
+import { PLAYER_COLOURS, type PlayerView } from "@ruckus/shared";
+import { Ui, wordmark } from "./screens.ts";
 
 /**
  * A tiny DOM stub. Enough to prove the room code actually reaches the screen, which
@@ -11,6 +11,8 @@ import { Ui } from "./screens.ts";
  * so once you were in the lobby it was nowhere on screen — in a party game, the one
  * piece of information you have to read aloud.
  */
+const baseState = (): FlowState => initialState();
+
 function stubDom() {
   class El {
     tagName: string;
@@ -527,5 +529,60 @@ describe("the results cards name everyone, including you (lobby-flow T17, R13)",
     const { root } = stubDom();
     const ui = new Ui(root, noop);
     expect(() => ui.showMatchEnd(undefined)).not.toThrow();
+  });
+});
+
+describe("the wordmark is the roster's own palette (ui-identity T1, R1)", () => {
+  it("spells the name, in order, one span per letter", () => {
+    const html = wordmark("ruckus");
+    expect([...html.matchAll(/>([a-z])</g)].map((m) => m[1]).join("")).toBe("ruckus");
+  });
+
+  it("takes its colours from PLAYER_COLOURS, never from literals", () => {
+    // The name and the roster are one palette by construction. A second set of hexes
+    // here would be a second visual system to keep in step.
+    const html = wordmark("ruckus");
+    for (let i = 0; i < 6; i++) expect(html).toContain(PLAYER_COLOURS[i]!);
+  });
+
+  it("is text, so a webfont that never arrives costs the tilt and not the name", () => {
+    // The fallback is the point: a cold load on a bad connection still says what the
+    // game is called (P1).
+    expect(wordmark("ruckus")).not.toContain("<svg");
+    expect(wordmark("ruckus")).not.toContain("<img");
+  });
+
+  it("escapes what it is given", () => {
+    expect(wordmark("<b>")).not.toContain("<b>");
+  });
+});
+
+describe("the slot strip agrees with the rows (ui-identity T4, R3, P4)", () => {
+  const lobbyWith = (n: number, gaps: number[] = []) => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    const players = Array.from({ length: n }, (_, i) => i)
+      .filter((i) => !gaps.includes(i))
+      .map((slot) => ({ slot, name: `p${slot}`, colour: "", score: 0, connected: true }));
+    ui.render({ ...baseState(), screen: "LOBBY", players, code: "AAAA" } as never);
+    return { root, players };
+  };
+
+  it("fills one chip per player and leaves the rest empty", () => {
+    for (const n of [1, 2, 5, 8]) {
+      const { root } = lobbyWith(n);
+      const html = (root.querySelector("#slots") as { innerHTML: string }).innerHTML;
+      expect((html.match(/class="slot on"/g) ?? []).length, `${n} players`).toBe(n);
+      expect((html.match(/class="slot/g) ?? []).length).toBe(8);
+    }
+  });
+
+  it("agrees with the rows even when the roster has gaps", () => {
+    // One source, two views — the only way a second view of a fact is worth having.
+    const { root, players } = lobbyWith(8, [2, 5]);
+    const slots = (root.querySelector("#slots") as { innerHTML: string }).innerHTML;
+    const rows = (root.querySelector("#scoreboard") as { innerHTML: string }).innerHTML;
+    expect((slots.match(/class="slot on"/g) ?? []).length).toBe(players.length);
+    expect((rows.match(/class="row/g) ?? []).length).toBe(players.length);
   });
 });

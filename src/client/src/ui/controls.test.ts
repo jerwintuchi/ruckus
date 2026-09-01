@@ -58,7 +58,9 @@ describe("the stick is visible before it is touched (T3, R1)", () => {
     // Same outline width and palette tokens as a card, so it reads as one world.
     expect(rule("#stickBase,#stickKnob")).toContain("var(--outline) solid var(--ink)");
     expect(rule("#stickBase")).toContain("var(--card)");
-    expect(rule("#stickKnob")).toContain("var(--highlight)");
+    // The knob is the player's own colour now, not the shared highlight (RD-070) —
+    // still a palette token, which is the part this test is actually for.
+    expect(rule("#stickKnob")).toContain("var(--mine)");
     // No hex literals anywhere: colours come from the palette (kit-rules.md).
     expect(CONTROLS_CSS).not.toMatch(/#[0-9a-fA-F]{6}\b/);
   });

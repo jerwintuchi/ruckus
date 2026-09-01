@@ -10,7 +10,7 @@
  * the two typefaces come from Google Fonts, which is a runtime CDN dependency rather
  * than an asset file, with a declared fallback.
  */
-import { PAPER, PLAYER_COLOURS } from "../kit/palette.ts";
+import { PAPER, PLAYER_COLOURS, readableInk, tint } from "../kit/palette.ts";
 
 /** Construction constants, exported so the tests assert the real numbers. */
 export const UI = {
@@ -23,6 +23,16 @@ export const UI = {
   tilt: 1.2,
   /** The smallest side of anything you can tap. Below this, thumbs miss. */
   minTarget: 44,
+  /**
+   * How far a control shrinks when pressed (flat-controls R2).
+   *
+   * The shadow used to be the affordance: the slab travelled toward the table. With
+   * no shadow there is nothing to travel, so this is the half that is FELT — and the
+   * half `prefers-reduced-motion` removes, which is why the fill darkens too.
+   */
+  pressScale: 0.94,
+  /** How much ink soaks into a pressed control. The half that is SEEN. */
+  pressInk: 0.16,
 } as const;
 
 export const FONT_LINK =
@@ -52,6 +62,18 @@ export const UI_CSS = `
   --safe-right:env(safe-area-inset-right);
   --safe-bottom:env(safe-area-inset-bottom);
   --safe-left:env(safe-area-inset-left);
+  /*
+   * Your colour, on the CONTROLS only (ui-identity R5).
+   *
+   * Three properties, written once when a slot is known and holding the highlight
+   * before that. Not threaded through every rule: one write and every control that
+   * spends them follows. Cards, the ground, body text and the HUD never touch these —
+   * a whole interface tinted eight ways is a themed skin, not a game that knows who
+   * you are, and a test enforces the boundary rather than trusting it.
+   */
+  --mine:${PAPER.highlight};
+  --mine-tint:${PAPER.highlight};
+  --mine-ink:${PAPER.ink};
   --outline:${UI.outline}px;
   --radius:${UI.radius}px;
   --shadow:${UI.shadowOffset}px ${UI.shadowOffset}px 0 var(--ink);
@@ -96,6 +118,14 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
   min-width:min(300px,88vw);max-width:min(430px,92vw)}
 .card.tilt{transform:rotate(-${UI.tilt}deg)}
 
+/* The wordmark: letters dealt like a hand, in the roster's own colours (R1). */
+h1.mark{display:flex;justify-content:center;gap:.02em}
+h1.mark .ch{display:inline-block;
+  transform:rotate(calc((var(--i) - 2.5) * 1.6deg)) translateY(calc(var(--i) * .5px));
+  -webkit-text-stroke:2px var(--ink);paint-order:stroke fill}
+/* Eliminated, which is not the same as absent: present and finished. */
+.row.out .nm{text-decoration:line-through;text-decoration-thickness:2px}
+.row.out .dot{opacity:.45}
 h1{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;
   font-size:clamp(30px,7vw,42px);letter-spacing:-.01em;margin:0;line-height:1}
 h2{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;
@@ -104,18 +134,31 @@ h2{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;
 .dim{color:var(--text-dim);font-size:13px;min-height:16px}
 
 button,input{font:inherit;border-radius:14px;min-height:${UI.minTarget}px}
+/*
+ * A control is INK PRINTED ON THE SURFACE, not an object lying on it (RD-069).
+ *
+ * No shadow: a hard zero-blur offset says "this is a slab above the table", which is
+ * true of a card and false of a button you press. On the stick's knob it was worse than
+ * untrue — on a circle it read as a second circle, and the resting stick looked
+ * lopsided from the day it was drawn.
+ *
+ * The --fill variable exists so the press can darken whatever the control happens to be
+ * filled with — the highlight today, the player's own colour once ui-identity lands —
+ * without either rule knowing about the other.
+ */
 button{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;font-size:18px;
-  color:var(--ink);background:var(--highlight);
-  border:var(--outline) solid var(--ink);box-shadow:0 ${UI.shadowOffset}px 0 var(--ink);
+  --fill:var(--mine-tint);
+  color:var(--ink);background:var(--fill);
+  border:var(--outline) solid var(--ink);
   padding:11px 26px;cursor:pointer;
-  transition:transform .07s ease-out,box-shadow .07s ease-out}
-button:active:not(:disabled){transform:translateY(${UI.shadowOffset - 2}px);
-  box-shadow:0 2px 0 var(--ink);}
-button:disabled{background:var(--card-dim);color:var(--text-dim);cursor:default;
-  box-shadow:0 ${UI.shadowOffset}px 0 var(--ink)}
-button.ghost{background:transparent;box-shadow:none;font-size:14px;font-weight:500;
+  transition:transform .07s ease-out,background .07s ease-out}
+button:active:not(:disabled){transform:scale(${UI.pressScale});
+  background:color-mix(in srgb, var(--fill) ${Math.round((1 - UI.pressInk) * 100)}%, var(--ink))}
+button:disabled{background:var(--card-dim);color:var(--text-dim);cursor:default}
+button.ghost{--fill:transparent;background:transparent;font-size:14px;font-weight:500;
   color:var(--text-dim);border-width:2px;padding:8px 16px}
-button.ghost:active:not(:disabled){transform:none;box-shadow:none}
+/* A ghost has no fill to darken, so its ink is what deepens. */
+button.ghost:active:not(:disabled){transform:scale(${UI.pressScale});color:var(--ink)}
 
 input{background:#fff;color:var(--text);border:3px solid var(--ink);
   padding:10px 14px;text-align:center;width:100%}
@@ -137,6 +180,11 @@ input::placeholder{color:var(--text-dim)}
  * mute button onto a row of its own the moment it was added, which cost the row the
  * footer needed (audio T2).
  */
+/* Eight slots: the shape of the wait, without counting rows (ui-identity R3). */
+.slots{grid-column:1/-1;display:flex;justify-content:center;gap:5px;padding-top:3px}
+.slot{width:14px;height:14px;border-radius:5px;border:3px solid var(--ink);
+  background:transparent}
+
 .codeblock{display:grid;grid-template-columns:auto auto auto;
   align-items:center;justify-content:center;column-gap:6px;row-gap:3px;
   padding-bottom:10px;border-bottom:3px solid var(--ink)}
@@ -173,11 +221,12 @@ input::placeholder{color:var(--text-dim)}
 /* An icon button: the same slab, sized for a thumb rather than a sentence. */
 .iconbtn{width:${UI.minTarget}px;height:${UI.minTarget}px;min-height:${UI.minTarget}px;
   padding:0;display:inline-flex;align-items:center;justify-content:center;
-  background:var(--card);border:var(--outline) solid var(--ink);border-radius:14px;
-  box-shadow:0 ${UI.shadowOffset}px 0 var(--ink);cursor:pointer}
-.iconbtn:active:not(:disabled){transform:translateY(${UI.shadowOffset - 2}px);
-  box-shadow:0 2px 0 var(--ink)}
-.iconbtn svg{width:22px;height:22px;fill:none;stroke:var(--ink);stroke-width:2.4;
+  --fill:var(--mine);
+  background:var(--fill);border:var(--outline) solid var(--ink);border-radius:14px;
+  cursor:pointer;transition:transform .07s ease-out,background .07s ease-out}
+.iconbtn:active:not(:disabled){transform:scale(${UI.pressScale});
+  background:color-mix(in srgb, var(--fill) ${Math.round((1 - UI.pressInk) * 100)}%, var(--ink))}
+.iconbtn svg{width:22px;height:22px;fill:none;stroke:var(--mine-ink);stroke-width:2.4;
   stroke-linecap:round;stroke-linejoin:round}
 
 /*
@@ -248,6 +297,11 @@ input::placeholder{color:var(--text-dim)}
 
 /* Motion is emphasis, never the message: it all goes, the information stays. */
 @media (prefers-reduced-motion:reduce){
+  /* The name stays; only the dealt tilt goes (R1). */
+  h1.mark .ch{transform:none}
+  /* The scale is the felt half and goes; the ink-soak is the seen half and stays, so a
+     pressed control is never entirely without feedback (flat-controls R2, P1). */
+  button:active:not(:disabled),.iconbtn:active:not(:disabled){transform:none}
   *,*::before,*::after{animation:none!important;transition:none!important}
   .card.tilt{transform:rotate(-${UI.tilt}deg)}
   /* The wobble goes; the sentence stays. Motion is emphasis, never the message. */
@@ -320,6 +374,10 @@ input::placeholder{color:var(--text-dim)}
  * this buys back what it can and the rest still scrolls (RD-067).
  */
 @media (max-height:340px){
+  /* The strip is the first thing to go: at 292 points the eight rows and the room code
+     are what the round needs, and the strip is a second view of what the rows already
+     say (P5). Decided by measurement, not by preference — see RD-067. */
+  .slots{display:none}
   .card{padding:6px 14px;gap:2px}
   .row{padding:1px 2px;font-size:13px;line-height:1.25}
   .dot{width:12px;height:12px;border-radius:4px}
@@ -333,6 +391,21 @@ input::placeholder{color:var(--text-dim)}
 `;
 
 /** A player's colour, by slot. Wraps, so a ninth slot cannot throw. */
+/**
+ * Adopt a player's colour on the controls (ui-identity R5, P8).
+ *
+ * One write, at `welcome`. Everything that spends the three properties follows, and a
+ * slot of -1 leaves the highlight in place — which is what the menu and the join screen
+ * see, and what a spectator keeps.
+ */
+export function applyMine(root: { style: { setProperty(k: string, v: string): void } },
+  slot: number): void {
+  const mine = slot >= 0 ? colourFor(slot) : PAPER.highlight;
+  root.style.setProperty("--mine", mine);
+  root.style.setProperty("--mine-tint", slot >= 0 ? tint(mine) : PAPER.highlight);
+  root.style.setProperty("--mine-ink", slot >= 0 ? readableInk(mine) : PAPER.ink);
+}
+
 export function colourFor(slot: number): string {
   return PLAYER_COLOURS[((slot % PLAYER_COLOURS.length) + PLAYER_COLOURS.length) % PLAYER_COLOURS.length]!;
 }

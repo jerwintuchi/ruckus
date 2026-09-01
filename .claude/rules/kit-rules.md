@@ -42,6 +42,20 @@ its velocity and state:
 That is the whole character animation system, and it is roughly forty lines. It
 applies to every player in every minigame for free.
 
+## A shadow means an object
+
+The UI's hard offset shadow — zero blur, `--shadow` — belongs to **slabs**: cards, the
+toast, the round card. It is what says *this is paper lying on a table*.
+
+**Controls have none.** A button, an icon button, the stick and its knob are ink printed
+on the surface, not objects above it. The outline stays everywhere — that is what makes
+the UI and the characters look like one game — but the shadow does not.
+
+This is not a style preference. On a circle a zero-blur offset reads as a *second
+circle*: the stick's knob carried one, and a knob centred in its base looked lopsided in
+every screenshot until it was removed (RD-069). A control that needs to say it was
+pressed shrinks and takes ink, which is `UI.pressScale` and `UI.pressInk`.
+
 ## Lighting and performance
 
 One `DirectionalLight`, one `AmbientLight`. **No shadow maps** (blob shadows are

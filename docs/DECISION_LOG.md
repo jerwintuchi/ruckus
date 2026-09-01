@@ -2420,3 +2420,47 @@ convenient exception at a time, and this repo has a file full of examples.
 **And the two specs stay ignorant of each other.** `flat-controls` gives a control its
 shape; this gives it its colour. A control sets `background: var(--mine)` and inherits
 flatness from the button rule — neither spec has to know the other exists.
+
+## RD-071 — Three specs built: flat, findable, and yours (2026-09-01)
+
+`flat-controls` T1–T3, `find-yourself` T1–T3 and `ui-identity` T1–T7. The manual boxes
+on each remain, because the things they ask are things a phone answers.
+
+**The knob is centred, and always was.** Removing its shadow removed the crescent that
+made it look otherwise. Visible in the first screenshot after the change, three weeks
+after the playtest that reported it.
+
+**The press language is two channels on purpose.** `scale(0.94)` is FELT and is what
+`prefers-reduced-motion` removes; a `color-mix` toward ink is SEEN and survives it. So a
+pressed control is never entirely without feedback, which a scale-only press would be for
+anyone who has motion turned off. `--fill` is what lets the darkening work on whatever
+the control happens to be filled with — the highlight before a slot, the player's colour
+after — with neither spec knowing about the other.
+
+**The flat rule is a partition, not a list.** `flat.test.ts` walks every rule in both
+stylesheets and classifies by selector, so a control added next year is covered by a test
+written today; and it asserts the *other* half too — that cards and the toast still carry
+a shadow — because otherwise it passes just as well after someone strips every shadow in
+the file, which is not what was decided.
+
+**`rollTo` writes the final value first and walks backwards.** The obvious version counts
+forwards and leaves a wrong number if interrupted, and this card is interrupted
+constantly. The test destroys the element mid-roll to prove it.
+
+**Three things the build found.**
+
+*Two silent no-op edits.* A `str.replace` whose anchor had drifted wrote nothing and
+reported nothing — once for the reduced-motion rule, once for the slot strip's CSS. Both
+surfaced only because a test asserted the result rather than the intent. Every scripted
+edit in this session now asserts its anchor before writing.
+
+*My own assertion guard caught me.* `assertions.test.ts`, written yesterday, failed on a
+`toContain("opacity")` I had just typed. That is the guard working on its author, which
+is the only real test of a guard.
+
+*A backtick in a CSS template literal, for the sixth time.* Recorded for the count.
+
+**And `Renderer` still cannot be constructed in a test** — it makes a `WebGLRenderer`.
+So `find-yourself` T2 asserts *where* the call sits rather than pretending to observe its
+effect, and the spec says so in as many words. The behaviour that matters is covered
+against a real `Character`, which needs no context at all.
