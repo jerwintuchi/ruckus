@@ -1929,3 +1929,27 @@ same sentence as RD-051, RD-054 and RD-055. The pattern is stable enough now to 
 plainly: this project's UI defects are not logic defects, and the suite is not where they
 will be found. Both changes are pinned by tests written after the fact — that is what
 those tests are for, and it is not the same thing as having caught them.
+
+## RD-057 — max-width in a stretch column hangs left (2026-09-01)
+
+"That room is full — 8 players is the limit." was correct, and sat visibly off to one
+side of the card while looking almost right.
+
+The card is a flex column with the default `align-items:stretch`, so a child is full
+width unless it says otherwise. `max-width:28ch` narrows the box but does not move it:
+it stays anchored to the start edge, and the text then centres *within* the left-hung
+box. Two properties that each look right produce something that is not. The rule text
+has carried `margin:0 auto` since it was written for exactly this reason; the error line
+never did.
+
+The test is written over **every** rule that caps its own width rather than over `.err`
+alone, so the next capped block cannot repeat it. That is the difference between fixing
+an instance and fixing a class, and this file has enough instances of the same class
+already (RD-031, RD-043, RD-044 are all one property looking right in isolation).
+
+**A backtick in a CSS template-literal comment, for the fourth time** — and this one was
+typed into the paragraph of RD-056 that recorded the third. The habit is not going to be
+fixed by writing it down again. What actually holds is that these are template literals,
+so a stray backtick terminates the string and `tsc` rejects it before anything runs: the
+guard already exists, it is the compiler, and the cost is one round trip. Noting it here
+only so the count is honest, not as another reminder.

@@ -152,7 +152,18 @@ input::placeholder{color:var(--text-dim)}
   display:inline-block;flex:0 0 auto}
 .nm{flex:1;text-align:left;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sc{font-variant-numeric:tabular-nums;font-weight:800}
-.err{color:#c0281a;font-size:13.5px;min-height:17px;max-width:28ch;font-weight:600}
+/*
+ * A capped-width block in a stretch column has to centre itself.
+ *
+ * The card is a flex column with the default align-items:stretch, so a child is full
+ * width unless it says otherwise — and max-width then anchors the narrowed box to the
+ * START edge. The text inside still centred, against the left-hung box, so "that room
+ * is full" sat visibly off to one side of the card while looking almost right. The
+ * rule text has carried margin:0 auto for this reason since it was written; this never
+ * did.
+ */
+.err{color:#c0281a;font-size:13.5px;min-height:17px;max-width:28ch;font-weight:600;
+  margin-inline:auto}
 
 .big{font-family:Fredoka,sans-serif;font-weight:700;font-size:clamp(26px,6.5vw,34px);line-height:1.05}
 .rule{font-size:clamp(15px,4vw,18px);color:var(--text);max-width:26ch;margin:0 auto}

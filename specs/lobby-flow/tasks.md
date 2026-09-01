@@ -103,6 +103,11 @@ inventing a second one.
   cost a 44px row, which on a landscape phone with eight players was the row that
   pushed the footer off the bottom of the card
 
+- [x] T20 [R3, R5] — Centre the error line under the join and lobby cards
+  Test: `kit.test.ts` — every rule that caps its own width also carries an auto inline
+  margin, since `.card` is a stretch column and `max-width` alone hangs the narrowed
+  box off the start edge
+
 - [ ] T12 — Played for real: create a room on one device, join it from another by the
   link, play a round, and have someone leave and come back
   Test: manual, via `pnpm playtest`. The questions are whether the code is readable

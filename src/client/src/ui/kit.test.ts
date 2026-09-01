@@ -270,3 +270,16 @@ describe("the room code and its copy button share a line (lobby-flow T19, R13)",
     expect(rule(".linkbox")).toContain("grid-column:1/-1");
   });
 });
+
+describe("capped-width text stays centred in the card (lobby-flow R3, R5)", () => {
+  it("centres every block that narrows itself", () => {
+    // .card is a flex column with the default align-items:stretch, so max-width alone
+    // anchors the narrowed box to the start edge — the text then centres against a
+    // left-hung box and the whole message sits off to one side.
+    for (const sel of [".err", ".rule"]) {
+      const r = rule(sel);
+      expect(r, sel).toContain("max-width");
+      expect(r, sel).toMatch(/margin(-inline)?:0? ?auto/);
+    }
+  });
+});
