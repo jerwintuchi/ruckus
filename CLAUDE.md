@@ -30,17 +30,22 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 <!-- Max 20 lines. Pointer + next actions only. No history. -->
 
-Phase: **Verifying on the phone.**
+Phase: **One feature left, then the phone.**
 
-The build work of the phone phase is done: framing, touch controls, the action button,
-spectating, collision. Nine specs now hold **one open box each, and every one of them is
-a manual playtest task** — the questions those specs were written to ask, which only a
-person holding a device can answer.
+`specs/input-prediction/` is built, with T8 — the phone — still open (RD-074). Your own
+capsule is predicted and reconciled; everyone else stays interpolated. I6 draws the line
+as **position versus outcome**: the client runs the shared integrator and predicts no rule.
 
-Next: three specced UI passes, in this order — `specs/flat-controls/` (a shadow means
-an object, so controls have none), `specs/find-yourself/` (nothing marks your own
-character in a round), `specs/ui-identity/` (a wordmark, rolling scores, a slot strip).
-Behind them: eleven manual boxes that need a phone, including `specs/audio/` T4–T5.
+Next and last build work: an **in-game menu** — volume, quit the room, and the same
+from the main menu. It needs a spec; nothing else does.
+
+Behind it, **15 manual boxes**, every one needing a phone. They batch: one Hot Potato
+round at eight players answers `find-yourself` T4, `spectating` T3, `flat-controls` T4
+and `action-button` T7 together. The one that can invalidate work is
+`input-prediction` T8 — if a mispredicted shove reads as rubber-banding, the
+correction needs retuning.
+
+Also owed on hardware: `bench.html` p95 (RD-028) and `specs/audio/` T4-T5.
 
 ## Trust Boundary
 
