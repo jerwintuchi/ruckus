@@ -252,23 +252,30 @@ describe("the button says what it does, per player (action-button T3, T5, T6)", 
   });
 
   it("renders the ring and the number from the server's own countdown (R6, P2)", () => {
-    // The client displays readyIn; it runs no timer. One that counted independently
-    // would drift from the server that owns the cooldown.
+    // AMENDED (RD-072). This used to require that `setAction` contain the formatting
+    // AND that it touch no clock at all — which pinned the stepping: the server sends
+    // readyIn quantised to a tenth, so a snapshot-only repaint moved the sweep in
+    // fourteen jumps. The invariant was never "touch no clock"; it was "run no timer
+    // of your own that could drift". A duration re-anchored by every snapshot cannot
+    // drift, which is the same argument I6 makes for interpolating positions.
     const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
-    const setAction = src.slice(src.indexOf("setAction("), src.indexOf("\n  }", src.indexOf("setAction(")));
+    const setAction = src.slice(src.indexOf("setAction("), src.indexOf("private paintCooldown"));
+    const paint = src.slice(src.indexOf("private paintCooldown"), src.indexOf("/** Show the controls"));
+    // The value still comes from the server, and only from the server.
     expect(setAction).toContain("action.r");
-    expect(setAction).toContain("toFixed(1)"); // one decimal, as asked
-    for (const timer of ["setInterval", "setTimeout", "Date.now", "performance.now"]) {
-      expect(setAction, timer).not.toContain(timer);
+    expect(paint).toContain("toFixed(1)"); // one decimal, as asked
+    // And nothing schedules itself: no interval, no timeout, no wall clock.
+    for (const timer of ["setInterval", "setTimeout", "Date.now("]) {
+      expect(setAction + paint, timer).not.toContain(timer);
     }
   });
 
   it("shows nothing at all when the action is ready", () => {
     const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
-    const setAction = src.slice(src.indexOf("setAction("), src.indexOf("\n  }", src.indexOf("setAction(")));
+    const paint = src.slice(src.indexOf("private paintCooldown"), src.indexOf("/** Show the controls"));
     // A ready button is uncluttered: full ring, empty number.
-    expect(setAction).toContain('cooling ? readyIn.toFixed(1) : ""');
-    expect(setAction).toContain('"0"');
+    expect(paint).toContain('cooling ? left.toFixed(1) : ""');
+    expect(paint).toContain('"0"');
   });
 });
 
@@ -477,5 +484,38 @@ describe("the cooldown sweep is outside the button and unmissable (action-button
   it("is invisible while the action is ready", () => {
     // A full ring on a ready button is clutter that means nothing.
     expect(CONTROLS_CSS).toContain("#actionBtn:not(.cooling) #cooldownRing{opacity:0}");
+  });
+});
+
+describe("the cooldown sweeps smoothly between snapshots (RD-072)", () => {
+  const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
+
+  it("counts down on this device's own monotonic clock", () => {
+    // The server quantises readyIn to a tenth of a second (I5), so a 1.4s cooldown
+    // arrives as fourteen values and the sweep stepped visibly. Same shape as RD-065:
+    // take the duration, add it to a clock this device already trusts.
+    expect(src).toContain("this.coolUntil = readyIn > 0 ? performance.now() + readyIn * 1000 : 0");
+  });
+
+  it("repaints it every frame, before anything can return early", () => {
+    // It used to be painted only when a snapshot arrived. And the stick's early return
+    // sits below: putting the repaint after it would have animated the ring only while
+    // a thumb was already on the stick.
+    const update = src.slice(src.indexOf("update(): void {"), src.indexOf("const view ="));
+    expect(update).toContain("this.paintCooldown()");
+  });
+
+  it("is still the server that decides, since every snapshot re-anchors it", () => {
+    // Not prediction: the local clock only fills the gaps between authoritative
+    // values, which is what I6 asks the client to do with everything it draws.
+    const setAction = src.slice(src.indexOf("setAction("), src.indexOf("private paintCooldown"));
+    expect(setAction).toContain("action.r ?? 0");
+    expect(setAction).toContain("this.paintCooldown()");
+  });
+
+  it("clears itself the moment it reaches zero", () => {
+    const paint = src.slice(src.indexOf("private paintCooldown"), src.indexOf("/** Show the controls"));
+    expect(paint).toContain("if (!cooling) this.coolUntil = 0");
+    expect(paint).toContain('this.num.textContent = cooling ? left.toFixed(1) : ""');
   });
 });

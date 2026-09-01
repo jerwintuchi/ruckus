@@ -2464,3 +2464,38 @@ is the only real test of a guard.
 So `find-yourself` T2 asserts *where* the call sits rather than pretending to observe its
 effect, and the spec says so in as many words. The behaviour that matters is covered
 against a real `Character`, which needs no context at all.
+
+## RD-072 — Three polish notes, and two of them were bugs (2026-09-01)
+
+Playtest: the cooldown sweep is not smooth, the strikethrough comes and goes, and the
+caret should be an arrow that fades. Only the third was actually about looks.
+
+**The sweep was stepping, not easing.** The server quantises `readyIn` to a tenth of a
+second (I5), so a 1.4 s cooldown arrives as **fourteen values**, repainted only when a
+snapshot lands. No amount of easing fixes a value that only exists fourteen times. The
+client now takes the duration, adds it to its own monotonic clock, and repaints every
+frame — the RD-065 pattern for the third time.
+
+It is **not prediction**: every snapshot re-anchors it, the server remains the only thing
+that decides when the action is ready, and the local clock only fills the gaps between
+authoritative values. That is precisely what I6 asks the client to do with everything
+else it draws.
+
+Two tests had to be amended in place, and the reason is instructive. They asserted that
+`setAction` contained the formatting **and touched no clock at all** — which pinned the
+stepping. The invariant was never "touch no clock"; it was "run no timer of your own that
+could drift". A duration re-anchored thirty times a second cannot drift.
+
+**The strikethrough was random because it was.** `showMatchEnd` reuses `standingRows`,
+which reads `outThisRound` — and at match end that set still holds whoever died in round
+*five*. So the final standings struck through a couple of names for a reason no one
+watching could see, and which names depended entirely on who happened to go out last.
+`standingRows` takes a `markOut` flag now: true for the round card, where it means
+"these people just went out", false for the match card, where it means nothing.
+
+**And the caret is now an arrow.** It was a square slab rotated 45° — a diamond. It is a
+downward triangle with **per-vertex alpha**: solid at the point, `CARET_TOP_ALPHA` at the
+top edge, so it reads as pointing at you rather than floating above you. The gradient is
+three vertices and an RGBA colour attribute — no shader, no texture, no pass, which keeps
+it inside the Kit. `CARET_TOP_ALPHA` is 0.18 and tested to stay above 0.1: *fading at the
+top* still has to leave an arrow you can see, and at zero it reads as a smear.

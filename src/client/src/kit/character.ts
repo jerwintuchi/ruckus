@@ -9,7 +9,10 @@
  * would remove depth judgement entirely, in a game about timing a jump over a sweeping
  * bar. That was a gameplay decision, not an art one (RD-021).
  */
-import { Group, type Mesh } from "three";
+import {
+  BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Group, Mesh,
+  MeshBasicMaterial,
+} from "three";
 import { MAX_SPEED } from "@ruckus/shared";
 import { poseFor } from "./actor.ts";
 import { faceFor } from "./face.ts";
@@ -40,6 +43,40 @@ export const OUT_BLINKS = 4;
  * Pure and time-based, so it looks the same at 60 Hz and at 120 Hz, and so it can be
  * tested without a scene.
  */
+/**
+ * The triangle over your own head (find-yourself R1, R2).
+ *
+ * A downward arrow whose TOP fades out and whose point stays solid — so it reads as a
+ * marker pointing at you rather than as a floating object, and it does not fight the
+ * character underneath it for attention.
+ *
+ * The gradient is **per-vertex alpha**, not a shader and not a texture: three vertices,
+ * an RGBA colour attribute, and the renderer interpolates between them for free. That
+ * keeps it inside the Kit — geometry is code, there is no pass and no asset — and it
+ * costs one mesh (kit-rules.md).
+ */
+export function caretMesh(colour: string): Mesh {
+  const w = CARET_SIZE;
+  const h = CARET_SIZE * 1.05;
+  const geo = new BufferGeometry();
+  // Apex at the bottom, pointing down at the crown; the base is the faded top edge.
+  geo.setAttribute("position", new Float32BufferAttribute([
+    -w / 2, h, 0,
+    w / 2, h, 0,
+    0, 0, 0,
+  ], 3));
+  const c = new Color(colour);
+  geo.setAttribute("color", new Float32BufferAttribute([
+    c.r, c.g, c.b, CARET_TOP_ALPHA,
+    c.r, c.g, c.b, CARET_TOP_ALPHA,
+    c.r, c.g, c.b, 1,
+  ], 4));
+  // DoubleSide because the character turns and the marker must not vanish with it.
+  return new Mesh(geo, new MeshBasicMaterial({
+    vertexColors: true, transparent: true, side: DoubleSide, depthWrite: false,
+  }));
+}
+
 export function blinkVisible(elapsed: number): boolean {
   if (elapsed >= OUT_BLINK_S) return false; // gone
   const phase = (elapsed / OUT_BLINK_S) * OUT_BLINKS;
@@ -55,8 +92,15 @@ export const MESHES_PER_CHARACTER = 7;
  *
  * Derived, not a literal, so it follows the figure if the proportions ever change.
  */
-export const CARET_SIZE = 0.30;
-export const CARET_GAP = 0.22;
+export const CARET_SIZE = 0.34;
+export const CARET_GAP = 0.20;
+/**
+ * How much of the arrow survives at its top edge.
+ *
+ * Not zero: "fading at the top" must still leave an arrow you can see. At 0 the shape
+ * reads as a smear rather than a triangle, which is the opposite of a marker.
+ */
+export const CARET_TOP_ALPHA = 0.18;
 
 export class Character {
   readonly root = new Group();
@@ -161,14 +205,9 @@ export class Character {
    */
   setMine(colour: string): void {
     if (this.caret) return;
-    // A slab like every other part, so it needs no new material and no new idiom. Wide
-    // and short, pointing down: a caret rather than a flag, which would occlude the
-    // player behind it (R2).
-    const c = slab(colour, CARET_SIZE, CARET_SIZE * 0.62, SLAB_DEPTH);
-    c.position.y = BODY.height + CARET_GAP;
-    c.rotation.z = Math.PI / 4;
-    this.caret = c;
-    this.pivot.add(c);
+    this.caret = caretMesh(colour);
+    this.caret.position.y = BODY.height + CARET_GAP;
+    this.pivot.add(this.caret);
   }
 
   setVisible(v: boolean): void {

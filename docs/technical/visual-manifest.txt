@@ -26,7 +26,7 @@ phone/lobby-8 65f5fc6dc8ae6c7f
 phone/lobby-toast fa472f622d5440f2
 phone/match-end 594427ecc9ebf7fa
 phone/menu 8c3d64a866e9f079
-phone/round-cooling 908ba888dfcd117f
+phone/round-cooling 1a16c4f5b0605a2f
 phone/round-end cb029c7ca69d6435
 phone/round-jump b0c09bfef65a7af8
 phone/round-pass 5e62f046b7bd38d4
@@ -36,7 +36,7 @@ phone/waiting 2b62be279c01b792
 portrait/countdown 9118bd0b2ed0fe56
 portrait/hud b2418184f5b9e7e0
 portrait/hud-urgent ddd289ab581240ce
-portrait/join dedf21a71620e24f
+portrait/join 83cdb1faefe146f9
 portrait/join-full ec14195839600990
 portrait/lobby-8 d15e6e7edbb39eb1
 portrait/lobby-toast 225617c5bcdadcf6
@@ -58,7 +58,7 @@ safari-land/lobby-8 8982bf39a19b117d
 safari-land/lobby-toast 711df698e9e934b4
 safari-land/match-end 7692baceb397d5cc
 safari-land/menu a13f8372c7c4863c
-safari-land/round-cooling 2e440ff89125ff18
+safari-land/round-cooling 3fa5ff2fda61c51e
 safari-land/round-end 902d8a7af8b6dfa3
 safari-land/round-jump 8188e96e9f69d22e
 safari-land/round-pass 82bdf95c54f3ec2f
@@ -68,7 +68,7 @@ safari-land/waiting 6e7fe073b49d5d7a
 safari/countdown 8557226a6483934d
 safari/hud b7a8cd8754892e74
 safari/hud-urgent 3b0d0ef4fa55f9f6
-safari/join 35d53658b68693b6
+safari/join 6948f40c745fe889
 safari/join-full f586a85c616af0b0
 safari/lobby-8 243e8aff9c31a732
 safari/lobby-toast 5b722e6336df667f

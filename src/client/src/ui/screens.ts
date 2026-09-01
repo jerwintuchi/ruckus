@@ -341,7 +341,16 @@ export class Ui {
    * `you` is what makes a board usable at a glance in a room of eight; without it you
    * are reading names looking for your own.
    */
-  private standingRows(rows: Standing[], prefix: string): string {
+  /**
+   * @param markOut whether "eliminated" means anything on this card.
+   *
+   * On the ROUND card it does: these are the people who went out just now. On the
+   * MATCH card it does not — `outThisRound` still holds whoever died in round five,
+   * and striking those names through on the final standings marks players for a reason
+   * nobody watching can see. It looked like the strikethrough came and went at random,
+   * because it did: it depended on who happened to die last (RD-072).
+   */
+  private standingRows(rows: Standing[], prefix: string, markOut: boolean): string {
     return rows
       .map((r) => {
         const me = r.player.slot === this.mySlot ? " me" : "";
@@ -349,7 +358,7 @@ export class Ui {
         // `out` is eliminated — they are here and finished, which is a different thing
         // and must not look the same (R4, P6).
         const gone = r.player.connected ? "" : " gone";
-        const out = this.outThisRound.has(r.player.slot) ? " out" : "";
+        const out = markOut && this.outThisRound.has(r.player.slot) ? " out" : "";
         return `<div class="row${me}${gone}${out}">` +
           `<span class="dot" style="background:${colourFor(r.player.slot)}"></span>` +
           `<span class="nm">${escapeHtml(r.player.name)}</span>` +
@@ -361,7 +370,7 @@ export class Ui {
   showRoundEnd(scores: Record<number, number>, players: PlayerView[]): void {
     // Everyone, not just the scorers. Filtering to `points > 0` meant a player who had
     // a bad round vanished from the board entirely (R13).
-    const rows = this.standingRows(standings(players, scores), "+");
+    const rows = this.standingRows(standings(players, scores), "+", true);
     this.banner.innerHTML = `<div class="card tilt"><div class="big">round over</div>${rows}</div>`;
     this.rollScores();
     this.banner.style.display = "flex";
@@ -377,7 +386,7 @@ export class Ui {
       : "";
     // Final standings, not only the winner. Showing one name meant seven players
     // finished a ten-minute match without seeing their own (R13).
-    const rows = this.standingRows(standings(players, totals), "");
+    const rows = this.standingRows(standings(players, totals), "", false);
     this.banner.innerHTML =
       `<div class="card tilt"><div class="dim">winner</div>` +
       `<div class="big">${dot}${winner ? escapeHtml(winner.name) : "nobody"}</div>` +

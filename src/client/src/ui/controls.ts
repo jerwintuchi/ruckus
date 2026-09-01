@@ -285,6 +285,8 @@ export class Controls {
    * does not have — and the memo below then skips drawing it (RD-054).
    */
   private verb: ActionVerb | null = INITIAL_VERB;
+  /** When the action becomes ready, on THIS device's monotonic clock. 0 when ready. */
+  private coolUntil = 0;
 
   constructor(host: HTMLElement, private readonly input: InputController) {
     const wrap = document.createElement("div");
@@ -346,15 +348,32 @@ export class Controls {
     this.hint.hidden = verb !== "pass";
     this.hint.textContent = verb === "pass" ? "HOLD" : "";
 
+    // Re-anchored on every snapshot, and counted down locally between them.
+    //
+    // The server quantises `readyIn` to a tenth of a second (I5), so a 1.4s cooldown
+    // arrives as fourteen discrete values and the sweep stepped visibly. This is the
+    // RD-065 pattern again: take the DURATION, add it to this device's own monotonic
+    // clock, and recompute per frame. It is not prediction — the server remains the
+    // only thing that decides when the action is ready, and the very next snapshot
+    // overwrites this. It is interpolation of a drawn value, which is what I6 asks the
+    // client to do with everything else it draws.
     const readyIn = action.r ?? 0;
-    const cooling = readyIn > 0;
+    this.coolUntil = readyIn > 0 ? performance.now() + readyIn * 1000 : 0;
+    this.paintCooldown();
+  }
+
+  /** The ring and the number, from the local clock. Called every frame (P1). */
+  private paintCooldown(): void {
+    const left = this.coolUntil ? (this.coolUntil - performance.now()) / 1000 : 0;
+    const cooling = left > 0;
+    if (!cooling) this.coolUntil = 0;
     this.button.classList.toggle("cooling", cooling);
     // A ready button shows no clutter: full ring, no number.
-    this.num.textContent = cooling ? readyIn.toFixed(1) : "";
+    this.num.textContent = cooling ? left.toFixed(1) : "";
     // A full sweep of the whole ring: offset the dash by the fraction still to run, so
     // the ring empties as the cooldown does and is complete the moment it is ready.
     this.ring.style.strokeDashoffset = cooling
-      ? String(RING_CIRCUMFERENCE * Math.min(1, readyIn / COOLDOWN_FULL_S))
+      ? String(RING_CIRCUMFERENCE * Math.min(1, left / COOLDOWN_FULL_S))
       : "0";
   }
 
@@ -430,6 +449,10 @@ export class Controls {
    */
   update(): void {
     if (this.surface !== "touch") return; // nothing to draw on a keyboard
+    // Before the stick, and before any early return: the ring sweeps whether or not a
+    // thumb is on the stick, and putting this after the `!view` return meant it only
+    // animated while you were already moving.
+    if (this.coolUntil) this.paintCooldown();
     const view = this.input.stickView;
     if (!view) {
       this.home();

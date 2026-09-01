@@ -586,3 +586,37 @@ describe("the slot strip agrees with the rows (ui-identity T4, R3, P4)", () => {
     expect((rows.match(/class="row/g) ?? []).length).toBe(players.length);
   });
 });
+
+describe("eliminated is marked where it means something (ui-identity R4, RD-072)", () => {
+  const card = (ui: Ui, root: { querySelector(s: string): { innerHTML: string } | null }) =>
+    root.querySelector("#banner")?.innerHTML ?? "";
+
+  it("marks the round's eliminations on the round card", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.markOut(1);
+    ui.showRoundEnd({ 0: 3, 1: 0 }, players(2));
+    expect(card(ui, root as never)).toContain("out");
+  });
+
+  it("marks nobody on the MATCH card", () => {
+    // The match card is final standings. `outThisRound` still holds whoever died in
+    // round five, and striking those names looked random because it was: it depended
+    // entirely on who happened to go out last.
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.markOut(1);
+    ui.showMatchEnd(players(2)[0], players(2), { 0: 9, 1: 4 });
+    expect(card(ui, root as never)).not.toContain('class="row out"');
+    expect(card(ui, root as never)).not.toContain(" out\"");
+  });
+
+  it("forgets the previous round's dead at the next round start", () => {
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.markOut(1);
+    ui.clearOut();
+    ui.showRoundEnd({ 0: 3, 1: 1 }, players(2));
+    expect(card(ui, root as never)).not.toContain(" out\"");
+  });
+});

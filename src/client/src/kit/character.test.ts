@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { Mesh, MeshBasicMaterial, type Material } from "three";
 import { PLAYER_COLOURS } from "@ruckus/shared";
 import {
-  BODY, CARET_GAP, CARET_SIZE, Character, MESHES_PER_CHARACTER, OUT_BLINK_S, blinkVisible,
+  BODY, CARET_GAP, CARET_SIZE, CARET_TOP_ALPHA, Character, MESHES_PER_CHARACTER,
+  OUT_BLINK_S, blinkVisible, caretMesh,
 } from "./character.ts";
 import { EDGE_FACES, FRONT_FACE, SLAB_DEPTH, materialForFace } from "./paper.ts";
 import { PAPER } from "./palette.ts";
@@ -275,5 +276,65 @@ describe("finding yourself among eight identical figures (find-yourself T1, T3)"
     c.update(0, 0, 0, 0, OUT_BLINK_S + 0.01);
     expect(c.root.visible).toBe(false);
     expect(blinkVisible(OUT_BLINK_S + 0.01)).toBe(false);
+  });
+});
+
+describe("the caret is an arrow that fades at the top (RD-072)", () => {
+  it("is a triangle: three vertices, not a quad", () => {
+    const m = caretMesh("#1ab0ff");
+    expect(m.geometry.getAttribute("position").count).toBe(3);
+  });
+
+  it("points down, with its solid corner at the bottom", () => {
+    // An arrow that points at you. The apex is the vertex at y = 0, nearest the crown.
+    const pos = caretMesh("#1ab0ff").geometry.getAttribute("position");
+    const ys = [pos.getY(0), pos.getY(1), pos.getY(2)];
+    expect(Math.min(...ys)).toBe(0);
+    expect(ys.filter((y) => y === Math.max(...ys))).toHaveLength(2); // a flat top edge
+  });
+
+  it("fades toward the top and stays solid at the point", () => {
+    const col = caretMesh("#1ab0ff").geometry.getAttribute("color");
+    expect(col.itemSize).toBe(4); // RGBA — the alpha is what makes the gradient
+    expect(col.getW(0)).toBeCloseTo(CARET_TOP_ALPHA, 5);
+    expect(col.getW(1)).toBeCloseTo(CARET_TOP_ALPHA, 5);
+    expect(col.getW(2)).toBe(1);
+  });
+
+  it("is still visible where it is faintest", () => {
+    // "Fading at the top" must still leave an arrow you can see; at zero the shape
+    // reads as a smear rather than a marker.
+    expect(CARET_TOP_ALPHA).toBeGreaterThan(0.1);
+    expect(CARET_TOP_ALPHA).toBeLessThan(0.4);
+  });
+
+  it("needs no shader and no texture — geometry is code (kit-rules)", () => {
+    const m = caretMesh("#69f982");
+    const mat = m.material as { vertexColors: boolean; map?: unknown; type: string };
+    expect(mat.vertexColors).toBe(true);
+    expect(mat.map ?? null).toBeNull();
+    expect(mat.type).toBe("MeshBasicMaterial");
+  });
+
+  it("survives the character turning away", () => {
+    // The figure rotates; a single-sided marker would vanish with it.
+    const mat = caretMesh("#870909").material as { side: number; depthWrite: boolean };
+    expect(mat.side).toBe(2); // THREE.DoubleSide
+    expect(mat.depthWrite).toBe(false);
+  });
+
+  it("takes the player's colour", () => {
+    const col = caretMesh("#ffef14").geometry.getAttribute("color");
+    expect(col.getX(2)).toBeGreaterThan(0.9); // r
+    expect(col.getZ(2)).toBeLessThan(0.3);    // b
+  });
+
+  it("sits above the crown, at a distance derived from the body", () => {
+    const c = new Character("#ff3f18", 1);
+    c.setMine("#ff3f18");
+    let caretY = -1;
+    c.root.traverse((o) => { if (o.position.y > BODY.height) caretY = o.position.y; });
+    expect(caretY).toBeCloseTo(BODY.height + CARET_GAP, 5);
+    expect(CARET_SIZE).toBeLessThan(BODY.headSize);
   });
 });
