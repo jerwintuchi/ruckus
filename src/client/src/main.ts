@@ -141,8 +141,12 @@ function onMessage(msg: ServerMsg): void {
 
     case "intro":
       roundSeen = true;
-      // The server's absolute deadline, so every client counts to the same instant.
-      introEndsAt = msg.endsAt;
+      // A duration, added to THIS device's monotonic clock. performance.now(), not
+      // Date.now(): the countdown must not lurch if the OS steps the wall clock, and
+      // it must not depend on this phone and the server agreeing what time it is —
+      // which they did not, so a second player opened the intro already on "1"
+      // (RD-065). Latency costs tens of milliseconds, invisible at 1s granularity.
+      introEndsAt = performance.now() + msg.inMs;
       ui.showIntro(msg.displayName, msg.rule, msg.round, msg.of);
       roundLabelInfo = { name: msg.displayName, round: msg.round, of: msg.of };
       bannerUntil = performance.now() + 4000;
@@ -239,7 +243,7 @@ function frame(now: number): void {
   controls.update();
 
   // The count is derived from the server's deadline, never ticked locally.
-  if (introEndsAt) ui.setCountdown(countdownAt(introEndsAt, Date.now()));
+  if (introEndsAt) ui.setCountdown(countdownAt(introEndsAt, now));
 
   if (bannerUntil && now > bannerUntil) {
     bannerUntil = 0;

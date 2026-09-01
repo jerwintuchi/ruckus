@@ -9,6 +9,8 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import {
   CODE_COOLDOWN_MS,
+  INTRO_MS,
+  ROUNDS_PER_MATCH,
   MAX_CATCHUP_STEPS,
   TICK_MS,
   makeRng,
@@ -118,9 +120,10 @@ export class GameServer {
           game: game.id,
           displayName: game.displayName,
           rule: game.rule,
-          endsAt: Date.now() + 4000,
+          // A duration, from the constant, not a wall-clock instant and not a literal.
+          inMs: INTRO_MS,
           round,
-          of: 5,
+          of: ROUNDS_PER_MATCH,
         });
         this.broadcastRoom(room);
       },
@@ -133,7 +136,6 @@ export class GameServer {
           game: game.id,
           arena: game.arena(state as never) as never,
           roster: room.connected.map((p) => p.slot),
-          endsAt: Date.now() + 60_000,
           // The client draws its controls from these, and never from the id.
           input: game.input,
           // Spread rather than assigned: `exactOptionalPropertyTypes` distinguishes an
@@ -182,7 +184,6 @@ export class GameServer {
       game: live.game.id,
       arena: live.game.arena(live.state) as never,
       roster: match.roster.map((r) => r.slot),
-      endsAt: Date.now() + 60_000,
       input: live.game.input,
       ...(live.game.buttonLabel === undefined ? {} : { buttonLabel: live.game.buttonLabel }),
     });
