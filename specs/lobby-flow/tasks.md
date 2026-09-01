@@ -108,6 +108,12 @@ inventing a second one.
   margin, since `.card` is a stretch column and `max-width` alone hangs the narrowed
   box off the start edge
 
+- [x] T21 [R10, R11] — Give the toast a lane of its own
+  Test: `kit.test.ts` — the toast is bottom-anchored and `#hud` is top-anchored, stated
+  as a pair so moving either into the other's lane fails here rather than in a
+  photograph; in portrait it clears the rotate prompt, inside the one portrait media
+  query rather than a second one
+
 - [ ] T12 — Played for real: create a room on one device, join it from another by the
   link, play a round, and have someone leave and come back
   Test: manual, via `pnpm playtest`. The questions are whether the code is readable

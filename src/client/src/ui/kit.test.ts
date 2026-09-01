@@ -283,3 +283,35 @@ describe("capped-width text stays centred in the card (lobby-flow R3, R5)", () =
     }
   });
 });
+
+describe("the toast has a lane of its own (lobby-flow R10, R11)", () => {
+  it("sits at the bottom, where the round gauge and the card are not", () => {
+    // Top-centre is the busiest strip on the screen: #hud puts the round gauge there,
+    // and on a landscape phone the lobby card reaches the top of the viewport, so
+    // "someone joined" landed across the ROOM CODE label (RD-058).
+    const toast = rule(".toast");
+    expect(toast).toContain("bottom:");
+    expect(toast).not.toMatch(/(^|;)\s*top:/);
+  });
+
+  it("cannot collide with the round gauge, which is top-anchored", () => {
+    // Stated as a pair, so moving either one back into the other's lane fails here
+    // rather than in a photograph.
+    expect(rule("#hud")).toContain("top:0");
+    expect(rule(".toast")).toContain("bottom:");
+  });
+
+  it("never blocks a control, wherever it is", () => {
+    expect(rule(".toast")).toContain("pointer-events:none");
+  });
+
+  it("clears the rotate prompt, which owns that lane upright", () => {
+    // Both are bottom-centre pills. In portrait the prompt is the one that matters,
+    // so the toast moves up rather than landing on top of it — in the one portrait
+    // block, not a second one, which is what the nudge test above reads.
+    const portrait = UI_CSS.slice(UI_CSS.indexOf("@media (orientation:portrait)"));
+    const block = portrait.slice(0, portrait.indexOf("\n}"));
+    expect(block).toContain(".toast{bottom:calc(66px + var(--safe-bottom))}");
+    expect(UI_CSS.split("@media (orientation:portrait)").length - 1).toBe(1);
+  });
+});

@@ -181,11 +181,17 @@ input::placeholder{color:var(--text-dim)}
 /*
  * The toast: it confirms, it never asks.
  *
- * Pinned top-centre and pointer-events:none, so it can never sit over a control or
- * need dismissing — a copy confirmation that blocks Start would be worse than silence.
+ * Pointer-events:none, so it can never sit over a control or need dismissing — a copy
+ * confirmation that blocks Start would be worse than silence.
+ *
+ * BOTTOM-centre, not top. Top-centre is the busiest strip on the screen: the round
+ * gauge lives there during a match, and on a landscape phone the lobby card reaches
+ * the top of the viewport, so "someone joined" landed across the ROOM CODE label.
+ * Nothing occupies bottom-centre in landscape — the stick and the button hold the two
+ * corners — so the confirmation gets a lane of its own instead of a z-index fight.
  */
-.toast{position:fixed;z-index:20;left:50%;transform:translate(-50%,-16px);
-  top:calc(12px + var(--safe-top));
+.toast{position:fixed;z-index:20;left:50%;transform:translate(-50%,16px);
+  bottom:calc(14px + var(--safe-bottom));
   background:var(--ink);color:var(--card);
   border-radius:999px;padding:9px 18px;
   font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;font-size:14px;
@@ -265,6 +271,11 @@ input::placeholder{color:var(--text-dim)}
   #rotate{position:fixed;z-index:20;left:0;right:0;
     bottom:calc(14px + var(--safe-bottom));
     display:flex;justify-content:center;pointer-events:none}
+  /* Both are bottom-centre pills, and upright the prompt is the one that matters,
+     so the toast moves up rather than landing on it. Folded into THIS query rather
+     than opening a second one: there is exactly one description of what upright looks
+     like, and a test that reads "the portrait block" stays unambiguous. */
+  .toast{bottom:calc(66px + var(--safe-bottom))}
   #rotate span{background:var(--card);color:var(--text);
     border:var(--outline) solid var(--ink);border-radius:999px;
     box-shadow:var(--shadow);padding:9px 18px;

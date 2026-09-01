@@ -1953,3 +1953,32 @@ fixed by writing it down again. What actually holds is that these are template l
 so a stray backtick terminates the string and `tsc` rejects it before anything runs: the
 guard already exists, it is the compiler, and the cost is one round trip. Noting it here
 only so the count is honest, not as another reminder.
+
+## RD-058 — Top-centre was already taken, twice (2026-09-01)
+
+A verification screenshot for RD-057 caught "Check joined" printed across the ROOM CODE
+label. The toast was pinned top-centre with a comment explaining that this kept it clear
+of every control — which was true when it was written and had stopped being true twice
+since.
+
+**Top-centre is the busiest strip on the screen.** `#hud` puts the round gauge there
+during a match, so the toast has been landing on the timer for as long as both have
+existed; nobody photographed it because a toast lasts two seconds. And on a landscape
+phone the lobby card reaches the top of the viewport, so in the lobby it lands on the
+card. Two collisions, one cause.
+
+Bottom-centre is empty in landscape by construction — the stick holds one corner and the
+button the other — so the confirmation gets a lane rather than a z-index. Upright it
+moves above the rotate prompt, which owns that lane while the phone is the wrong way up.
+
+**The test states the pair, not the position.** "The toast is bottom-anchored" alone
+would let someone move the gauge down later and recreate this exactly. It asserts both
+ends, so whichever one moves into the other's lane fails a test rather than a
+photograph.
+
+**An existing test caught the first attempt, correctly.** The portrait override went in
+as a second `@media (orientation:portrait)` block, and the rotate-prompt test reads "the
+portrait block" by slicing from the first match — so it started asserting things about
+the toast. That test was right and the CSS was wrong: there should be one description of
+what upright looks like. Folded into the existing query, and the count of portrait
+queries is now asserted to be one, so the ambiguity cannot come back.
