@@ -37,8 +37,10 @@ spectating, collision. Nine specs now hold **one open box each, and every one of
 a manual playtest task** — the questions those specs were written to ask, which only a
 person holding a device can answer.
 
-Next: close those nine. `specs/audio/` is the last unbuilt feature (0/5, specced) and
-waits behind them by its own note.
+Next: three specced UI passes, in this order — `specs/flat-controls/` (a shadow means
+an object, so controls have none), `specs/find-yourself/` (nothing marks your own
+character in a round), `specs/ui-identity/` (a wordmark, rolling scores, a slot strip).
+Behind them: eleven manual boxes that need a phone, including `specs/audio/` T4–T5.
 
 ## Trust Boundary
 

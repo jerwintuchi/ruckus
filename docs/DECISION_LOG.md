@@ -2335,3 +2335,48 @@ has now cost this project three separate times. And adding it to the code block 
 it onto a row of its own, because that grid had exactly two columns; the footer went off
 the bottom again, in the state fixed two commits ago. One column per icon button now, and
 the test counts the buttons rather than pinning the number.
+
+## RD-069 — A shadow means an object, and a circle is not one (2026-09-01)
+
+Asked for the shadows off the buttons and the joypad, and for a redesign brainstorm.
+Investigating the first turned it from a preference into a bug report.
+
+**The stick was never off-centre.** `#stickKnob` carried `box-shadow: 6px 6px 0` — the
+same hard, zero-blur offset a card gets. On a rectangle that reads as depth. On a
+**circle** it reads as *a second circle*, down and to the right, and the resting knob has
+therefore looked lopsided in every screenshot since it was drawn. The first phone
+playtest reported exactly that — "the default fixed position of the joypad is off" — I
+read it as a positioning problem and moved the anchor, which fixed nothing, because the
+anchor was never wrong. Three weeks of a wrong diagnosis, resolved by being asked to
+change something for aesthetic reasons.
+
+**The principle, which is worth more than the fix.** A shadow means *this is an object
+lying on the table*. Cards, the toast and the round card keep it — they are paper, and
+the shadow is what says so. Anything you **touch** is ink printed on the surface and has
+none. That is a rule for every future control rather than a preference about this one,
+and it retro-explains RD-056: the action button's shadow went because it competed with
+the cooldown ring, which made it the first control corrected under a rule nobody had
+written down yet.
+
+**`visual-direction` R10 is amended in place**, not quietly edited. Its criterion read
+"fat rounded panels, heavy near-black outline, hard offset shadow, no soft blur" as one
+clause over the whole UI. The shadow half is now scoped to slabs. **The outline stays
+everywhere** — it is the thing that makes the UI and the world look like one game, since
+a character is literally a slab with ink edges, and dropping it was offered and declined.
+
+**Going flat has a dependency that was not asked for and ships anyway.** The press
+affordance is currently the shadow moving. Remove the shadow and there is nothing left,
+so every control would feel dead. `specs/flat-controls/` T2 replaces it with a scale
+plus an ink-soak fill: the scale is what is *felt* and is what reduced motion removes,
+the fill is what is *seen* and survives it, so the feedback is never entirely absent.
+
+**Three specs, not one pass.** `flat-controls` (the language), `find-yourself` (nothing
+in a round marks your own character — eight identical paper figures and the client has
+known `mySlot` since `welcome`), `ui-identity` (a wordmark from the player colours,
+scores that roll so you can see who gained, a slot strip so the wait has a shape). Each
+ships alone, which is the workflow's own test for whether a spec is one thing.
+
+**One design note worth keeping.** `rollTo` writes the FINAL value first and animates
+backwards from the old one. The obvious implementation animates forwards and leaves a
+wrong number behind if the card is dismissed early — and this card is dismissed early
+constantly, because the next round starts.

@@ -84,10 +84,27 @@ interface come from the same Nintendo family, so they finally agree.
 ## The interface
 
 **R10**: The UI is the bright chunky party idiom, and now matches the world.
-- AC: fat rounded panels, heavy near-black outline, hard offset shadow, no soft blur
+- AC: fat rounded panels, heavy near-black outline, no soft blur — **the outline is
+      everywhere**, because it is what makes the UI and the characters look like one
+      game (a character is literally a slab with ink edges)
+- AC: the hard offset shadow is for **slabs, not controls** *(amended — see below)*
 - AC: entrances scale with an overshoot and settle; nothing simply fades
 - AC: accents are the game's own eight player colours
 - AC: `prefers-reduced-motion` removes the motion and keeps every piece of information
+
+**Why the shadow clause was narrowed**, rather than quietly edited: it originally read
+"hard offset shadow" as one property of the whole UI. That was applied to a *circle* —
+the stick's knob — where a hard offset with zero blur does not read as depth at all. It
+reads as a second circle, down and to the right, and the resting stick therefore looked
+lopsided in every screenshot from the day it was drawn. The first playtest reported it
+("the default fixed position of the joypad is off"), the anchor was moved in response,
+and that fixed nothing because the anchor was never wrong.
+
+The narrowed rule is that a shadow means *this is an object lying on the table*. Cards,
+the toast and the round card keep it. Anything you touch is ink printed on the surface
+and has none — which also retro-explains RD-056, where the action button's shadow had to
+go because it competed with the cooldown ring. That was the first control corrected under
+a rule nobody had written down yet. Details in `specs/flat-controls/` and RD-069.
 
 **R11**: The UI stays sharp and usable in one thumb.
 - AC: DOM at native resolution
