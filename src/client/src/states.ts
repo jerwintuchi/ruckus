@@ -158,6 +158,10 @@ if (new URLSearchParams(location.search).get("still") === "1") {
     // A text caret blinks and a Blink scrollbar fades out. Neither is a CSS animation,
     // so neither was caught by the rule above — and both are repainting pixels that a
     // fingerprint then reads as "this screen changed".
+    //
+    // The scrollbar rule has a cost worth knowing: a still frame cannot tell you that
+    // a card scrolls. In the short landscape profiles the lobby DOES, and the shot
+    // looks simply cut off. Load the page without ?still=1 to see the affordance.
     "*{caret-color:transparent!important}" +
     "::-webkit-scrollbar{display:none!important}";
   document.head.append(still);

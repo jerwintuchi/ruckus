@@ -2168,3 +2168,28 @@ a flaw in the shooter. **It is therefore a signal to look, not a gate, and delib
 not wired into `pnpm check`.** A baseline that goes red on its own teaches people to
 ignore red, which is worse than having no baseline. This project already has one file
 whose whole purpose is that lesson.
+
+## RD-064 — The widest screen the game is ever handed (2026-09-01)
+
+The last profile, measured: **landscape Safari with its chrome showing is 874x292 at
+dpr 3** — 110 CSS points eaten, safe insets unchanged at `t0 r62 b20 l62`. That is
+**aspect 2.99**, against 2.17 installed to the home screen, and it is the widest frame
+the game will ever be asked to fill. It is also what a stranger gets from a tapped link,
+which makes it the *default* case rather than the edge one.
+
+`framing.test.ts` already covers it: the property runs the full `MIN_ASPECT..MAX_ASPECT`
+span, 0.4 to 3.2, and names 2.99 explicitly. The spec's task text still said `[0.4, 2.4]`
+— stale prose against correct code, corrected here. Same shape as RD-062, one file over.
+
+**The profile found something on its first run.** At 292 points tall the eight-player
+lobby cannot hold the code block, eight rows and the footer: it stops at bot-6. The card
+is bounded and scrolls internally — RD-055 made sure of that — so nothing is lost, but
+nothing says so either, and the room code (the thing actually read aloud across a room)
+stays visible, which is the right half to keep. Recorded rather than fixed: at this
+height *something* has to go, and which one is a design call, not a bug.
+
+**And the still frame has a cost worth naming.** `?still=1` hides the scrollbar to make
+fingerprints reproducible, so a gallery shot cannot tell you that a card scrolls — it
+looks simply cut off. That is now written where the rule is. A diagnostic that quietly
+removes the evidence for the thing it is showing you is the failure mode of RD-053 in
+miniature.

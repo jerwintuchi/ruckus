@@ -17,7 +17,7 @@ a task finds itself editing a `tick()`, it has gone wrong.
   files and each had to be told about the new field — which is the guard working.)*
 
 - [x] T2 [R1, P1, P2] — `fitCamera` in `src/client/src/kit/framing.ts`
-  Test: `framing.test.ts` — property over 200 aspects spanning [0.4, 2.4], for all four
+  Test: `framing.test.ts` — property over 200 aspects spanning [0.4, 3.2], for all four
   real arenas: the extent disc is **projected through an actual `PerspectiveCamera`**
   and every sample lands inside the viewport. That is deliberately not a restatement of
   the formula — it is checked against what the renderer will really do, which is what

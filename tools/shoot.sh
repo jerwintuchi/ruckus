@@ -45,6 +45,10 @@ case "$PROFILE" in
     SIZE="874x402"; SCALE=3; SURFACE="touch"; INSETS="0,62,20,62" ;;
   portrait)
     SIZE="402x812"; SCALE=3; SURFACE="touch"; INSETS="62,0,34,0" ;;
+  # Safari with its chrome showing — what a stranger gets from a tapped link, and the
+  # widest aspect the game is ever handed: 2.99 (RD-064).
+  safari-land)
+    SIZE="874x292"; SCALE=3; SURFACE="touch"; INSETS="0,62,20,62" ;;
   desktop)
     SIZE="1280x800"; SCALE=1; SURFACE="keyboard"; INSETS="" ;;
   *)

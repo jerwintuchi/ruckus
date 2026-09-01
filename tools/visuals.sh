@@ -19,7 +19,7 @@
 # which is the whole of what losing Safari's URL bar does.
 #
 # ── HOW FAR TO TRUST THE FINGERPRINTS ─────────────────────────────────────────
-# `?still=1` settles the animations, the text caret and the scrollbar, and 58 of the 60
+# `?still=1` settles the animations, the text caret and the scrollbar, and most of the
 # rows then reproduce exactly, run after run. The residue is the `safari` profile's
 # LOBBY, where eight rows are borderline against a 714pt card: the overflow state itself
 # flips, so the layout genuinely differs between runs. That is a real property of the
@@ -44,6 +44,7 @@ PROFILE_ROWS=(
   "phone|874x402|3|0,62,20,62|home screen, landscape — MEASURED (RD-055)"
   "portrait|402x812|3|62,0,34,0|home screen, portrait — MEASURED (RD-055)"
   "safari|402x714|3|62,0,34,0|Safari with its chrome, portrait — MEASURED (RD-053)"
+  "safari-land|874x292|3|0,62,20,62|Safari with its chrome, landscape — MEASURED (RD-064)"
   "desktop|1280x800|1||a PC, so the desktop build does not rot unwatched"
 )
 
