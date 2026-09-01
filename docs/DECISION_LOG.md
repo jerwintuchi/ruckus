@@ -2499,3 +2499,32 @@ top edge, so it reads as pointing at you rather than floating above you. The gra
 three vertices and an RGBA colour attribute — no shader, no texture, no pass, which keeps
 it inside the Kit. `CARET_TOP_ALPHA` is 0.18 and tested to stay above 0.1: *fading at the
 top* still has to leave an arrow you can see, and at zero it reads as a smear.
+
+## RD-073 — One playtest stack per session (2026-09-01)
+
+Asked to keep a single playtest running and reuse it rather than spinning up another,
+and to clean it up when it is not needed. The state of the machine when that was asked:
+**four bot groups and four server stacks**, the oldest 5 h 42 m old, three of the servers
+unable to bind port 3001 and existing solely to hold memory.
+
+The instruction is a behaviour change, and this project's answer to behaviour changes is
+to design them out. `tools/playtest.sh` now checks whether the ports are already serving
+and, if so, prints the URLs of the running stack instead of starting a second — and
+`--stop` ends it, so cleanup is a flag rather than a research task.
+
+**The stop path resolves PIDs from the listening socket**, and the one `pgrep` it uses
+skips its own pid explicitly. `pkill -f bots.mjs` matched the shell that invoked it twice
+during this session and killed the command issuing it, so a test forbids `pkill` in the
+executable lines.
+
+**That test immediately fired on the script's own comments** — both existing mentions of
+`pkill` are warnings against using it. Stripping comments before the check is the fix; a
+guard that trips over its own documentation gets weakened rather than heeded, and this
+file already records the same lesson from `kit_check` and the RD-009 minigame-name guard.
+
+Two memories were written alongside this: reuse one stack and stop it when done, and
+**verify a room before handing it over**. The second exists because the user has twice
+opened a code I gave them and found it dead — once because my own edit to a server file
+triggered `node --watch` and dropped every room (I7), once because the bots had finished
+and the room had retired. Both cost them a trip to their phone for something a
+fifteen-second screenshot would have caught.

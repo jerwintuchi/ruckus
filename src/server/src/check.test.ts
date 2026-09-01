@@ -124,3 +124,30 @@ describe("the screenshot harness needs no exception (auto-playtest T2, P1)", () 
     }
   });
 });
+
+describe("one playtest stack per session (RD-073)", () => {
+  const sh = readFileSync(join(ROOT, "tools", "playtest.sh"), "utf8");
+
+  it("refuses to start a second when one is already serving", () => {
+    // Four bot groups and four server stacks accumulated in one session before this
+    // existed — three of them unable to bind the port, existing only to hold memory.
+    expect(sh).toContain("a playtest is already running");
+    expect(sh).toContain("reusing it, not starting a second");
+  });
+
+  it("offers a way to stop it, so cleanup is not a research task", () => {
+    expect(sh).toContain('"--stop"');
+  });
+
+  it("never kills by pattern where the pattern could match itself", () => {
+    // `pkill -f bots.mjs` matched the shell that invoked it, twice, during the session
+    // that produced this flag. The stop path resolves PIDs from the listening socket,
+    // and the one pgrep it does use skips its own pid explicitly.
+    // Comments stripped: both existing mentions are warnings AGAINST it, and a guard
+    // that fires on its own documentation trains people to weaken the guard.
+    const code = sh.split("\n").filter((l) => !l.trim().startsWith("#")).join("\n");
+    expect(code).not.toContain("pkill");
+    const stop = sh.slice(sh.indexOf('if [ "${1:-}" = "--stop" ]'), sh.indexOf("# Already serving?"));
+    expect(stop).toContain('[ "$pid" = "$$" ] && continue');
+  });
+});

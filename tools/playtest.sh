@@ -27,6 +27,49 @@ CLIENT_PORT="${CLIENT_PORT:-5173}"
 
 # --bots N [ROOM] : how many bots, and optionally the room they fill
 # --room CODE     : the room every printed URL points at
+SERVER_PORT_CHECK="${SERVER_PORT:-3001}"
+CLIENT_PORT_CHECK="${CLIENT_PORT:-5173}"
+up() { curl -s -m 2 -o /dev/null "http://localhost:$1/" 2>/dev/null; }
+
+# ── ONE STACK PER SESSION ────────────────────────────────────────────────────
+# `--stop` ends the running one. Nothing else here kills anything: a script that
+# reaches for pkill will eventually match the shell that invoked it, which is exactly
+# how two commands died during the session that produced this flag.
+if [ "${1:-}" = "--stop" ]; then
+  stopped=0
+  for port in "$SERVER_PORT_CHECK" "$CLIENT_PORT_CHECK"; do
+    for pid in $(ss -ltnp 2>/dev/null | awk -v p=":$port" '$4 ~ p {print $NF}' \
+                 | grep -oP 'pid=\K[0-9]+' | sort -u); do
+      kill "$pid" 2>/dev/null && { echo "  stopped pid $pid (:$port)"; stopped=1; }
+    done
+  done
+  for pid in $(pgrep -f "tools/bots.mjs" 2>/dev/null); do
+    [ "$pid" = "$$" ] && continue
+    kill "$pid" 2>/dev/null && { echo "  stopped bots pid $pid"; stopped=1; }
+  done
+  [ "$stopped" = 0 ] && echo "  nothing was running"
+  exit 0
+fi
+
+# Already serving? Reuse it. Four bot groups and four server stacks accumulated in one
+# session before this existed, three of which could not even bind the port and existed
+# only to hold memory. A second stack is never what anyone wanted.
+if up "$SERVER_PORT_CHECK" || [ -n "$(ss -ltn 2>/dev/null | grep -c ":$SERVER_PORT_CHECK ")" ] \
+   && ss -ltn 2>/dev/null | grep -q ":$SERVER_PORT_CHECK "; then
+  if ss -ltn 2>/dev/null | grep -q ":$CLIENT_PORT_CHECK "; then
+    HOST_IP="$(hostname -I | awk '{print $1}')"
+    echo
+    echo "  ${bold}a playtest is already running${off} — reusing it, not starting a second."
+    echo
+    echo "    This machine   http://localhost:${CLIENT_PORT_CHECK}/"
+    echo "    From the LAN   http://${HOST_IP}:${CLIENT_PORT_CHECK}/"
+    echo
+    echo "  ${dim}Fresh room with bots:  node tools/bots.mjs --count 3${off}"
+    echo "  ${dim}Stop everything:       ./tools/playtest.sh --stop${off}"
+    exit 0
+  fi
+fi
+
 BOT_COUNT=0
 ROOM="${ROOM:-PLAY}"
 for i in $(seq 1 $#); do
