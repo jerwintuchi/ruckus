@@ -2091,3 +2091,46 @@ here rather than fixed, because the fix belongs with whoever next touches that b
 *fuse* gauge, not the round countdown. The fixture was wrong and the name was a claim I
 had not checked — a state named for a behaviour it could not produce is worse than no
 state, since a clean run then means nothing.
+
+## RD-062 — The blocked task was blocked on a filename (2026-09-01)
+
+Asked what was next, picked the test environment, and found three things — none of them
+the thing that was chosen.
+
+**`shell` T16 did not need a browser.** It had carried a note for weeks saying its test
+"needs a WebGL context, so it wants a browser test environment this repo has not set up".
+That was true of the `Renderer` *class*, whose constructor makes a `WebGLRenderer`, and
+false of the claim the task actually makes: `buildPrim` is an exported free function and
+the Kit's sharing is two module-level caches, all ordinary three.js objects that
+construct fine in Node. **The coverage had existed all along under a different filename**
+— `render-prims.test.ts` — which is precisely why the registry flagged the spec MISSING.
+
+The flag was right and the prose explaining it was wrong. That is the exact failure this
+registry exists to catch, and it happened in the one place nothing generates: a
+hand-written note attached to a box. Worth more than the fix.
+
+**Writing the test found a real allocation bug.** The paper seed was
+`Math.round(big * 7)`, derived from a box's largest dimension — so every distinct box
+*size* minted its own 12 KiB `DataTexture` and its own material, from a cache nothing
+clears. Bounded today only because four minigames happen to use a handful of sizes; a
+round with a growing platform would have allocated one per frame, on the render path,
+which `kit-rules.md` forbids in as many words. Bucketed to `PAPER_VARIANTS = 4` — the
+seed exists so adjacent surfaces do not share a grain, and four does that as well as
+forty. The existing sharing tests varied colour and count, never size.
+
+**jsdom, and what it is for.** Every test in `ui/` reads the stylesheet as a string or
+greps the source for a line. That catches a wrong value and is blind to a wrong wiring,
+which is the half that has actually broken: RD-042 (a `textContent` assignment that
+destroyed the icon, the ring and the number), RD-044 (an SVG sized by percentage), RD-054
+(a memo whose initial value claimed a picture the DOM did not have). All three were found
+by a person looking at a phone.
+
+**The tests were verified by reintroducing the bugs**, not by assuming. RD-054 put back
+fails one; RD-042 put back fails **six of eight** — where the old source-text guard
+caught it only as "`paint` does not contain `button.textContent`".
+
+**A DOM implementation is not a browser**, so RD-051's no-automation guard is untouched
+and still asserts no playwright, puppeteer or selenium. jsdom is opted into per file, so
+the 700 tests that need no DOM stay in Node and stay fast. It lays nothing out: **where**
+a thing sits remains a question for `gallery.sh` and a phone, and this changes none of the
+nine manual boxes.

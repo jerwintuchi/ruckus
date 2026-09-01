@@ -44,6 +44,15 @@ Each had passing tests. The suite verifies logic; none of it looks at the result
 - AC: it proves **layout, not reachability** — nothing here talks to a server, so it
       cannot catch a state the game fails to arrive at, and says so
 
+**R6**: The DOM is tested by mounting it, not by reading its source.
+- AC: the controls and the screens can be constructed in a test and inspected after a
+      call, rather than asserted against `CONTROLS_HTML` as a string
+- AC: reintroducing RD-042 or RD-054 fails a test — checked by doing it, not assumed
+- AC: the DOM environment is opt-in per file, so the suite that needs none stays fast
+- AC: it adds no browser-automation package; a DOM implementation is not a browser
+- AC: it says what it still cannot answer — jsdom lays nothing out, so **where** a
+      thing is remains a question for `gallery.sh` and a phone
+
 **R3**: It is honest about what it cannot answer.
 - AC: it renders in software, so it says nothing about frame rate — `bench.html` on a
       real phone remains the only source for that

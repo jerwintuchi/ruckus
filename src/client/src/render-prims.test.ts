@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Prim } from "@ruckus/shared";
-import { buildPrim } from "./render.ts";
+import { PAPER_VARIANTS, buildPrim } from "./render.ts";
+import { textureCount } from "./kit/textures.ts";
 import { GEO, materialCount } from "./kit/prims.ts";
 
 const ALL: Prim[] = [
@@ -56,6 +57,32 @@ describe("generic prims channel (hot-potato T2, R8)", () => {
     const a = buildPrim({ k: "box", pos: [0, 0, 0], size: [1, 1, 1], colour: "#010203" });
     const b = buildPrim({ k: "box", pos: [0, 0, 0], size: [1, 1, 1], colour: "#040506" });
     expect(a.material).not.toBe(b.material);
+  });
+
+  it("draws a plane as a thin box, so it takes the light like every other slab", () => {
+    // A PlaneGeometry is single-sided and unlit from behind; an arena floor is a slab.
+    const m = buildPrim({ k: "plane", pos: [0, 0, 0], size: [10, 6], colour: "#fff" });
+    expect(m.scale.x).toBe(10);
+    expect(m.scale.z).toBe(6);
+    expect(m.scale.y).toBeLessThan(1);
+  });
+
+  it("does not grow the caches with box SIZE (RD-062)", () => {
+    // The sharing tests above vary colour and count. This varies SIZE, which is what
+    // was actually unbounded: the paper seed was derived from the box's largest
+    // dimension, so every distinct size minted its own 12 KiB DataTexture and its own
+    // material, from a cache nothing clears. A round with a growing platform would
+    // have allocated one per frame, on the render path, which kit-rules.md forbids.
+    const texturesBefore = textureCount();
+    const seen = new Set<unknown>();
+    for (let i = 0; i < 400; i++) {
+      const side = 2 + i * 0.0149; // continuous, across the whole fibre band
+      seen.add(buildPrim({
+        k: "box", pos: [0, 0, 0], size: [side, 1, side], colour: "#8a63d2",
+      }).material);
+    }
+    expect(seen.size).toBeLessThanOrEqual(PAPER_VARIANTS);
+    expect(textureCount() - texturesBefore).toBeLessThanOrEqual(PAPER_VARIANTS);
   });
 });
 

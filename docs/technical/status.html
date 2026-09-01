@@ -151,17 +151,17 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
     </div>
     <div class="stamp">
       <span class="badge ok">all green</span><br>
-      <b>2026-09-01 07:07 UTC</b><br>
-      <code>0e9d62e</code> feat(client): make the state gallery walkable on a phone — RD-060
+      <b>2026-09-01 07:31 UTC</b><br>
+      <code>50072ea</code> fix(client): the cooldown ring was 1.4px from the button, not 7 — RD-061
     </div>
   </header>
 
   <div class="metrics">
     <div class="metric"><b>4</b><span>Minigames shipped</span></div>
-    <div class="metric"><b>136</b><span>Tasks done <em>/ 15 open</em></span></div>
-    <div class="metric"><b>714</b><span>Tests</span></div>
-    <div class="metric"><b>3,320</b><span>Eager context tokens</span></div>
-    <div class="metric"><b>61</b><span>Decisions logged</span></div>
+    <div class="metric"><b>138</b><span>Tasks done <em>/ 14 open</em></span></div>
+    <div class="metric"><b>724</b><span>Tests</span></div>
+    <div class="metric"><b>3,306</b><span>Eager context tokens</span></div>
+    <div class="metric"><b>62</b><span>Decisions logged</span></div>
   </div>
 
   <section>
@@ -172,7 +172,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
       <li class="guard guard--ok">
           <span class="guard__state">pass</span>
           <span class="guard__label">Eager context under budget</span>
-          <span class="guard__detail">context budget OK — ~3,320 eager tokens</span>
+          <span class="guard__detail">context budget OK — ~3,306 eager tokens</span>
         </li>
 <li class="guard guard--ok">
           <span class="guard__state">pass</span>
@@ -182,7 +182,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
 <li class="guard guard--ok">
           <span class="guard__state">pass</span>
           <span class="guard__label">Spec registry matches the tree</span>
-          <span class="guard__detail">spec registry OK — 17 spec(s), 2 flagged</span>
+          <span class="guard__detail">spec registry OK — 17 spec(s), 1 flagged</span>
         </li>
     </ul>
   </section>
@@ -241,27 +241,11 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
         <tbody>
         <tr>
           <td><code>audio</code></td>
-          <td><span class="chip chip--dormant">dormant</span></td>
+          <td><span class="chip chip--active">active</span></td>
           <td class="num">0</td>
           <td class="num">5</td>
           <td class="bar"><span style="--pct:0%"></span></td>
           <td class="flags"><span class="flag">MISSING</span></td>
-        </tr>
-<tr>
-          <td><code>shell</code></td>
-          <td><span class="chip chip--dormant">dormant</span></td>
-          <td class="num">18</td>
-          <td class="num">1</td>
-          <td class="bar"><span style="--pct:95%"></span></td>
-          <td class="flags"><span class="flag">MISSING</span></td>
-        </tr>
-<tr>
-          <td><code>arena-framing</code></td>
-          <td><span class="chip chip--active">active</span></td>
-          <td class="num">6</td>
-          <td class="num">1</td>
-          <td class="bar"><span style="--pct:86%"></span></td>
-          <td class="flags"><span class=ok-dash>—</span></td>
         </tr>
 <tr>
           <td><code>action-button</code></td>
@@ -269,6 +253,14 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
           <td class="num">10</td>
           <td class="num">1</td>
           <td class="bar"><span style="--pct:91%"></span></td>
+          <td class="flags"><span class=ok-dash>—</span></td>
+        </tr>
+<tr>
+          <td><code>arena-framing</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">6</td>
+          <td class="num">1</td>
+          <td class="bar"><span style="--pct:86%"></span></td>
           <td class="flags"><span class=ok-dash>—</span></td>
         </tr>
 <tr>
@@ -330,7 +322,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
 <tr>
           <td><code>auto-playtest</code></td>
           <td><span class="chip chip--done">done</span></td>
-          <td class="num">4</td>
+          <td class="num">5</td>
           <td class="num">0</td>
           <td class="bar"><span style="--pct:100%"></span></td>
           <td class="flags"><span class=ok-dash>—</span></td>
@@ -375,6 +367,14 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
           <td class="bar"><span style="--pct:100%"></span></td>
           <td class="flags"><span class=ok-dash>—</span></td>
         </tr>
+<tr>
+          <td><code>shell</code></td>
+          <td><span class="chip chip--done">done</span></td>
+          <td class="num">19</td>
+          <td class="num">0</td>
+          <td class="bar"><span style="--pct:100%"></span></td>
+          <td class="flags"><span class=ok-dash>—</span></td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -385,7 +385,8 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
     <p class="lead">Append-only. Newest first. Each records what was decided, the context
     that forced it, and what follows.</p>
     <ol class="decisions">
-      <li><span class="rd">RD-061</span><span class="rd__t">The ring was 1.4px from the button, not 7</span><time>2026-09-01</time></li>
+      <li><span class="rd">RD-062</span><span class="rd__t">The blocked task was blocked on a filename</span><time>2026-09-01</time></li>
+<li><span class="rd">RD-061</span><span class="rd__t">The ring was 1.4px from the button, not 7</span><time>2026-09-01</time></li>
 <li><span class="rd">RD-060</span><span class="rd__t">The gallery is a page, so open it on the phone</span><time>2026-09-01</time></li>
 <li><span class="rd">RD-059</span><span class="rd__t">A gallery for the screens a live shot keeps missing</span><time>2026-09-01</time></li>
 <li><span class="rd">RD-058</span><span class="rd__t">Top-centre was already taken, twice</span><time>2026-09-01</time></li>
@@ -460,6 +461,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
         <tr><td><code>@types/node</code></td><td class="mono">^22.10.0</td><td class="muted">@ruckus/server · dev</td></tr>
 <tr><td><code>@types/three</code></td><td class="mono">^0.171.0</td><td class="muted">@ruckus/client · dev</td></tr>
 <tr><td><code>@types/ws</code></td><td class="mono">^8.5.13</td><td class="muted">@ruckus/server · dev</td></tr>
+<tr><td><code>jsdom</code></td><td class="mono">^30.0.1</td><td class="muted">ruckus · dev</td></tr>
 <tr><td><code>three</code></td><td class="mono">^0.171.0</td><td class="muted">@ruckus/client · runtime</td></tr>
 <tr><td><code>typescript</code></td><td class="mono">^5.7.2</td><td class="muted">ruckus · dev</td></tr>
 <tr><td><code>vite</code></td><td class="mono">^6.0.5</td><td class="muted">@ruckus/client · dev</td></tr>
@@ -471,7 +473,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
   </section>
 
   <footer>
-    7,643 lines of source, 8,470 lines of test.
+    7,657 lines of source, 8,622 lines of test.
     Generated by <code>tools/status_html.py</code> from the spec registry, the minigame
     sources and the decision log — regenerate and republish after any change.
   </footer>

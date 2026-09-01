@@ -30,16 +30,15 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 <!-- Max 20 lines. Pointer + next actions only. No history. -->
 
-Phase: **Making it playable on a phone.**
+Phase: **Verifying on the phone.**
 
-Four minigames ship and the paper look is in. The first phone playtest reached a round
-and found the build is not yet playable on the device it is designed for (RD-029,
-RD-030).
+The build work of the phone phase is done: framing, touch controls, the action button,
+spectating, collision. Nine specs now hold **one open box each, and every one of them is
+a manual playtest task** — the questions those specs were written to ask, which only a
+person holding a device can answer.
 
-Next: `specs/arena-framing/` — the camera fits one aspect ratio and no other — then
-`specs/touch-controls/` — the stick and button have never been drawn. `specs/
-visual-direction/` T19 stays open behind both; its two questions cannot be answered
-until a phone can play a round properly.
+Next: close those nine. `specs/audio/` is the last unbuilt feature (0/5, specced) and
+waits behind them by its own note.
 
 ## Trust Boundary
 

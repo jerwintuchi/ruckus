@@ -22,3 +22,10 @@
   dark ink on dark ink, at the one moment the number is worth reading. No live
   screenshot had ever contained a cooldown at all.*
 
+- [x] T5 [R6] — Mount the DOM in tests: `jsdom` as a dev dependency, opted into per
+  file, and `src/client/src/ui/controls.dom.test.ts`
+  Test: the file itself — the button keeps its children through `show`, every verb
+  draws from a cold mount, the cooldown arms and clears from the snapshot alone, and a
+  round with no label draws no button. **Verified by reintroducing the bugs:** RD-054
+  fails one test, RD-042 fails six.
+

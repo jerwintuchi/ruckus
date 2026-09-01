@@ -70,13 +70,19 @@ Chain: R# → design → T# → named test → implementation → tick in the sa
   Test: `actor.test.ts` — bob/lean/squash are pure functions of (velocity, height,
   time); lean is clamped; output is finite for extreme inputs
 
-- [ ] T16 [R8] — Scene + fixed camera from `ArenaDescriptor` in `src/client/src/render.ts`
-  Test: `render.test.ts` — every primitive kind in the union builds a mesh; geometries
-  and materials are shared, not allocated per instance
-  **OPEN: the implementation exists and runs, but the test does not.** It needs a WebGL
-  context, so it wants a browser test environment this repo has not set up. Left open
-  deliberately rather than ticked — the registry reports it as LIKELY-SHIPPED, which is
-  exactly the right signal.
+- [x] T16 [R8] — Scene + fixed camera from `ArenaDescriptor` in `src/client/src/render.ts`
+  Test: `render-prims.test.ts` — every primitive kind in the union builds a mesh;
+  geometries and materials are shared, not allocated per instance; and the caches do
+  not grow with box **size** either, which is the part that was actually wrong
+  *This box said for weeks that it needed a WebGL context and a browser test
+  environment the repo had not set up. That was true of the `Renderer` class, whose
+  constructor makes a `WebGLRenderer` — and false of the claim the task makes.
+  `buildPrim` is an exported free function and the Kit's sharing is two module-level
+  caches; both are ordinary three.js objects that construct fine in Node. The coverage
+  had in fact existed all along, in a file with a different name, which is exactly why
+  the registry flagged it MISSING. **The flag was right and the prose explaining it was
+  wrong** — the failure mode this whole registry exists to catch, found in the one
+  place nothing generates (RD-062).*
 
 - [x] T17 [R10] — Virtual stick + keyboard in `src/client/src/input.ts`
   Test: `input.test.ts` — touch vector clamps to the unit disc; keyboard diagonals

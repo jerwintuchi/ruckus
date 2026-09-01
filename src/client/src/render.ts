@@ -260,12 +260,26 @@ export class Renderer {
  * Large flat surfaces take fibre and a fold, so a floor reads as a folded sheet rather
  * than a painted plane (R6). Small props stay flat — fibre on a 0.3 m object is noise.
  */
+/**
+ * How many fibre variants exist, total.
+ *
+ * The seed used to be `Math.round(big * 7)` — a texture and a material minted per
+ * distinct box SIZE, from a cache that is never cleared. Bounded today only because
+ * four minigames happen to use a handful of sizes; a round with a growing platform
+ * would have allocated a 12 KiB GPU texture per frame, on the render path, which
+ * kit-rules.md forbids in as many words (RD-062).
+ *
+ * The seed exists so two adjacent surfaces do not show the same grain, and four
+ * variants do that as well as forty. Bucketed, so the count cannot follow the input.
+ */
+export const PAPER_VARIANTS = 4;
+
 function paperFor(p: Prim): Texture | undefined {
   if (p.k !== "box") return undefined;
   const [w, , d] = p.size;
   const big = Math.max(w, d);
   if (big >= 8) return crease(p.colour, "cross");
-  if (big >= 2) return stock(p.colour, Math.round(big * 7));
+  if (big >= 2) return stock(p.colour, 1 + (Math.round(big) % PAPER_VARIANTS));
   return undefined;
 }
 
