@@ -320,3 +320,37 @@ describe("the toast has a lane of its own (lobby-flow R10, R11)", () => {
     expect(UI_CSS.split("@media (orientation:portrait)").length - 1).toBe(1);
   });
 });
+
+describe("eight players fit landscape Safari's 292 points (RD-067)", () => {
+  const short = (): string => {
+    const i = UI_CSS.indexOf("@media (max-height:340px)");
+    expect(i, "the very-short tier must exist").toBeGreaterThan(-1);
+    return UI_CSS.slice(i, UI_CSS.indexOf("\n}", i));
+  };
+
+  it("tightens everything that is not a tap target", () => {
+    // Safari with its chrome is 292pt tall (RD-064). At the 430px tier the list
+    // stopped at bot-6 and scrolled.
+    const t = short();
+    expect(t).toContain(".row{padding:1px 2px");
+    expect(t).toContain(".code{font-size:24px}");
+    expect(t).toContain(".card{padding:6px 14px");
+  });
+
+  it("touches no tap target, at any height", () => {
+    // The 44px floor is the one thing that must not be bought back: a control too
+    // small to hit is worse than a list too long to see. If a future squeeze reaches
+    // for it, this fails.
+    const t = short();
+    expect(t).not.toMatch(/\bbutton\s*\{/);
+    expect(t).not.toContain(".iconbtn");
+    expect(t).not.toContain("min-height:3");
+    expect(UI.minTarget).toBe(44);
+  });
+
+  it("sits below the tier it refines, so both apply", () => {
+    // 340 < 430: the very-short rules must come after and override, not replace.
+    expect(UI_CSS.indexOf("@media (max-height:430px)"))
+      .toBeLessThan(UI_CSS.indexOf("@media (max-height:340px)"));
+  });
+});

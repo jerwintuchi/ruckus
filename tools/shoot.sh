@@ -21,6 +21,11 @@
 # It drives the REAL client through the REAL join flow via `?auto=`, so what lands in
 # the file is what a player would see.
 #
+# `--window-size` IS the layout viewport. Headless Chrome's innerWidth/innerHeight
+# under-report it by 16x95, so a `?debug=1` viewport line taken here reads 858x307 for
+# a 874x402 page — the layout, the media queries and the capture all use 874x402, and
+# that reported number is the one not to trust (RD-067).
+#
 # WHAT THE PHONE PROFILE IS NOT. It is a desktop Blink at a phone's dimensions, so it
 # reproduces CSS layout, the camera fit and which controls draw — and NOT:
 #   * a phone's own safe areas — `?insets=` REPLAYS measured ones, which is not the

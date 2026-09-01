@@ -2264,3 +2264,38 @@ asserting values.
 **The pattern behind all three:** every one is a *class* of defect this repo has already
 paid for, turned into something that fails at the keyboard. None of them would have been
 found by asking what percentage of lines are covered.
+
+## RD-067 — The round clock, the short lobby, and a number I should not have trusted (2026-09-01)
+
+Two design questions settled, and one wrong turn worth recording.
+
+**The round clock belongs to the shell.** Sweepers and falling-floor showed no timer at
+all; scramble published its own. So `Match` now injects `remaining` from `phaseEndsAt`
+into every snapshot, and no minigame has to remember. `registry.test.ts` reserves the key.
+
+Doing it surfaced something the duplicate had been hiding: scramble declared
+`maxDurationMs` 50s while its own `isOver` fired at 45s. Nobody could see the gap while
+the minigame published its own number — the moment the shell published one, the HUD would
+have counted down to five seconds that never existed. **A declared duration a round
+undercuts is a lie to the shell**, and a backstop that can never be reached is not a
+backstop. They are one constant now, and a test forbids the gap for every minigame.
+
+**The lobby at 292 points.** A `max-height:340px` tier tightens rows, type and gaps —
+everything except a tap target. Eight rows, the code, the copy button and the footer now
+all fit landscape Safari with no scroll. The 44px floor is explicitly out of bounds: a
+control too small to hit is worse than a list too long to see, and a test now fails if a
+future squeeze reaches for it.
+
+**And the wrong turn.** Chasing why the tier would not apply, I found that headless
+Chrome reports `innerWidth/innerHeight` 16x95 smaller than the window, "confirmed" it at
+two sizes, and corrected every profile by that offset — which silently made the matrix
+render 95px *taller* than the phone. The reported number is simply wrong: at a window of
+890x387 the page reports 874x292 while `@media (max-height:340px)` does **not** match,
+which it would if 292 were real. Layout, media queries and the capture all use the window
+size. Reverted.
+
+Two lessons, both already written elsewhere in this file and both re-learned anyway.
+**A measurement can be precise, reproducible and still measuring the wrong thing** —
+`innerHeight` was consistent to the pixel and not what any layout used. And I read a
+screenshot as evidence while the dev server was down, so it was a stale image; the tool
+had exited non-zero and I had piped its output to /dev/null.

@@ -257,7 +257,16 @@ export class Match {
       this.endRound(game.scores(state));
       return false;
     }
-    this.events.onSnapshot(game.snapshot(state));
+    // The round clock is the SHELL's, not the minigame's: it owns phaseEndsAt, so it
+    // is the only thing that knows when the round really ends. Injected here so every
+    // round gets a timer for free and none has to remember — sweepers and
+    // falling-floor had none at all, and scramble carried a duplicate that disagreed
+    // with the shell by five seconds (RD-067). `remaining` is reserved on the
+    // snapshot; registry.test.ts asserts no minigame declares it.
+    this.events.onSnapshot({
+      ...game.snapshot(state),
+      remaining: Math.max(0, this.phaseEndsAt - this.elapsed),
+    });
     return true;
   }
 

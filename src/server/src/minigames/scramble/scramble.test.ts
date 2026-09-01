@@ -328,6 +328,14 @@ describe("the clock, and nobody eliminated (T7, R5, P4)", () => {
     expect(ROUND_MS).toBeGreaterThanOrEqual(30_000);
     expect(ROUND_MS).toBeLessThanOrEqual(60_000);
   });
+
+  it("declares the duration it actually runs for", () => {
+    // These were 45s and 50s. The gap was invisible until the shell began publishing
+    // the round clock, at which point the HUD would have counted down to five seconds
+    // that never existed. A backstop the round can never reach is not a backstop
+    // (RD-067).
+    expect(scramble.maxDurationMs).toBe(ROUND_MS);
+  });
 });
 
 describe("scoring by count (T8, R6)", () => {
@@ -420,7 +428,6 @@ describe("snapshot and contract (T10, R8)", () => {
     const snap = scramble.snapshot(s.state) as {
       prims: { k: string; pos: [number, number, number] }[];
       counts: Record<number, number>;
-      remaining: number;
     };
     expect(snap.prims).toHaveLength(s.state.pickups.length);
     snap.prims.forEach((prim, i) => {
@@ -429,23 +436,26 @@ describe("snapshot and contract (T10, R8)", () => {
       expect(prim.pos[2]).toBeCloseTo(s.state.pickups[i]!.pos.z, 9);
       expect(prim.pos[1]).toBeGreaterThan(0);
     });
-    expect(snap.remaining).toBeLessThanOrEqual(ROUND_MS);
-    expect(snap.remaining).toBeGreaterThanOrEqual(0);
   });
 
-  it("reports a countdown that never goes negative", () => {
+  it("leaves the countdown to the shell", () => {
+    // It used to publish its own `remaining` from ROUND_MS, while the shell's clock ran
+    // to maxDurationMs — five seconds longer. Two numbers for one round, and the one
+    // the HUD drew was not the one the round obeyed. The shell owns it now (RD-067),
+    // for every round, so sweepers and falling-floor get a timer they never had.
     const s = session(2, 14);
-    for (let i = 0; i * TICK_MS <= ROUND_MS + 2000; i++) {
-      s.step();
-      expect((scramble.snapshot(s.state) as { remaining: number }).remaining).toBeGreaterThanOrEqual(0);
-    }
+    for (let i = 0; i < 20; i++) s.step();
+    expect(Object.keys(scramble.snapshot(s.state))).not.toContain("remaining");
   });
 
   it("honours the contract's preconditions", () => {
     expect(scramble.input).toBe("stick+button");
     expect(scramble.rule.split(".").filter((p) => p.trim())).toHaveLength(1);
     expect(scramble.rule.length).toBeLessThan(80);
-    expect(scramble.maxDurationMs).toBeGreaterThan(ROUND_MS);
+    // Not GREATER than: the declared duration is what the shell publishes as the
+    // round clock, so a margin above the real end is a countdown to an instant that
+    // never arrives (RD-067). Equal is the contract.
+    expect(scramble.maxDurationMs).toBe(ROUND_MS);
     expect(Object.keys(scramble.arena({} as ScrambleState).camera).sort()).toEqual([
       // `extent` is a distance in metres, not a camera instruction — there is nothing
       // in it a client could steer. The list stays exhaustive so the next field to

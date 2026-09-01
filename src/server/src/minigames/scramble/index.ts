@@ -32,7 +32,15 @@ import {
 export const ARENA = 22;
 export const WALL = 1.0;
 export const ROUND_MS = 45_000;
-export const MAX_DURATION_MS = 50_000;
+/**
+ * The same instant the round ends itself.
+ *
+ * It was 50s against a 45s `isOver`, so the shell believed the round was five seconds
+ * longer than it was — invisible until the shell started publishing the round clock
+ * (RD-067). A declared duration that the round undercuts is a lie to the shell, and a
+ * backstop that can never be reached is not a backstop.
+ */
+export const MAX_DURATION_MS = ROUND_MS;
 
 export const PICKUP_RADIUS = 0.45;
 export const START_PICKUPS = 6;
@@ -261,7 +269,7 @@ export const scramble: Minigame<ScrambleState> = {
     }
     return {
       counts: Object.fromEntries(s.counts),
-      remaining: Math.max(0, ROUND_MS - s.elapsed),
+      // No `remaining` here: the shell publishes it for every round (RD-067).
       prims,
       actions,
     };

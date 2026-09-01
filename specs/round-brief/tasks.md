@@ -28,3 +28,9 @@
   the assertion was wrong. The other called clamping a defence against clock skew; it
   was what turned a phone one second fast into a phone that opened on "1".*
 
+- [x] T5 [R4] — The round clock comes from the shell, in `src/server/src/match.ts`
+  Test: `registry.test.ts` — no minigame declares `remaining` on its own snapshot, none
+  declares a duration its own end condition undercuts, and the injection is asserted
+  against `match.ts`; `scramble.test.ts` — its snapshot no longer carries a countdown
+  and its `maxDurationMs` equals its `ROUND_MS`
+

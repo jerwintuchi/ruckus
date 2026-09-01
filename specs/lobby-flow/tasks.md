@@ -114,6 +114,11 @@ inventing a second one.
   photograph; in portrait it clears the rotate prompt, inside the one portrait media
   query rather than a second one
 
+- [x] T22 [R13] — Eight players fit landscape Safari's 292 points
+  Test: `kit.test.ts` — a `max-height:340px` tier exists below the 430px one and
+  tightens rows, type and gaps; and it touches **no** tap target, so a future squeeze
+  cannot buy space back out of the 44px floor
+
 - [ ] T12 — Played for real: create a room on one device, join it from another by the
   link, play a round, and have someone leave and come back
   Test: manual, via `pnpm playtest`. The questions are whether the code is readable

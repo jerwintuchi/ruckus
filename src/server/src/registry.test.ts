@@ -177,3 +177,32 @@ describe("minigame isolation (T11, P4)", () => {
     expect(offences).toEqual([]);
   });
 });
+
+describe("the round clock belongs to the shell (RD-067)", () => {
+  it("no minigame declares `remaining` on its own snapshot", () => {
+    // The shell injects it from phaseEndsAt, the only place that knows when the round
+    // really ends. A minigame computing its own can disagree — scramble's did, by five
+    // seconds, because its isOver fired before its declared duration.
+    for (const g of MINIGAMES) {
+      const body = readFileSync(join(MINIGAME_DIR, g.id, "index.ts"), "utf8");
+      expect(body, g.id).not.toMatch(/^\s*remaining:/m);
+    }
+  });
+
+  it("declares a duration the round does not undercut", () => {
+    // maxDurationMs is what the shell publishes as the round length, so a game that
+    // ends itself earlier makes that number a lie on every player's HUD.
+    for (const g of MINIGAMES) {
+      const body = readFileSync(join(MINIGAME_DIR, g.id, "index.ts"), "utf8");
+      for (const [, name, raw] of body.matchAll(/export const (\w*ROUND_MS) = ([\d_]+)/g)) {
+        const ms = Number(raw!.replace(/_/g, ""));
+        expect(ms, `${g.id} ${name} vs maxDurationMs`).toBeLessThanOrEqual(g.maxDurationMs);
+      }
+    }
+  });
+
+  it("is the shell that puts it on the wire, for every round", () => {
+    const match = readFileSync(join(HERE, "match.ts"), "utf8");
+    expect(match).toContain("remaining: Math.max(0, this.phaseEndsAt - this.elapsed)");
+  });
+});

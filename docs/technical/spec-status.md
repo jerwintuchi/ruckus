@@ -20,7 +20,7 @@ These are disagreements between what a spec says and what the tree contains.
 | `audio` | 🟢 active | 0 | 5 | 0 | 2026-08-31 | MISSING |
 | `action-button` | 🟡 dormant | 10 | 1 | 0 | 2026-09-01 | — |
 | `arena-framing` | 🟡 dormant | 6 | 1 | 0 | 2026-09-01 | — |
-| `lobby-flow` | 🟡 dormant | 20 | 1 | 0 | 2026-09-01 | — |
+| `lobby-flow` | 🟡 dormant | 21 | 1 | 0 | 2026-09-01 | — |
 | `player-collision` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
 | `responsiveness` | 🟡 dormant | 3 | 1 | 1 | 2026-08-31 | — |
 | `round-lifecycle` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
@@ -32,5 +32,5 @@ These are disagreements between what a spec says and what the tree contains.
 | `minigame-hot-potato` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |
 | `minigame-scramble` | ✅ done | 11 | 0 | 0 | 2026-08-31 | — |
 | `minigame-sweepers` | ✅ done | 10 | 0 | 0 | 2026-08-31 | — |
-| `round-brief` | ✅ done | 4 | 0 | 0 | 2026-09-01 | — |
+| `round-brief` | ✅ done | 5 | 0 | 0 | 2026-09-01 | — |
 | `shell` | ✅ done | 19 | 0 | 0 | 2026-09-01 | — |

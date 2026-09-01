@@ -307,6 +307,27 @@ input::placeholder{color:var(--text-dim)}
   button{min-height:${UI.minTarget}px;padding:8px 20px;font-size:16px}
   .codeblock{padding-bottom:8px}
 }
+
+/*
+ * Very short landscape: Safari with its chrome is 292 points tall (RD-064).
+ *
+ * Eight rows, the code block and the footer do not fit there at the 430px tier, so the
+ * list stopped at bot-6 and scrolled. Everything that is not a TAP TARGET gets tighter:
+ * the rows, the type and the gaps. The 44px floor on the copy and Start buttons is not
+ * negotiable — a control too small to hit is worse than a list too long to see — so
+ * this buys back what it can and the rest still scrolls (RD-067).
+ */
+@media (max-height:340px){
+  .card{padding:6px 14px;gap:2px}
+  .row{padding:1px 2px;font-size:13px;line-height:1.25}
+  .dot{width:12px;height:12px;border-radius:4px}
+  .codelabel{font-size:9px;line-height:1}
+  .code{font-size:24px}
+  .codeblock{padding-bottom:3px;row-gap:0}
+  .dim,.err{font-size:11.5px;line-height:1.2}
+  .err{min-height:0}
+  h1{font-size:20px}
+}
 `;
 
 /** A player's colour, by slot. Wraps, so a ninth slot cannot throw. */

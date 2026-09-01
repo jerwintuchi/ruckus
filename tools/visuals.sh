@@ -39,7 +39,13 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:-report}"
 
-# name|WxH|scale|insets(T,R,B,L)|provenance
+# `--window-size` IS the layout viewport. Headless Chrome's `innerWidth/innerHeight`
+# under-report it by 16x95 — ask for 874x402 and the page reports 858x307 while media
+# queries, layout and the capture all use 874x402. Measured directly: at a window of
+# 890x387 the page reports 874x292 and `@media (max-height:340px)` does NOT match,
+# which it would if 292 were real. So the sizes below are used as given, and a
+# `?debug=1` viewport line taken HERE is the one number not to trust (RD-067).
+# name|VIEWPORT WxH|scale|insets(T,R,B,L)|provenance
 PROFILE_ROWS=(
   "phone|874x402|3|0,62,20,62|home screen, landscape — MEASURED (RD-055)"
   "portrait|402x812|3|62,0,34,0|home screen, portrait — MEASURED (RD-055)"
