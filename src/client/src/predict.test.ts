@@ -822,3 +822,54 @@ describe("the prediction clock is an accumulator, not a timestamp (RD-092)", () 
     expect(src).toContain("MAX_CATCHUP_STEPS");
   });
 });
+
+describe("a suspended tab is not a network fault (RD-094)", () => {
+  const main = () =>
+    readFileSync(join(here, "main.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  it("listens for the page coming back", () => {
+    // A browser SUSPENDS requestAnimationFrame in a hidden tab and throttles message
+    // handling with it. Switch windows, take a screenshot, let a phone dim — the page
+    // stops and every clock goes stale together. Measured on a desktop PC whose frame
+    // p50 is 13ms: a 14538ms "frame", immediately after a window switch, with
+    // `reconnecting` on screen. Neither had anything to do with the network.
+    expect(main()).toContain('addEventListener("visibilitychange"');
+  });
+
+  it("resets every baseline together, not some of them", () => {
+    // A half-reset is worse than none: one clock honest, the other reporting the whole
+    // suspension, and the disagreement reads as a real fault.
+    const src = main();
+    const fn = src.slice(src.indexOf("function onVisible"), src.indexOf("function onVisible") + 400);
+    expect(fn).toContain("lastFrameAt = 0");
+    expect(fn).toContain("acc = 0");
+    expect(fn).toContain("health.lastSnapAt = 0");
+    expect(fn).toContain("predictor.resync()");
+  });
+
+  it("only acts when the page is actually visible again", () => {
+    const src = main();
+    const fn = src.slice(src.indexOf("function onVisible"), src.indexOf("function onVisible") + 400);
+    expect(fn).toContain('visibilityState !== "visible"');
+  });
+
+  it("drops inputs banked before the pause rather than replaying them", () => {
+    // A hidden tab keeps its socket but stops running. Inputs banked before the pause
+    // describe a stick position from before it; replaying them walks the capsule
+    // somewhere the server never went.
+    const p = live();
+    for (let k = 0; k < 5; k++) p.step(1, 0, false);
+    expect(p.pendingCount).toBe(5);
+    p.resync();
+    expect(p.pendingCount).toBe(0);
+  });
+
+  it("clears the residual correction too, so nothing blends across the gap", () => {
+    const p = live();
+    p.step(1, 0, false);
+    p.reconcile(vec(0.3, 0), 0, 1, 1);
+    p.resync();
+    p.reconcile(vec(0.3, 0), 0, 1, 1);
+    expect(p.sample(0, 1).x).toBeCloseTo(0.3, 6);
+  });
+});

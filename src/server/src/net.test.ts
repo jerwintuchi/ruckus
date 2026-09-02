@@ -249,3 +249,33 @@ describe("shutting down lets go of the sockets (RD-087)", () => {
     expect(() => { g.stop(); g.stop(); }).not.toThrow();
   });
 });
+
+describe("the server measures each client's upstream gap (RD-095)", () => {
+  // A browser sends input at 30Hz for as long as it runs, so a gap in ARRIVALS measures
+  // the client's upstream path from the server's side — the one view nobody has had.
+  // Every probe so far ran on localhost inside WSL and saw a clean stream; the clients
+  // that stall reach the server through a Windows portproxy or a Tailscale relay, and
+  // neither can be probed from the machine hosting it.
+  it("starts at zero and is exposed for the health endpoint", () => {
+    const g = mk();
+    expect(g.worstInputGap).toBe(0);
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "main.ts"), "utf8");
+    expect(src).toContain("worstInputGapMs");
+  });
+
+  it("only measures while a round is actually running", () => {
+    // No input flows between rounds, because a client with no round to play is not
+    // sending one. Counting that quiet would report the round boundary all over again,
+    // which is exactly the mistake RD-090 had to undo.
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "net.ts"), "utf8");
+    const handler = src.slice(src.indexOf('case "input"'), src.indexOf('case "pong"'));
+    expect(handler).toContain('state === "ROUND_PLAY"');
+  });
+
+  it("needs a previous input before it can call anything a gap", () => {
+    // The first input after a quiet phase has nothing to measure against.
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "net.ts"), "utf8");
+    const handler = src.slice(src.indexOf('case "input"'), src.indexOf('case "pong"'));
+    expect(handler).toContain("conn.lastInputAt > 0");
+  });
+});

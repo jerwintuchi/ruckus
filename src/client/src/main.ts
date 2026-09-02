@@ -426,6 +426,35 @@ const health = {
   worstSnap: 0,
 };
 const RECENT = 600;
+
+/**
+ * Time the page was not being drawn at all, and must not be blamed for (RD-094).
+ *
+ * A browser SUSPENDS `requestAnimationFrame` in a hidden tab, and throttles message
+ * handling with it. Switch windows, take a screenshot, let a phone dim, glance at a
+ * notification — the page stops, and every clock this client keeps goes stale together.
+ *
+ * On return `now - lastSnapAt` is enormous, so the `reconnecting` chip fires and the
+ * frame log records a fourteen-second frame, and neither has anything to do with the
+ * network. That is what was being chased: 14538 ms of "frame" on a desktop PC whose
+ * p50 is 13 ms, immediately after a window switch.
+ *
+ * So: when the page comes back, forget the gap rather than measure it. Exactly what a
+ * round boundary already does (RD-090) — a known, deliberate pause the instrument has
+ * to be told about.
+ */
+let hiddenCount = 0;
+function onVisible(): void {
+  if (document.visibilityState !== "visible") return;
+  hiddenCount++;
+  // Every baseline, together. A half-reset is worse than none: it would leave one
+  // clock honest and the other reporting the whole suspension.
+  lastFrameAt = 0;
+  acc = 0;
+  health.lastSnapAt = 0;
+  predictor.resync();
+}
+document.addEventListener("visibilitychange", onVisible);
 function note(list: number[], v: number): void {
   list.push(v);
   if (list.length > RECENT) list.shift();
@@ -580,7 +609,7 @@ if (new URLSearchParams(location.search).has("debug")) {
         `${health.snapGaps.filter((g) => g > 300).length}`,
       frame: `p50 ${pct(health.frameGaps, 0.5)}ms  p95 ${pct(health.frameGaps, 0.95)}ms` +
         `  worst ${Math.round(health.worstFrame)}ms  drops>50 ` +
-        `${health.frameGaps.filter((g) => g > 50).length}`,
+        `${health.frameGaps.filter((g) => g > 50).length}  hidden ${hiddenCount}`,
       // Says what the condition actually is. It read "(no snapshots)" long after
       // RD-079 changed the rule to a DIVERGENCE budget, and that wrong label sent me
       // looking for a network stall more than once.

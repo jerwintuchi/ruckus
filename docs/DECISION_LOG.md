@@ -3633,3 +3633,72 @@ with `+dirty` when the tree is not clean.
 
 That is not a fix for the freeze. It is the precondition for trusting the next report
 about it, and it should have existed before the second round trip, let alone the sixth.
+
+---
+
+## RD-094 — A suspended tab is not a network fault
+
+*2026-09-02. From a PC readout: `frame worst 14538ms` with `frame p50 13ms`, taken
+straight after a window switch.*
+
+Nothing in this codebase can produce a fourteen-second frame on a desktop whose median
+is thirteen milliseconds. A browser **suspends `requestAnimationFrame` in a hidden tab**
+and throttles message handling with it. Switch windows, take a screenshot, let a phone
+dim, glance at a notification — the page stops, and every clock this client keeps goes
+stale together. On return, `now - lastSnapAt` is enormous, so the `reconnecting` chip
+fires and the frame log records the whole suspension.
+
+The client now listens for `visibilitychange` and, on becoming visible, forgets the gap
+rather than measuring it: `lastFrameAt`, the prediction accumulator and `lastSnapAt` are
+all reset together, and the predictor drops its pending queue. A half-reset would be
+worse than none — one clock honest and the other reporting the whole suspension reads as
+a genuine fault. `?debug=1` counts the suspensions so they stay visible rather than
+merely excluded.
+
+Dropping the pending inputs matters for correctness, not just tidiness: a hidden tab
+keeps its socket but stops running, so inputs banked before the pause describe a stick
+position from before it. Replaying them walks the capsule somewhere the server never
+went.
+
+**This is not the freeze the playtester is reporting, and it was wrong of me to present
+it as one.** They answered immediately: "i experience the reconnecting before taking
+screenshot." The suspension explains the 14538 ms artefact and nothing else. It is
+fixed because it is a real false-positive source that would keep contaminating every
+future reading — the third instrument defect in this hunt, after RD-080 and RD-090.
+
+## RD-095 — Measure the client's upstream, because every probe so far ran on the wrong side
+
+*2026-09-02, continued.*
+
+The same readout, with the artefact set aside, still shows a real stall:
+`net worst 2332ms`, `stalls>300 1`, on a PC, mid-round, with `frame p50 13ms`.
+
+Every probe written so far ran on `localhost` inside WSL and measured p50 34 ms, p95 37
+ms — clean, repeatedly, from two directions. But the clients that actually stall reach
+the server through a **Windows netsh portproxy** or a **Tailscale userspace relay**, and
+neither path can be probed from the machine hosting it: WSL cannot hairpin to its own
+Windows LAN address.
+
+So measure from the only vantage point that sees a real client: **the server**. A
+browser sends `input` at 30 Hz unconditionally, so a gap in arrivals measures that
+client's upstream path. `worstInputGapMs` is now on `/health`.
+
+That splits the remaining possibilities cleanly:
+
+- a two-second input gap at the same moment as the client's snapshot gap → **the path
+  stalled in both directions**, and the fault is the transport or the infrastructure
+  between them;
+- inputs still arriving every 33 ms while the client sees nothing → **downstream only**,
+  which is a different bug entirely and one that lives in this codebase.
+
+It only counts gaps during `ROUND_PLAY`, because no input flows between rounds and
+measuring that quiet would report the round boundary all over again — RD-090's mistake,
+one layer down.
+
+### Also fixed: a test that cried determinism
+
+`hot-potato`'s determinism property takes 3.9 s alone and over 5 s under the parallel
+load of the full suite, so it was timing out on the default budget and reporting a
+**determinism failure** — the most alarming possible label for "the machine was busy".
+The 200 seeds are the point of the property and were not reduced; the budget was told
+the truth about the work.

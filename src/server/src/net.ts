@@ -34,6 +34,8 @@ interface Conn {
   ws: WebSocket;
   room: Room | null;
   slot: number;
+  /** When this client's last `input` arrived, for RD-095's gap measurement. */
+  lastInputAt: number;
 }
 
 export class GameServer {
@@ -49,6 +51,30 @@ export class GameServer {
    * phone that suffered it.
    */
   private snapshotsSkipped = 0;
+
+  /**
+   * The longest gap between two `input` messages from any one client (RD-095).
+   *
+   * A browser sends input at 30 Hz, unconditionally, for as long as it is running. So
+   * this measures the client's UPSTREAM path from the server's side — the one view
+   * nobody has had. Every probe so far ran on `localhost` inside WSL and saw a clean
+   * stream; the clients that stall reach the server through a Windows portproxy or a
+   * Tailscale relay, and neither path can be probed from the machine hosting it.
+   *
+   * If a client reports a two-second snapshot gap and this shows a two-second input gap
+   * at the same moment, the path stalled in BOTH directions and the fault is the
+   * transport. If this stays at ~33 ms while the client sees nothing arrive, the stall
+   * is downstream only, and that is a completely different bug.
+   *
+   * Ignores the first input after a quiet phase: no input flows between rounds because
+   * a client with no round to play is not sending one, and counting that would report
+   * the round boundary all over again (RD-090's mistake, in a new place).
+   */
+  private worstInputGapMs = 0;
+
+  get worstInputGap(): number {
+    return this.worstInputGapMs;
+  }
 
   get skippedSnapshots(): number {
     return this.snapshotsSkipped;
@@ -279,7 +305,7 @@ export class GameServer {
   }
 
   private onConnect(ws: WebSocket): void {
-    const conn: Conn = { ws, room: null, slot: -1 };
+    const conn: Conn = { ws, room: null, slot: -1, lastInputAt: 0 };
     this.conns.set(ws, conn);
 
     ws.on("message", (data) => {
@@ -355,6 +381,14 @@ export class GameServer {
 
       case "input": {
         if (!conn.room) return; // silently ignored: input before joining is not an error
+        // Only while a round is actually running: between rounds there is no input to
+        // miss, and measuring the deliberate quiet would repeat RD-090's error.
+        const now = Date.now();
+        if (conn.room.state === "ROUND_PLAY" && conn.lastInputAt > 0) {
+          const gap = now - conn.lastInputAt;
+          if (gap > this.worstInputGapMs) this.worstInputGapMs = gap;
+        }
+        conn.lastInputAt = conn.room.state === "ROUND_PLAY" ? now : 0;
         const p = conn.room.players.get(conn.slot);
         // R10: overwriting rather than queueing is the rate limit. A client sending a
         // thousand inputs a second simply has the last one read, at no extra cost.

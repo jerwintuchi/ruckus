@@ -188,6 +188,21 @@ export class Predictor {
     this.on = false; // stays off until a snapshot places us (P7)
   }
 
+  /**
+   * The page was suspended and is back; forget what was in flight (RD-094).
+   *
+   * A hidden tab keeps its socket but stops running: inputs banked before the pause
+   * describe a stick position from before it, and replaying them would walk the capsule
+   * somewhere the server never went. The next snapshot is the truth, and it is about to
+   * arrive — so drop the queue and let reconciliation place us, rather than predicting
+   * forward from stale intent.
+   */
+  resync(): void {
+    this.pending = [];
+    this.errX = 0;
+    this.errZ = 0;
+  }
+
   /** Leaving the round entirely: render straight from the snapshot again (R4, P7). */
   stop(): void {
     this.on = false;

@@ -28,6 +28,9 @@ const http = createServer((req, res) => {
         // (RD-086). A stalling client should leave a trace here too, not only on the
         // phone that suffered it.
         skippedSnapshots: game.skippedSnapshots,
+        // The longest gap between two inputs from any client, in ms (RD-095). Measures
+        // the real clients' upstream path, which no probe on this host can reach.
+        worstInputGapMs: game.worstInputGap,
       }),
     );
     return;
