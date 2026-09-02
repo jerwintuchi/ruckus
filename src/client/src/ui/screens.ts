@@ -53,6 +53,8 @@ export class Ui {
   private readonly banner: HTMLElement;
   private spectating: { round?: number; of?: number } | null = null;
   private stalled = false;
+  /** The markup currently in the HUD, so an unchanged frame touches no DOM (RD-084). */
+  private hudHtml = "";
   private readonly settings: HTMLElement;
   /** Set by main.ts, which owns the sound and therefore the current step. */
   onOpenSettings: (() => void) | null = null;
@@ -217,10 +219,27 @@ export class Ui {
   }
 
   /** The in-round HUD, driven by the snapshot and nothing else (T16). */
+  /**
+   * Draw the HUD, and only actually touch the DOM when it changed (RD-084).
+   *
+   * This is called once per rendered frame — 60 to 120 times a second — and it used to
+   * assign `innerHTML` every time, so the browser reparsed the markup and rebuilt the
+   * subtree on every frame. The content changes about once a second: the clock ticks,
+   * a count goes up.
+   *
+   * The cost was not only the parse. **A recreated element restarts its CSS
+   * animation**, so the pulsing dot on the spectator and stalled chips was destroyed
+   * and rebuilt before it could advance a frame — it has never once pulsed, on any
+   * device, since the day it was written. Holding the markup still is what lets an
+   * animation run at all.
+   */
   renderHud(extra: HudData | undefined, label?: { name: string; round: number; of: number }): void {
     const gauges = renderHud(extra);
     const round = label ? roundLabel(label.name, label.round, label.of) : "";
-    this.hud.innerHTML = round + this.stalledChip() + this.spectateChip() + gauges;
+    const html = round + this.stalledChip() + this.spectateChip() + gauges;
+    if (html === this.hudHtml) return;
+    this.hudHtml = html;
+    this.hud.innerHTML = html;
   }
 
   /**
@@ -319,6 +338,9 @@ export class Ui {
   }
 
   clearHud(): void {
+    // Invalidated, not just emptied: otherwise the next render of identical markup
+    // would compare equal to the memo and skip an assignment the DOM needs.
+    this.hudHtml = "";
     this.hud.innerHTML = "";
   }
 

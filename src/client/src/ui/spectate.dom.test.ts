@@ -157,3 +157,58 @@ describe("the stalled dot wins the cascade", () => {
     expect(css).not.toMatch(/(?<!\.gauge)\.stalled \.eye\{background:/);
   });
 });
+
+describe("the HUD only touches the DOM when it changed (RD-084)", () => {
+  it("keeps the same element across identical frames, so an animation can run", () => {
+    // The real cost was not the reparse. A recreated element RESTARTS its CSS
+    // animation, so the pulsing dot on these chips was destroyed and rebuilt ~60 times
+    // a second and never advanced a frame — it has never pulsed on any device.
+    const { ui, root } = mount();
+    ui.setSpectating(true, 2, 5);
+    ui.renderHud(undefined);
+    const first = root.querySelector("#hud .eye");
+    expect(first).not.toBeNull();
+    for (let f = 0; f < 60; f++) ui.renderHud(undefined);
+    // The very same node, one second of frames later.
+    expect(root.querySelector("#hud .eye")).toBe(first);
+  });
+
+  it("still redraws the moment the content actually changes", () => {
+    const { ui, root, hud } = mount();
+    ui.setSpectating(true, 2, 5);
+    ui.renderHud(undefined);
+    const before = root.querySelector("#hud .gauge");
+    ui.setSpectating(false);
+    ui.renderHud(undefined);
+    expect(hud()).not.toContain("watching");
+    expect(root.querySelector("#hud .gauge")).not.toBe(before);
+  });
+
+  it("redraws after clearHud, even if the markup is identical to before", () => {
+    // clearHud empties the DOM; without invalidating the memo the next identical
+    // render would compare equal and skip an assignment the DOM genuinely needs.
+    const { ui, hud } = mount();
+    ui.setSpectating(true, 1, 5);
+    ui.renderHud(undefined);
+    expect(hud()).toContain("watching");
+    ui.clearHud();
+    expect(hud()).toBe("");
+    ui.renderHud(undefined);
+    expect(hud()).toContain("watching");
+  });
+
+  it("skips the overwhelming majority of frames in a real round", () => {
+    // The clock ticks once a second and a count changes on a pickup; everything else
+    // is the same markup. Counted rather than asserted in the abstract.
+    const { ui, root } = mount();
+    let rebuilds = 0;
+    const hudEl = root.querySelector("#hud") as HTMLElement;
+    let last = "";
+    for (let frame = 0; frame < 120; frame++) {
+      // Two seconds at 60fps, with the clock changing once per second.
+      ui.renderHud(undefined, { name: "the round", round: 1, of: 5 });
+      if (hudEl.innerHTML !== last) { rebuilds++; last = hudEl.innerHTML; }
+    }
+    expect(rebuilds).toBe(1);
+  });
+});

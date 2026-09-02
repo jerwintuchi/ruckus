@@ -120,6 +120,29 @@ python3 tools/handoff.py          # overwrites docs/HANDOFF.md — never appends
 pnpm check                        # context budget + kit + spec registry
 ```
 
+## A spec states its tradeoffs, and its cost
+
+Two things every spec owes, both learned the hard way:
+
+**Name what the choice costs, not just what it buys.** RD-083 exists because the
+transport was recorded in `CLAUDE.md` as a fact — "raw WebSocket with a JSON envelope" —
+with no entry weighing it against the alternative. It took a playtester asking
+"shouldn't we use UDP?" to notice that the answer had never been written down. A design
+that only lists its advantages is not a design, it is an advertisement. If a requirement
+trades something away, say what, and say what would reverse the decision.
+
+**Performance is a requirement, not a follow-up.** Existing features count: a change
+that touches the wire, the render loop or the tick is expected to say what it does to
+bytes, frames or milliseconds, in numbers. The pattern this project keeps hitting is
+that "it costs nothing" is a claim, and the number is usually available for an hour's
+work — `responsiveness` T4 measured the snapshot, RD-082 measured it again and found
+30% of `scramble`'s snapshots crossing an MTU nobody had checked, and RD-028's draw-call
+regression hid behind an assumption for a whole phase.
+
+Cheap sources of a real number, in order of effort: a unit test that asserts a size or a
+bound; `tools/gapprobe.mjs` for anything about timing on the wire; `bench.html` on a
+phone for anything about frames.
+
 ## Golden Rule
 
 If you cannot point to a test that verifies it, the feature does not exist.

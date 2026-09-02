@@ -3071,3 +3071,116 @@ every time it was re-run alone, which is the signature of a test racing a build.
 diagnosed that in the first ten minutes of the session and then re-ran it twice more
 rather than fixing it. A guard that cries wolf gets deleted; it now reads only what this
 repo authors.
+
+---
+
+## RD-083 — Why the transport is a WebSocket, and what it costs
+
+*2026-09-01. Written because a playtester asked "shouldn't we use UDP for gaming?" and
+the honest answer was that nobody had ever written down why not. `CLAUDE.md` states
+"transport is raw WebSocket with a JSON envelope" as a fact; there was no entry weighing
+it. This is that entry, written after RD-082 made the cost concrete rather than
+theoretical.*
+
+### The instinct is correct
+
+TCP guarantees **ordered, reliable** delivery. This game wants neither.
+
+Snapshots here are **full state, not deltas** — every tick carries every player's
+complete position, and `sendSnapshot` rebuilds the whole roster each time. So a lost
+snapshot is worth nothing: the next one, 33 ms later, supersedes it completely. When TCP
+stalls the stream for 2.3 seconds retransmitting a lost packet, it is re-delivering data
+that was already obsolete before it arrived — *and* holding back the ~70 fresh snapshots
+queued behind it. That is the worst available trade, and it is exactly the freeze
+RD-082 traced to the wifi hop.
+
+A game that sends full state at a fixed rate is the textbook case for an unreliable
+transport. So the instinct is right, and the reason we are not on one is not that TCP
+suits us.
+
+### Browsers cannot open a UDP socket
+
+There is no UDP API in JavaScript, deliberately. Two routes reach unreliable delivery
+from a browser:
+
+**WebRTC DataChannel**, with `{ordered: false, maxRetransmits: 0}` — genuinely UDP
+underneath, and mature. The cost is not the data path, it is getting the connection up:
+a signalling exchange (which needs its own server-side channel — the WebSocket we
+already have could carry it), DTLS, and ICE candidate gathering. On a LAN that is
+usually direct; across the internet it can need STUN, and a minority of networks need a
+TURN relay, which is a service somebody has to run. It is a real dependency and a real
+body of connection-state code, in a project whose dependency list is `three` and `ws`.
+
+**WebTransport** (HTTP/3 over QUIC) has proper unreliable datagrams and a far cleaner
+API than DataChannel. It requires serving HTTP/3 with TLS, which the dev setup does not
+do today. **Its Safari support must be verified before anyone relies on it** — this is
+an iPhone-first game (RD-029), so a transport that is excellent everywhere except
+Safari is no transport at all here. I have not verified it and am not asserting it.
+
+### What we get for staying
+
+The WebSocket is what makes "tap a link, enter a room code, play" true. It works on
+every browser, needs no certificate dance, no ICE, no relay, and no second service. The
+vision doc's first line is that joining must never require an install; the transport
+that gets closest to that with the least machinery is the one we are on.
+
+And the cost is now bounded and measured rather than feared. RD-082 removed the
+amplifier: every snapshot of every minigame fits inside one packet of a 1280-MTU path,
+so a loss costs one packet rather than two. The client holds, blends and says
+`reconnecting`. The residue is a rare multi-second stall on a lossy link, which for a
+ten-minute party game is survivable.
+
+### What would change this
+
+Switch when the evidence says the stalls are frequent enough to spoil rounds rather than
+to annoy — which is a question about real play at eight players, not about theory. The
+order of work if it comes to that:
+
+1. **Shrink the envelope first.** It is JSON text, and the repetition is severe: a
+   `scramble` pickup is 66 bytes of which **40 are the constant `k`, `r` and `colour`
+   repeated for every sphere** — 600 of 1006 bytes for fifteen pickups. Hoisting those,
+   or moving to a binary encoding, cuts packets again with no transport change and no
+   new dependency. Smaller packets are fewer losses.
+2. **Then DataChannel**, keeping the WebSocket for signalling and for everything that
+   must be reliable (`roundStart`, `roundEnd`, the room view). Snapshots are the only
+   channel that wants unreliability; sending the rest over UDP would buy nothing and
+   cost correctness.
+
+That split matters and is the part most likely to be got wrong in a hurry: **UDP is
+right for snapshots and wrong for everything else in this protocol.**
+
+### Not this decision
+
+Making the snapshot a delta. It would cut bytes, and it would also make every packet
+depend on the one before — turning a harmless loss into a desync that needs recovery
+logic. Full state at 30 Hz is what makes loss cheap, and it is the property that would
+make an unreliable transport work at all.
+
+---
+
+## RD-084 — The HUD rebuilt itself sixty times a second, and that is why the dot never pulsed
+
+*2026-09-01, from a standing request to treat performance on existing features as
+first-class rather than as follow-up work.*
+
+`renderHud` is called once per rendered frame and assigned `innerHTML` unconditionally,
+so the browser reparsed the markup and rebuilt the subtree **60 to 120 times a second**.
+The content changes about once a second: the clock ticks, a count goes up. Counted in a
+mounted test over two seconds of frames, **one rebuild is needed and 120 were done.**
+
+The waste is the smaller half. **A recreated element restarts its CSS animation.** The
+pulsing dot on the spectator chip (RD-081) and the stalled chip has
+`animation: 1.6s infinite`, and it was destroyed and rebuilt before it could advance a
+single frame. It has never pulsed, on any device, since the day it was written — and it
+never would have, because the bug is in the render loop rather than in the CSS, which is
+the last place anyone would look for a dead animation.
+
+The fix is to remember the markup and skip the assignment when it is unchanged.
+`clearHud` invalidates the memo rather than only emptying the element, or the next
+render of identical markup would compare equal and skip an assignment the DOM needs.
+
+**The general shape, which is the part worth keeping:** the render loop is the one place
+in this client where an ordinary cost gets multiplied by sixty. Anything called from it
+should be assumed hot until measured otherwise. It is also why this bug was invisible —
+every test asserted what the HUD *contained*, which was correct on every frame, and none
+asserted how often it was rewritten.
