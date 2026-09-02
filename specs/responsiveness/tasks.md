@@ -23,6 +23,21 @@
   The worst case is **41 KiB/s down per client**, 325 KiB/s for a full lobby of 8.
   Fine on WiFi and on any mobile data worth the name — but it is a number now, not
   the word "small".
+  **Re-measured after RD-082**, which quantized the per-tick `prims` channel to
+  centimetres (I5 said to; only `SnapPlayer` was doing it). Bytes per snapshot, over a
+  full match, against the 1240 B TCP payload of a 1280-MTU Tailscale path:
+
+  | game | before mean/max | after mean/max | over-MTU before → after |
+  |---|---|---|---|
+  | `scramble` | 1123 / 1647 | 755 / 1070 | **402 of 1349 → 0 of 1349** |
+  | `sweepers` | 707 / 895 | 593 / 690 | 0 → 0 |
+  | `hot-potato` | 649 / 684 | 490 / 516 | 0 → 0 |
+  | `falling-floor` | 397 / 670 | 315 / 565 | 0 → 0 |
+
+  Every snapshot of every minigame now fits one packet. That matters beyond bandwidth:
+  a snapshot spanning two TCP segments doubles the chance a loss stalls the stream, and
+  a WebSocket has no way to route around head-of-line blocking.
+
   **p95 on a phone: still owed**, with `visual-direction` T18. That half keeps this
   box open.
 
