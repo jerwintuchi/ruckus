@@ -546,6 +546,7 @@ requestAnimationFrame(frame);
 // `?debug=1`: the device reports its own camera state. A phone has no console, and
 // every question about what it is actually doing otherwise costs a round trip to
 // whoever is holding it.
+let debugTicks = 0;
 if (new URLSearchParams(location.search).has("debug")) {
   const box = document.createElement("pre");
   Object.assign(box.style, {
@@ -562,6 +563,9 @@ if (new URLSearchParams(location.search).has("debug")) {
   };
   setInterval(() => {
     const state = {
+      // Which commit this bundle came from, so a stale cache is visible rather than
+      // inferred (RD-093).
+      build: __BUILD__,
       ...renderer.debug(),
       ...viewportReport(window, readInsets(getComputedStyle(probe))),
       screen: flow.screen,
@@ -587,6 +591,12 @@ if (new URLSearchParams(location.search).has("debug")) {
     box.textContent = Object.entries(state)
       .map(([k, v]) => `${k.padEnd(9)} ${v}`)
       .join("\n");
+    // Also to the console, so a headless run can be sampled over minutes rather than
+    // photographed once. `?debug=1` already means "tell me everything".
+    if (++debugTicks % 8 === 0) {
+      // eslint-disable-next-line no-console
+      console.log(`HEALTH ${Date.now()} ${state.net} | ${state.frame} | ${state.predict}`);
+    }
   }, 250);
 }
 

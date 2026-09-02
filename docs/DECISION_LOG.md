@@ -3583,3 +3583,53 @@ The `reconnecting` chip still appearing mid-round. RD-090 stopped it firing acro
 deliberate round boundary; if it still shows during play, snapshots genuinely stopped
 for over 500 ms, and that remains unexplained — the server's own stream measures p50 34
 ms, p95 37 ms, from two different paths.
+
+---
+
+## RD-093 — Stamp the build, because four playtests could not tell a stale bundle from a failed fix
+
+*2026-09-02. After "still freezing when reconnecting", on a PC, over a forwarded port.*
+
+### What the PC result actually rules out
+
+The forwarded-port test on a PC removes Tailscale, the phone, and the radio. It does
+**not** remove WSL2: that path is `browser -> Windows netsh portproxy -> WSL2 virtual
+NIC`, and the phone's was `Tailscale userspace -> WSL2`. **Every path that has ever
+stalled crosses the WSL2 boundary, and the only path measured clean — repeatedly — is
+`localhost` inside WSL.** That is a real pattern and it is the strongest remaining lead.
+
+It could not be tested from here: WSL cannot hairpin to the Windows LAN address
+(`192.168.254.100` is unreachable from inside), so the portproxy path cannot be probed
+from the machine hosting it.
+
+### What has been eliminated, with evidence
+
+- **Snapshot size / MTU** (RD-082, RD-085) — every minigame now fits one packet; the
+  freeze predates and outlives it, and happens in minigames that always fitted.
+- **Send backlog** (RD-086) — `skippedSnapshots` is **0** after 25 minutes of play. The
+  guard never fires, so the server never queues behind a slow client.
+- **The main thread** (RD-088, RD-089) — `frame worst` 69 ms through a freeze.
+- **The round boundary** (RD-090) — the chip no longer counts the deliberate gap.
+- **The prediction clock** (RD-092) — real, 27% slow, and fixed; the stutter it caused
+  is not the same thing as the chip firing.
+
+### What has never once been reproduced
+
+**A mid-round snapshot gap, from any client I control.** Two paths and three probes all
+measure p50 34 ms, p95 37 ms, no gap over 200 ms outside the by-design boundary.
+
+### And a hole in the method that has to close first
+
+Chrome headless does not forward page `console` to stderr in this setup — 313 lines of
+output, zero CONSOLE lines. So the earlier "no client exceptions" check (RD-085) proved
+**nothing**; it was an empty grep read as a clean result. Recorded because it is the
+second time an instrument's silence has been mistaken for evidence.
+
+Worse, there has been no way to tell **which build a playtester is running.** A browser
+caches, a home-screen app caches harder, and every conclusion drawn from a stale bundle
+is worthless — including, possibly, several drawn over the last four playtests. The
+client now bakes `git rev-parse --short HEAD` in at config time and `?debug=1` shows it,
+with `+dirty` when the tree is not clean.
+
+That is not a fix for the freeze. It is the precondition for trusting the next report
+about it, and it should have existed before the second round trip, let alone the sixth.
