@@ -2994,3 +2994,80 @@ then tears the whole stack down on two missed health checks. This killed a five-
 probe at the four-minute mark and handed the user two dead room codes across this
 session. Client-only edits are safe; vite hot-reloads them. Finish shared edits *before*
 starting a measurement or handing over a code.
+
+---
+
+## RD-082 — It is the wifi, and `scramble` was making it worse
+
+*2026-09-01. The WiFi reading came back and killed the cellular theory: p50 31 ms, p95
+35 ms, worst 2337 ms. The same shape as LTE, on a different physical link.*
+
+Two links, one signature, so the cause is common to both. And the signature itself is
+diagnostic: an excellent p50/p95 with rare multi-second outliers is not congestion —
+congestion raises p95 too. It is **TCP head-of-line blocking**. A WebSocket rides on
+TCP, so one lost packet stalls everything behind it until retransmission, and RTO
+backoff lands squarely in the 1-3 s range.
+
+### Where it is not
+
+Two probes ran side by side for five minutes, one on `localhost` and one on the
+Tailscale address, so the second crossed `tailscaled` and the WSL virtual NIC:
+
+```
+localhost            p50 34ms  p95 35ms  p99 36ms  max 15157ms
+tailscale interface  p50 34ms  p95 35ms  p99 36ms  max 15157ms
+```
+
+Identical, and the only large gap is the by-design round boundary. The server, the
+runtime, `tailscaled` and the WSL NIC are all exonerated. What is left is the segment
+only the phone crosses.
+
+**RD-078's probe was localhost-only, and I reported "the stream is clean" as though it
+settled the question.** It could only ever have exonerated the server. Running the same
+probe over a second path was the cheap move and it took three more round trips to the
+device before I made it.
+
+### What was ours to fix
+
+`tailscale0` has an **MTU of 1280**, so about 1240 bytes of TCP payload. Measured
+snapshot sizes over a full match:
+
+```
+game            snaps   mean   max   over-MTU
+falling-floor    1132    397   670   0/1132
+sweepers          598    707   895   0/598
+hot-potato       1054    649   684   0/1054
+scramble         1349   1123  1647   402/1349
+```
+
+**`scramble` put 30% of its snapshots into two TCP packets**, doubling the exposure to a
+loss that stalls the stream — and the reported freeze happened during scramble. Every
+other minigame already fitted in one.
+
+The cause was that the per-tick `prims` channel shipped raw doubles.
+`-4.123456789012345` is eighteen bytes; `-4.12` is five, for a difference invisible at
+any distance the fixed camera allows. **I5 already says snapshot numbers are quantized
+before they go on the wire** — `SnapPlayer` obeyed it and `prims` never had.
+
+Rounding happens in the shell, once, for the same reason the round timer and
+`resolvePlayerOverlaps` live there: four minigames each remembering is four chances to
+forget, and minigame five inherits the omission rather than the rule. Measured at 34%
+off the prim payload, which puts scramble inside one packet.
+
+**This is a mitigation, not a cure.** It removes the amplifier; it cannot stop a lossy
+link losing packets, and nothing at this layer can — only an unreliable transport
+(WebRTC DataChannel) escapes head-of-line blocking, and that is a transport rewrite
+with a signalling dependency, against this project's whole shape. The honest position
+is that a rare multi-second stall on a home wifi is survivable for a party game, the
+client already degrades correctly through it (hold, blend, and now a `reconnecting`
+chip), and the amplifier is gone.
+
+### Also fixed: a guard that cried wolf
+
+`states.test.ts`'s home-screen walk read every `.ts` under `src/client`, which includes
+a pnpm `node_modules` and vite's build and dep-optimisation output — files another
+process writes *while the suite runs*. It failed three times this session and passed
+every time it was re-run alone, which is the signature of a test racing a build. I
+diagnosed that in the first ten minutes of the session and then re-ran it twice more
+rather than fixing it. A guard that cries wolf gets deleted; it now reads only what this
+repo authors.

@@ -14,7 +14,11 @@
 // for a real player walking.
 const ROOM = process.argv[2];
 const SECS = Number(process.argv[3] ?? 240);
-const ws = new WebSocket("ws://localhost:3001");
+// Which path to measure. `localhost` never leaves the process's own host, so it can
+// only ever exonerate the server; point it at the Tailscale address to include
+// tailscaled and the WSL virtual NIC. Neither crosses wifi — only the phone does.
+const SERVER = process.argv[4] ?? "ws://localhost:3001";
+const ws = new WebSocket(SERVER);
 
 let last = 0, n = 0;
 const gaps = [];
@@ -47,7 +51,8 @@ setInterval(() => {
 setTimeout(() => {
   gaps.sort((a, b) => a - b);
   const p = (q) => gaps[Math.floor(gaps.length * q)] ?? 0;
-  console.log(`\nsnapshots: ${n} over ${SECS}s`);
+  console.log(`\n${SERVER}`);
+  console.log(`snapshots: ${n} over ${SECS}s`);
   console.log(`gap p50=${p(0.5)}ms p95=${p(0.95)}ms p99=${p(0.99)}ms max=${gaps[gaps.length-1]}ms`);
   console.log(`gaps >200ms: ${gaps.filter(g => g > 200).length}`);
   console.log(`gaps >1000ms: ${gaps.filter(g => g > 1000).length}`);
