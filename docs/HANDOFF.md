@@ -1,27 +1,27 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `15e073d`, work has happened since this was written: distrust it and read
+> `2104110`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-08-31 12:26 · branch `visual-direction-phase-bc` ·
-HEAD `15e073d` — perf(kit): the outline is free per fragment, not per draw — T18 · 0 uncommitted file(s)*
+*Written 2026-09-02 14:27 · branch `playtest-feedback` ·
+HEAD `2104110` — fix(client): the stalled dot had no size, then the wrong colour — RD-081 · 0 uncommitted file(s)*
 
 ## What I was doing
 
-visual-direction Phase E. T18 measured the paper build's cost instead of assuming it, found the draw-call regression RD-021 had hidden, and fixed it. Phases B/C were committed first, unchanged, on branch visual-direction-phase-bc.
+Chasing a freeze reported from the phone, through five decisions (RD-077 to RD-081). Prediction shipped in RD-074 and then broke three ways under real play: it drew at 30 Hz on a 60-120 Hz screen (RD-077), walked straight through the 8 s round-boundary snapshot gap and got teleported back (RD-078), and held on a time threshold that froze a player who was standing still (RD-079, now bounds DIVERGENCE instead). Also built the in-game menu (RD-076) and the spectator chip.
 
 ## What is half-finished
 
-Nothing broken. 469 tests, typecheck and all four guards green, status artifact republished. Two branch commits sit unmerged on visual-direction-phase-bc; main is still at a199339.
+Nothing broken. 942 tests, four guards green, everything committed on branch playtest-feedback (8 commits, unpushed). The open question is ENVIRONMENTAL, not code: the user's phone saw a 2700 ms mid-stream snapshot gap on LTE, while a 6-minute probe from the server host saw p99 = 50 ms and NINE large gaps that were all exactly the 8 s round boundary. So the stall is on the path between server and phone. The user is retesting on WiFi when they get home.
 
 ## The very next action
 
-T19 — the only open box in visual-direction. Play it on a phone: 'pnpm playtest', open the printed phone URL, and read the two questions in tasks.md. Then open /bench.html on the same phone and record p95 in RD-028; that number and T12's arm's-length capture are both owed and both need the hardware.
+Wait for the WiFi reading of 'net worst' from ?debug=1 in room M9G4. If the multi-second gaps vanish and only the ~8000 ms boundary ones remain, the freezing was the cellular link and there is nothing left to fix — close it out. If they persist on WiFi, the hunt moves to the path between the phone and this machine (Tailscale, WSL port forwarding). Either way input-prediction T8 is still open and is the box that can invalidate RD-074: does a mispredicted shove in scramble read as rubber-banding?
 
 ## Gotchas
 
-Draw calls are geometry GROUPS, not meshes. A six-material slab costs six draws; the mesh count went 5 to 7 and looked fine while the real cost went 40 to 296. A slab's material array is now indexed by group, not by face — use materialForFace(mesh, face), never material[4]. Committing a spec restages its own status report (the report embeds git's last-touched date), so status_html.py --check fails right after the commit: regenerate and amend, which is the documented wrinkle in spec-workflow.md.
+node --watch has @ruckus/shared in its graph, so ANY edit to src/shared or src/server restarts the server, drops every room (I7), and playtest.sh tears the whole stack down on two missed health checks. This killed a five-minute probe at four minutes and handed the user two dead room codes. Client-only edits are safe (vite HMR). Finish shared edits BEFORE starting a stack or handing over a code. Also: kit.ts's UI_CSS is a template literal — backticks in a CSS comment break the whole stylesheet at import, twice this session. And visuals.sh --update with STATES= or PROFILES= set rewrites the manifest with ONLY the rows it shot, silently dropping the other 90.
 
 ## Uncommitted when this was written
 
