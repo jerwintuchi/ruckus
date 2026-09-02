@@ -21,6 +21,7 @@ import {
   type InputScheme,
   type ServerMsg,
   type SnapPlayer,
+  MAX_SNAPSHOT_BACKLOG_B,
   packPrims,
   quantPrim,
 } from "@ruckus/shared";
@@ -39,6 +40,19 @@ export class GameServer {
   private readonly rooms = new Map<string, { room: Room; match: Match }>();
   private readonly conns = new Map<WebSocket, Conn>();
   private readonly rng = makeRng(Date.now() >>> 0);
+  /**
+   * Snapshots not sent because the socket had not drained (RD-086).
+   *
+   * Counted rather than silent: dropping frames is the right call for a full-state
+   * protocol, but a drop nobody can see is indistinguishable from a bug. Exposed on
+   * `/health` so a stalling client leaves a trace on the server too, not only on the
+   * phone that suffered it.
+   */
+  private snapshotsSkipped = 0;
+
+  get skippedSnapshots(): number {
+    return this.snapshotsSkipped;
+  }
   /** code -> the time it was retired, so it is not reissued straight away (P1). */
   private readonly retired = new Map<string, number>();
   private readonly loop = new FixedLoop();
@@ -230,6 +244,14 @@ export class GameServer {
     // the two numbers themselves.
     for (const conn of this.conns.values()) {
       if (conn.room !== room) continue;
+      // Skip a socket that is not draining (RD-086). A snapshot is full state, so one
+      // still queued when the next tick runs is worth nothing — sending it only delays
+      // the current one behind it. Measured as `skipped` so this cannot become a
+      // silent drop nobody can see.
+      if (conn.ws.bufferedAmount > MAX_SNAPSHOT_BACKLOG_B) {
+        this.snapshotsSkipped++;
+        continue;
+      }
       const mine = room.players.get(conn.slot)?.runtime;
       this.send(conn.ws, {
         t: "snap",

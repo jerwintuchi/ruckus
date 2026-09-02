@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { WebSocketServer } from "ws";
-import { CODE_ALPHABET, CODE_COOLDOWN_MS, MAX_PLAYERS } from "@ruckus/shared";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { CODE_ALPHABET, CODE_COOLDOWN_MS, MAX_PLAYERS, MAX_SNAPSHOT_BACKLOG_B } from "@ruckus/shared";
 import { GameServer } from "./net.ts";
 
 /**
@@ -178,5 +181,46 @@ describe("the snapshot's ack is per connection (input-prediction T2, R2)", () =>
     const rt = room.players.get(j.player!.slot)!.runtime;
     expect(rt.lastAppliedSeq).toBe(0);
     expect(rt.speedMul).toBe(1);
+  });
+});
+
+describe("a backed-up socket is skipped, not queued onto (RD-086)", () => {
+  // Snapshots are FULL STATE, so one still sitting unsent when the next tick runs is
+  // worth nothing. Without this the server adds 30 a second to a socket that is not
+  // draining: a two-second stall leaves ~60 queued, and TCP must deliver every one, in
+  // order, before the first fresh frame. The freeze a player sees is then the network's
+  // stall plus the time to drain positions that were already wrong.
+  const threshold = MAX_SNAPSHOT_BACKLOG_B;
+
+  it("allows about three snapshots of slack before it stops", () => {
+    // Loose enough that ordinary jitter never trips it — RD-085 left every minigame
+    // near 700 bytes a snapshot — and tight enough that a real stall is caught within
+    // a tick or two rather than after a second of backlog.
+    expect(threshold).toBeGreaterThan(700 * 2);
+    expect(threshold).toBeLessThan(700 * 5);
+  });
+
+  it("is the only channel that may be skipped", () => {
+    // roundStart, roundEnd, room and err are not idempotent: missing one is a broken
+    // round, not a stale frame. The guard must sit in sendSnapshot alone.
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "net.ts"), "utf8");
+    const guard = "bufferedAmount > MAX_SNAPSHOT_BACKLOG_B";
+    expect(src).toContain(guard);
+    // It appears once, and inside sendSnapshot rather than in the generic send().
+    expect(src.split(guard).length - 1).toBe(1);
+    const inSnapshot = src.indexOf(guard) > src.indexOf("private sendSnapshot")
+      && src.indexOf(guard) < src.indexOf("private onConnect");
+    expect(inSnapshot).toBe(true);
+    // The generic send must stay unconditional apart from readyState.
+    const send = src.slice(src.indexOf("private send("), src.indexOf("private send(") + 200);
+    expect(send).not.toContain("bufferedAmount");
+  });
+
+  it("counts what it skipped rather than dropping silently", () => {
+    // A drop nobody can see is indistinguishable from a bug.
+    const g = mk();
+    expect(g.skippedSnapshots).toBe(0);
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "main.ts"), "utf8");
+    expect(src).toContain("skippedSnapshots");
   });
 });

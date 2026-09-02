@@ -3252,3 +3252,64 @@ clock keeps landing the capture before the first snapshot arrives (RD-054), so t
 attempt showed the arena's statics with no pickups *and no players* — and players do not
 travel through this path at all, which is what says the capture was early rather than
 the change broken. It remains the one link in the chain argued rather than seen.
+
+---
+
+## RD-086 — Never queue a snapshot onto a socket that has not drained
+
+*2026-09-01. The freeze survived RD-082 and RD-085, and the report that settled it was
+"it shows `reconnecting` across different rounds, not just scramble".*
+
+**That killed my leading theory and I should say so plainly.** RD-082 found `scramble`
+putting 30% of its snapshots across two packets and I treated it as the explanation. But
+every other minigame was already comfortably inside one packet — `hot-potato` maxed at
+684 bytes — so if the freeze happens in those too, **packet size was never the cause.**
+The MTU and grouping work is real (57% off the worst case, headroom for eight players)
+and it was not the answer to this.
+
+### What was actually wrong
+
+`GameServer.send` calls `ws.send()` unconditionally, thirty times a second, per
+connection. Nothing anywhere checks `bufferedAmount`.
+
+So when a link stalls, TCP cannot deliver and the socket quietly queues. Two seconds of
+stall is **~60 snapshots banked**, and every one of them must be transmitted, in order,
+before the first fresh frame arrives. The freeze a player sees is the network's stall
+*plus* the time spent draining a backlog of positions that were already wrong when they
+were queued.
+
+That is exactly backwards for a full-state protocol, and RD-083 had already written down
+why: a snapshot that has not left the server is worth nothing the moment the next tick
+runs. Queueing it buys a client the right to receive obsolete positions later, at the
+cost of delaying the current ones.
+
+The server now skips a connection whose `bufferedAmount` exceeds about three snapshots.
+On a healthy link `bufferedAmount` is zero and nothing changes.
+
+**Only snapshots may be skipped.** `roundStart`, `roundEnd`, `room` and `err` are not
+idempotent — missing one is a broken round, not a stale frame — so the guard lives in
+`sendSnapshot` alone and the generic `send` stays unconditional. A test asserts both:
+the guard appears exactly once, inside `sendSnapshot`, and never in `send`.
+
+### The tradeoff
+
+**Cost:** a client on a congested link receives fewer snapshots. **Bought:** the ones it
+does receive are current.
+
+That trade is only correct because snapshots are full state and the client already
+degrades honestly — the interpolation buffer holds (I6), prediction holds within its
+divergence budget (RD-079), and the interface says `reconnecting` (RD-081). A delta
+protocol could not make this trade at all, which is a second reason RD-083 keeps full
+state.
+
+Skips are **counted and exposed on `/health`**, because a dropped frame nobody can see
+is indistinguishable from a bug. A stalling client should leave a trace on the server,
+not only on the phone that suffered it.
+
+### Still not the whole story
+
+This shortens the recovery; it does not stop the stall. The tunnel to the phone is
+direct and 4 ms at rest, and the segment between the server host and the phone remains
+the only unexplained part — a measurement I had *thought* was covered and was not: the
+"Tailscale interface" probe in RD-082 connected to this host's own Tailscale address,
+which never traverses WireGuard to a peer. It exonerated nothing about the tunnel.

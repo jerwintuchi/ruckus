@@ -24,6 +24,10 @@ const http = createServer((req, res) => {
         ok: true,
         started: STARTED_AT,
         minigames: MINIGAMES.map((m) => m.id),
+        // Snapshots the server declined to queue on a socket that had not drained
+        // (RD-086). A stalling client should leave a trace here too, not only on the
+        // phone that suffered it.
+        skippedSnapshots: game.skippedSnapshots,
       }),
     );
     return;

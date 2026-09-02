@@ -167,3 +167,23 @@ export const PREDICT_BUDGET_M = SNAP_DISTANCE * 0.8;
  * changes nothing about prediction or interpolation, both of which hold on their own.
  */
 export const STALL_NOTICE_MS = 500;
+
+/**
+ * How much unsent snapshot may sit in one socket before the server stops adding to it
+ * (RD-086).
+ *
+ * About three snapshots at the sizes RD-085 left us. Snapshots are FULL STATE, so one
+ * that has not left the server yet is worth nothing the moment the next tick runs —
+ * queueing it behind a stalled link buys a client the right to receive obsolete
+ * positions later, at the cost of delaying the current ones.
+ *
+ * Without this the server adds 30 snapshots a second to a socket that is not draining:
+ * a two-second stall leaves ~60 queued, and TCP must deliver every one of them, in
+ * order, before the first fresh frame. The stall a player sees is then the network's
+ * stall plus the time to drain a backlog of positions that were already wrong.
+ *
+ * Only snapshots are ever skipped. Everything else — `roundStart`, `roundEnd`, `room`,
+ * `err` — is sent regardless, because those are not idempotent and missing one is a
+ * broken round rather than a stale frame.
+ */
+export const MAX_SNAPSHOT_BACKLOG_B = 2400;
