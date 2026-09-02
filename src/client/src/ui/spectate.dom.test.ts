@@ -118,3 +118,42 @@ describe("the stalled chip (RD-081)", () => {
     expect(hud()).toContain("watching");
   });
 });
+
+describe("both status chips actually draw their dot", () => {
+  it("gives the dot its size from a shared rule, not one chip's selector", async () => {
+    // The stalled chip set only the dot's COLOUR, while width, height and border lived
+    // under `.spectate .eye` — so it inherited no size and drew nothing. Caught by
+    // looking at the picture, not by any assertion about the markup, which was correct.
+    const { readFileSync } = await import("node:fs");
+    const { dirname, join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const here = dirname(fileURLToPath(import.meta.url));
+    const css = readFileSync(join(here, "kit.ts"), "utf8");
+    expect(css).toContain(".gauge .eye{width:");
+    expect(css).not.toContain(".spectate .eye{width:");
+  });
+
+  it("marks both chips up with the same dot element", () => {
+    const { ui, root } = mount();
+    ui.setStalled(true);
+    ui.setSpectating(true, 1, 5);
+    ui.renderHud(undefined);
+    expect(root.querySelectorAll("#hud .gauge .eye").length).toBe(2);
+  });
+});
+
+describe("the stalled dot wins the cascade", () => {
+  it("beats the shared dot rule on specificity, not on source order", async () => {
+    // `.stalled .eye` and `.gauge .eye` are both two classes, so at equal specificity
+    // the later rule wins — and the shared one comes later, so the alarm drew in the
+    // waiting chip's yellow. Visible in a screenshot, invisible to every assertion
+    // about the markup, which was right the whole time.
+    const { readFileSync } = await import("node:fs");
+    const { dirname, join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const here = dirname(fileURLToPath(import.meta.url));
+    const css = readFileSync(join(here, "kit.ts"), "utf8");
+    expect(css).toContain(".gauge.stalled .eye{background:");
+    expect(css).not.toMatch(/(?<!\.gauge)\.stalled \.eye\{background:/);
+  });
+});

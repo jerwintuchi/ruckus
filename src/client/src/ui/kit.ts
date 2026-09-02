@@ -287,7 +287,10 @@ input::placeholder{color:var(--text-dim)}
 /* The connection stopped answering (RD-081). Same slab as the spectator chip; the
    hazard colour is what separates "you are waiting" from "something is wrong". */
 .stalled{gap:7px;color:var(--ink);background:var(--card)}
-.stalled .eye{background:#e6484d}
+/* .gauge.stalled, not .stalled: the shared dot rule below is also two classes, so at
+   equal specificity source order would decide it — and it comes later, which is how
+   this drew the waiting chip's yellow instead of the hazard red. */
+.gauge.stalled .eye{background:#e6484d}
 
 /* Watching, not playing (spectating R2). A slab, so it keeps the shadow every other
    card has — it is paper on the table, not a control printed on it (kit-rules). */
@@ -319,7 +322,11 @@ button.danger:active:not(:disabled){background:color-mix(in srgb, var(--card) 84
  */
 .iconbtn.gear{pointer-events:auto;position:absolute;
   left:calc(14px + var(--safe-left));top:calc(10px + var(--safe-top))}
-.spectate .eye{width:9px;height:9px;border-radius:50%;background:var(--highlight);
+/* The dot both status chips share. Defined once on .gauge .eye rather than under one
+   chip's selector: it lived under .spectate .eye and the stalled chip then set only its
+   COLOUR, so it inherited no size and drew nothing at all. A shared element needs a
+   shared rule. NB no backticks in here - this whole stylesheet is a template literal. */
+.gauge .eye{width:9px;height:9px;border-radius:50%;background:var(--highlight);
   border:2px solid var(--ink);animation:spectate-pulse 1.6s ease-in-out infinite}
 /* No reduced-motion rule of its own: the global animation:none!important below
    already stops this, and a second media block splits the one the guards read. */

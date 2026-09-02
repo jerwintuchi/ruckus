@@ -95,6 +95,13 @@ const STATES: Record<string, (ui: Ui, controls: Controls, show: (s: FlowState) =
       { name: "A Longer Round Name", round: 5, of: 5 });
   },
   "waiting": (ui) => { ui.render(inMatch()); ui.showWaiting(2, 5); },
+  // The stream has stopped answering (RD-081). The arena stays visible behind it —
+  // everything is simply held, which is what a stall honestly looks like.
+  "stalled": (ui) => {
+    ui.render(inMatch());
+    ui.setStalled(true);
+    ui.renderHud(undefined, { name: "the round", round: 2, of: 5 });
+  },
   // Watching a round you are not in, with the arena still visible behind (R2, R3).
   // The settings panel over a live round (in-game-menu T5).
   "menu-ingame": (ui) => {

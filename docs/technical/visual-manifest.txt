@@ -17,6 +17,7 @@ desktop/round-jump 6c82a9169ef2a3da
 desktop/round-pass bd7dbcf019fc5e6c
 desktop/round-tumble f11803659e30925f
 desktop/spectating 5bae26f7c02e44b8
+desktop/stalled 43118356d2115577
 desktop/swatches 695e51cda5f86207
 desktop/waiting 4e1ce54dd307df6b
 phone/countdown fe91b7beade40d9f
@@ -35,6 +36,7 @@ phone/round-jump 29cb88ecb71ead2d
 phone/round-pass 70f2e8d682e7d498
 phone/round-tumble 6ab702d45c7a023f
 phone/spectating a56324020f1de5ba
+phone/stalled 440ec839814599a6
 phone/swatches 14f509725d0bd937
 phone/waiting e3d528e299c57dd9
 portrait/countdown 716e260f6aeb0e12
@@ -53,6 +55,7 @@ portrait/round-jump 7268ae1aef1da0fd
 portrait/round-pass e052b47855ebefc1
 portrait/round-tumble 15230f065d1391b6
 portrait/spectating 5a93403e0f0d5184
+portrait/stalled 00b18d9c03934768
 portrait/swatches 17a5ea83961f2909
 portrait/waiting d23b0917cb4281b2
 safari-land/countdown 268042ecc7cdc932
@@ -71,6 +74,7 @@ safari-land/round-jump c70952fc45486188
 safari-land/round-pass 177be0c73355edae
 safari-land/round-tumble 32c075f0610f889f
 safari-land/spectating 9c53575afab9d35a
+safari-land/stalled 94d62acf00e0125a
 safari-land/swatches 9f26e6ba844aedea
 safari-land/waiting fd72971c8f414714
 safari/countdown 60f51c6dcc502408
@@ -89,5 +93,6 @@ safari/round-jump 2534c6e702d34bc7
 safari/round-pass 5e72cadfa07a38fc
 safari/round-tumble 61721f2eb27cad3d
 safari/spectating cea7724be68aa02c
+safari/stalled 19dc06fa93bd08dd
 safari/swatches 8933129a6c2dc139
 safari/waiting c84afe8c47e2fb48
