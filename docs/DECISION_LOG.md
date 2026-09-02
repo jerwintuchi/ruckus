@@ -3535,3 +3535,51 @@ Overlapping the result with the next round's intro — the other standard trick 
 little here. It exists to hide loading, and this game has nothing to load: geometry is
 code and an arena is built in a frame. Adding a concurrent phase to the match state
 machine to save a second, in a shell whose simplicity is the point, is the wrong trade.
+
+---
+
+## RD-092 — The prediction clock ran 27% slow, and that is what the stutter was
+
+*2026-09-02. "the freezing is still there... more like stuttering", and then the detail
+that mattered: "it still freezes/stutters when reconnecting".*
+
+The scheduler was `if (now - lastSent >= TICK_MS) { lastSent = now; step(); }`.
+
+Assigning `now` resets the schedule to **whenever a frame happened to land**, not to the
+tick grid. At 60 fps against a 33.33 ms tick that means the next step comes either two
+frames later (33.3 ms) or three (50 ms), decided by nothing but jitter — while every
+step advances the simulation by a **fixed** 33.33 ms.
+
+Simulated at constant speed over 900 frames, the drawn capsule advanced **67.09 mm per
+frame against the 91.7 mm real time asks for — 27% slow.** Prediction therefore fell
+behind the server continuously, and the server pulled it forward with a correction on
+every snapshot. A steady stream of corrections is precisely what stutter looks like,
+and it is worst exactly when snapshots are late and arrive in clumps: which is why it
+tracked the `reconnecting` chip.
+
+The old `alpha` made it visible rather than merely wrong. `(now - lastSent) / TICK_MS`
+clamps at 1, so between a late step and the next the character reached its target and
+then **held frozen for a whole frame**.
+
+An accumulator fixes both: spend real time in whole ticks, keep the remainder as
+`alpha`. Measured after: **91.57 mm per frame, and not one frame that failed to move.**
+Catch-up is capped exactly as the server caps it (P8).
+
+### The part that should have been caught years earlier
+
+**The server has had this right since it was written.** `FixedLoop` accumulates and caps
+catch-up, with a comment explaining the spiral of death. The client rolled its own
+scheduler, in one line, and got it wrong — in the same repository, against the same
+constant, for the same reason.
+
+RD-077 then built render interpolation *on top of* the broken clock and measured a real
+improvement (24 of 61 frames moving, up to 57), which made the remaining stutter look
+like a residue rather than a second defect. A fix that improves a number can hide the
+bug underneath it.
+
+### What this does not explain
+
+The `reconnecting` chip still appearing mid-round. RD-090 stopped it firing across the
+deliberate round boundary; if it still shows during play, snapshots genuinely stopped
+for over 500 ms, and that remains unexplained — the server's own stream measures p50 34
+ms, p95 37 ms, from two different paths.

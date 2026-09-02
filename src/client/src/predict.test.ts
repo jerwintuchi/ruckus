@@ -15,6 +15,7 @@ import {
   INTRO_MS,
   JUMP_SPEED,
   MATCH_RESULT_MS,
+  MAX_CATCHUP_STEPS,
   MAX_PENDING,
   MAX_SPEED,
   PREDICT_BUDGET_M,
@@ -762,5 +763,62 @@ describe("the gap between rounds is shorter than it was (RD-091)", () => {
 
   it("gives the end of a whole match longer than the end of one round", () => {
     expect(MATCH_RESULT_MS).toBeGreaterThan(RESULT_MS);
+  });
+});
+
+describe("the prediction clock is an accumulator, not a timestamp (RD-092)", () => {
+  const TICK = TICK_MS;
+  const V = 5.5 / 1000; // metres per ms at full speed
+
+  /** Drawn position per frame under each scheduler, at constant speed. */
+  const drawn = (useAccumulator: boolean) => {
+    const frames: number[] = [];
+    let t = 0;
+    for (let i = 0; i < 900; i++) { t += 16.667 + Math.sin(i * 2.3) * 0.4; frames.push(t); }
+    let lastSent = 0, acc = 0, last = 0, prevPos = 0, pos = 0;
+    const out: number[] = [];
+    for (const now of frames) {
+      if (useAccumulator) {
+        acc += now - last; last = now;
+        while (acc >= TICK) { acc -= TICK; prevPos = pos; pos += V * TICK; }
+        out.push(prevPos + (pos - prevPos) * (acc / TICK));
+      } else {
+        if (now - lastSent >= TICK) { lastSent = now; prevPos = pos; pos += V * TICK; }
+        const a = Math.min(1, Math.max(0, (now - lastSent) / TICK));
+        out.push(prevPos + (pos - prevPos) * a);
+      }
+    }
+    return out;
+  };
+  const advances = (d: number[]) => d.slice(1).map((v, i) => v - d[i]!);
+
+  it("advances the simulation at real-world speed, which the old clock did not", () => {
+    // `lastSent = now` resets the schedule to whenever a frame landed rather than to
+    // the tick grid, so a step comes every 2 OR 3 frames at 60fps while each one always
+    // advances a FIXED tick. The sim then runs slow: measured at 67mm per frame against
+    // the 91.7mm real time asks for — 27% behind, made up by server corrections, which
+    // is what stutter looks like.
+    const expected = V * 16.667;
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(mean(advances(drawn(true)))).toBeCloseTo(expected, 3);
+    expect(mean(advances(drawn(false)))).toBeLessThan(expected * 0.8);
+  });
+
+  it("never draws a frame that did not move at all", () => {
+    // The old alpha reached 1 and then held until the late step arrived — a frozen
+    // frame in the middle of a run.
+    expect(advances(drawn(true)).filter((a) => a <= 1e-9).length).toBe(0);
+  });
+
+  it("uses the accumulator remainder for alpha, so it cannot clamp", () => {
+    const src = readFileSync(join(here, "main.ts"), "utf8");
+    expect(src).toContain("const alpha = acc / TICK_MS");
+    expect(src).not.toContain("(now - lastSent) / TICK_MS");
+  });
+
+  it("caps catch-up like the server's loop does", () => {
+    // After a long stall, replaying every missed tick takes longer than the stall (P8).
+    const src = readFileSync(join(here, "main.ts"), "utf8");
+    expect(src).toContain("MAX_CATCHUP_STEPS");
   });
 });

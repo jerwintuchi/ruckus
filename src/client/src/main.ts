@@ -4,7 +4,7 @@
  * (I1, I6), and everything sent is an intention.
  */
 import {
-  STALL_NOTICE_MS, TICK_MS, dequantPos, unpackPrims, type PrimGroup, type PlayerView, type Prim, type ServerMsg, type WireAction,
+  MAX_CATCHUP_STEPS, STALL_NOTICE_MS, TICK_MS, dequantPos, unpackPrims, type PrimGroup, type PlayerView, type Prim, type ServerMsg, type WireAction,
 } from "@ruckus/shared";
 import {
   amOnRoster, initialState, reduce, rosterChange, shouldShowWaiting, type FlowEvent,
@@ -386,7 +386,22 @@ function onMessage(msg: ServerMsg): void {
   }
 }
 
-let lastSent = 0;
+/**
+ * The prediction clock, as an ACCUMULATOR rather than a timestamp (RD-092).
+ *
+ * This was `lastSent = now`, which resets the schedule to whenever a frame happened to
+ * land instead of to the tick grid. At 60 fps against a 33.33 ms tick that means the
+ * next step is either two frames later (33.3 ms) or three (50 ms), decided by jitter —
+ * while every step advances the simulation by a FIXED 33.33 ms. The local capsule then
+ * covers the same simulated distance in wildly different real time, and `alpha` reaches
+ * 1 and holds frozen until the late step arrives. That is stutter, by construction, and
+ * only on the predicted player: the bots interpolate on a continuous clock and were
+ * smooth throughout, which is exactly the shape that was reported.
+ *
+ * The server has solved this since it was written — `FixedLoop` accumulates and caps
+ * catch-up (P8). The client rolled its own and got it wrong.
+ */
+let acc = 0;
 /** Wall clock of the previous rendered frame, so the correction decays in real time (P6). */
 let lastFrameAt = 0;
 
@@ -453,8 +468,15 @@ function frame(now: number): void {
   // sending four times more than the server can ever read (R10). Derived from TICK_MS
   // rather than written as a literal, so the two cannot drift apart again — they did,
   // at 50ms against a 33ms tick (responsiveness T3).
-  if (now - lastSent >= TICK_MS) {
-    lastSent = now;
+  // Accumulate real time and spend it in whole ticks, so the schedule never drifts off
+  // the grid. Capped like the server's loop: after a long stall, catching up on every
+  // missed tick at once takes longer than the stall did (P8).
+  acc += frameDt;
+  if (acc > TICK_MS * MAX_CATCHUP_STEPS) acc = TICK_MS * MAX_CATCHUP_STEPS;
+  let steps = 0;
+  while (acc >= TICK_MS && steps < MAX_CATCHUP_STEPS) {
+    acc -= TICK_MS;
+    steps++;
     const i = input.read();
     // Stepped whether or not the socket is up: prediction is what makes the stick feel
     // attached to the thumb, and a stall in the transport is exactly when that matters
@@ -497,7 +519,9 @@ function frame(now: number): void {
         // How far between the last simulated step and the next one this frame falls.
         // The simulation is locked to TICK_MS so replay matches the server; the DRAWING
         // is not, or the character moves at 30 Hz on a 120 Hz screen (RD-077).
-        const alpha = (now - lastSent) / TICK_MS;
+        // The exact fraction into the next tick. Never clamps, because `acc` is always
+        // less than one tick after the loop above has spent what it can.
+        const alpha = acc / TICK_MS;
         const at = predictor.sample(frameDt, alpha);
         me.x = at.x;
         me.y = at.y;
