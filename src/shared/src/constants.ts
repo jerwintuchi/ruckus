@@ -158,3 +158,12 @@ export const SNAP_EPSILON = 0.005;
  * to be given back. This is the budget for how many.
  */
 export const PREDICT_BUDGET_M = SNAP_DISTANCE * 0.8;
+
+/**
+ * How stale the stream must get before the interface admits it (RD-081).
+ *
+ * 500 ms — twelve times the p95 measured on a real phone (41 ms), so ordinary jitter
+ * never trips it and a genuine blackout always does. Purely a labelling threshold: it
+ * changes nothing about prediction or interpolation, both of which hold on their own.
+ */
+export const STALL_NOTICE_MS = 500;

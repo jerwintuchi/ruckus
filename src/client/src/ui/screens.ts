@@ -52,6 +52,7 @@ export class Ui {
   private readonly lobby: HTMLElement;
   private readonly banner: HTMLElement;
   private spectating: { round?: number; of?: number } | null = null;
+  private stalled = false;
   private readonly settings: HTMLElement;
   /** Set by main.ts, which owns the sound and therefore the current step. */
   onOpenSettings: (() => void) | null = null;
@@ -219,7 +220,7 @@ export class Ui {
   renderHud(extra: HudData | undefined, label?: { name: string; round: number; of: number }): void {
     const gauges = renderHud(extra);
     const round = label ? roundLabel(label.name, label.round, label.of) : "";
-    this.hud.innerHTML = round + this.spectateChip() + gauges;
+    this.hud.innerHTML = round + this.stalledChip() + this.spectateChip() + gauges;
   }
 
   /**
@@ -284,6 +285,27 @@ export class Ui {
         this.renderSteps(i);
       });
     }
+  }
+
+  /**
+   * The connection has stopped answering (RD-081).
+   *
+   * Measured on a phone: p50 31 ms, p95 41 ms, and then an occasional multi-second
+   * blackout. Everything correctly freezes when that happens — the interpolation buffer
+   * holds (I6) and prediction holds with it — but a game that freezes and says nothing
+   * reads as broken rather than as a game waiting for a packet.
+   *
+   * The same argument the spectating spec makes for watching: a stall is a state the
+   * game is in, not an absence of one. Saying so costs nothing and turns "it's laggy"
+   * into "my signal dropped", which is the truth and is actionable.
+   */
+  setStalled(on: boolean): void {
+    this.stalled = on;
+  }
+
+  private stalledChip(): string {
+    if (!this.stalled) return "";
+    return `<div class="gauge stalled"><span class="eye"></span>reconnecting</div>`;
   }
 
   private spectateChip(): string {

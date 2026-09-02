@@ -88,3 +88,33 @@ describe("watching is not a dead screen (spectating R3)", () => {
     expect(chip).not.toBeNull();
   });
 });
+
+describe("the stalled chip (RD-081)", () => {
+  it("says the connection is the problem, rather than freezing silently", () => {
+    // Measured on a phone: p50 31ms, p95 41ms, then an occasional multi-second
+    // blackout. Everything correctly freezes — the buffer holds (I6) and prediction
+    // holds with it — but freezing while saying nothing reads as broken.
+    const { ui, hud } = mount();
+    ui.setStalled(true);
+    ui.renderHud(undefined);
+    expect(hud()).toContain("reconnecting");
+  });
+
+  it("goes away as soon as the stream returns", () => {
+    const { ui, hud } = mount();
+    ui.setStalled(true);
+    ui.renderHud(undefined);
+    ui.setStalled(false);
+    ui.renderHud(undefined);
+    expect(hud()).not.toContain("reconnecting");
+  });
+
+  it("coexists with the spectator chip rather than replacing it", () => {
+    const { ui, hud } = mount();
+    ui.setStalled(true);
+    ui.setSpectating(true, 2, 5);
+    ui.renderHud(undefined);
+    expect(hud()).toContain("reconnecting");
+    expect(hud()).toContain("watching");
+  });
+});

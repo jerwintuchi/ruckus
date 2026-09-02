@@ -284,6 +284,11 @@ input::placeholder{color:var(--text-dim)}
 .gauge .bar > i{display:block;height:100%;background:var(--highlight);
   width:var(--pct,100%);transition:width .12s linear}
 .gauge.urgent .bar > i{background:#e6484d}
+/* The connection stopped answering (RD-081). Same slab as the spectator chip; the
+   hazard colour is what separates "you are waiting" from "something is wrong". */
+.stalled{gap:7px;color:var(--ink);background:var(--card)}
+.stalled .eye{background:#e6484d}
+
 /* Watching, not playing (spectating R2). A slab, so it keeps the shadow every other
    card has — it is paper on the table, not a control printed on it (kit-rules). */
 .spectate{gap:7px;color:var(--ink)}

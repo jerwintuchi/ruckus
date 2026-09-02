@@ -4,7 +4,7 @@
  * (I1, I6), and everything sent is an intention.
  */
 import {
-  TICK_MS, dequantPos, type PlayerView, type Prim, type ServerMsg, type WireAction,
+  STALL_NOTICE_MS, TICK_MS, dequantPos, type PlayerView, type Prim, type ServerMsg, type WireAction,
 } from "@ruckus/shared";
 import {
   amOnRoster, initialState, reduce, rosterChange, shouldShowWaiting, type FlowEvent,
@@ -396,6 +396,12 @@ function frame(now: number): void {
     note(health.frameGaps, frameDt);
     if (frameDt > health.worstFrame) health.worstFrame = frameDt;
   }
+  // Say so when the stream stops answering (RD-081). Purely a label: prediction and
+  // interpolation each hold on their own, and neither consults this.
+  ui.setStalled(
+    net.connected && health.lastSnapAt > 0 && now - health.lastSnapAt > STALL_NOTICE_MS,
+  );
+
   // Every frame, NOT only while a round is running (RD-080).
   //
   // This lived inside the `playing` block, so across the eight-second gap between

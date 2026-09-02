@@ -2939,3 +2939,58 @@ not more, for being new. This one was written to answer a question the existing 
 could not — and then answered it wrongly for a full round-trip to the device, because
 nobody sanity-checked that its own numbers were internally consistent. `p95 <= worst` is
 an invariant of the summary, and it was there to be checked from the first reading.
+
+---
+
+## RD-081 — A stall is a state the game is in, not an absence of one
+
+*2026-09-01. The third reading from the phone, with the instrument finally honest.*
+
+```
+net    p50 31ms  p95 41ms  worst 2700ms  stalls>300 1
+frame  p50 17ms  p95 17ms  worst 59ms    drops>50 0
+```
+
+**The client is exonerated.** `frame worst 59ms` across round transitions — a single
+dropped frame. There is no hitch when a new arena is built, which was the open question
+RD-080 left. That is closed, and `bench.html`'s p95 is no longer a suspect for this.
+
+**The freezing is a real gap in the snapshot stream**, and not the round boundary: that
+is eight seconds by design and this was 2700 ms, mid-stream. The device was on **LTE**
+for this reading, which is the likeliest explanation — a cellular radio's DRX cycles and
+handovers produce exactly this shape, a clean p50/p95 with occasional multi-second
+blackouts.
+
+Nothing in the client can make a 2.7 s blackout pleasant. When the stream stops, the
+interpolation buffer holds (I6), prediction holds with it (RD-079), and the correction
+on return stays inside the blend. The game degrades correctly and there is no policy
+that beats it: freeze, rubber-band, or teleport are the only three options, and freezing
+is the honest one.
+
+What the client *can* do is **say so**. A game that freezes and explains nothing reads as
+broken; a game that says `reconnecting` reads as a network problem, which is the truth
+and is something the player can act on — move, switch to WiFi, wait. This is the exact
+argument `specs/spectating/` already makes about watching, applied to a second state that
+had been built as nothing happening.
+
+`STALL_NOTICE_MS` is 500 ms — twelve times the measured p95, so ordinary jitter never
+trips it and a genuine blackout always does. It is purely a label: prediction and
+interpolation each hold on their own and neither consults it, so a bug here can make the
+interface wrong but can never make the simulation wrong.
+
+### Still open
+
+Whether these stalls are the cellular link or something between the phone and the WSL
+host is not yet established. A probe from the server host, running while the phone plays,
+would settle it — if the host sees a clean stream while the phone sees 2.7 s gaps, the
+link is the answer. Two attempts at that measurement were killed by my own edits (see
+below), which is its own lesson.
+
+### The operational lesson, learned three times
+
+`node --watch` includes `@ruckus/shared` in its graph, so **any edit to a shared or
+server file restarts the server and drops every live room** (I7) — and `playtest.sh`
+then tears the whole stack down on two missed health checks. This killed a five-minute
+probe at the four-minute mark and handed the user two dead room codes across this
+session. Client-only edits are safe; vite hot-reloads them. Finish shared edits *before*
+starting a measurement or handing over a code.
