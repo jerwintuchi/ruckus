@@ -2879,3 +2879,63 @@ frame line that moves, that is the debt coming due.
 The lesson is the one RD-053 already wrote down and I did not apply: some questions can
 only be answered from the device, and the cheap move is to make the device answer rather
 than to reason harder on a desktop.
+
+---
+
+## RD-080 — The instrument was measuring itself
+
+*2026-09-01. Two readouts from the phone, and the second one exposed a bug in the
+readout rather than in the game.*
+
+RD-079 added `?debug=1` lines to separate "the snapshot stream stalled" from "this phone
+hitched". The device reported, mid-round:
+
+```
+net    p50 31ms    p95 38ms    worst 16454ms  stalls>300 0
+frame  p50 17ms    p95 17ms    worst 1984ms   drops>50 0
+```
+
+and at a round boundary:
+
+```
+net    p50 31ms    p95 42ms    worst 16454ms  stalls>300 1
+frame  p50 1850ms  p95 6351ms  worst 1984ms   drops>50 4
+```
+
+**`p95` above `worst` is impossible for real data**, and that is the tell. Two defects
+in the instrument:
+
+**`lastFrameAt` was assigned inside main.ts's `if (playing)` block.** Across the eight
+seconds between rounds `playing` is false, so the frame clock stopped advancing and
+every frame reported `now` minus the last *in-round* frame — a fabricated gap climbing
+from 0 to 8000 ms. The render loop was running at a steady 60 the whole time. It also
+fed the correction decay a dt of seconds on the first frame of each new round.
+
+**`worst` was capped by `dt < 2000`**, a guard meant to ignore a tab wake. It silently
+truncated the maximum, which is what let `worst` sit below `p95` instead of the
+inconsistency being loud. A cap on the very number that exists to surface an outlier.
+
+### What the honest half of the data says
+
+The `net` line was never affected, and it is unambiguous: **p50 31 ms, p95 38-42 ms**.
+That is a healthy 30 Hz stream with no mid-round stalls — `stalls>300` is 0 during play
+and 1 at a boundary, and the 16454 ms `worst` is the by-design match-boundary silence.
+Mid-round `frame` p50 17 ms is a steady 59 fps.
+
+So on this device: the network is fine, the render loop is fine, and the only real gap
+is `RESULT_MS + INTRO_MS`. Which means the freezing that started this thread is the
+round boundary being *felt* — RD-078 stopped the player walking through it, and stopping
+is what a stall honestly looks like.
+
+Whether a genuine hitch also exists at `roundStart`, where the client builds a new
+arena, is **not yet known**: the mid-round `worst 1984ms` was recorded by the same
+broken clock and truncated by the same cap, so it is not evidence either way. That needs
+one more reading.
+
+### The lesson
+
+An instrument gets the same scrutiny as the thing it measures, and it earns less trust,
+not more, for being new. This one was written to answer a question the existing tools
+could not — and then answered it wrongly for a full round-trip to the device, because
+nobody sanity-checked that its own numbers were internally consistent. `p95 <= worst` is
+an invariant of the summary, and it was there to be checked from the first reading.

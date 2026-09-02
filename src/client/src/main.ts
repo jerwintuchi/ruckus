@@ -389,12 +389,24 @@ function pct(list: number[], q: number): number {
 function frame(now: number): void {
   requestAnimationFrame(frame);
 
+  // How long since the previous frame. Captured before `lastFrameAt` moves, because the
+  // correction decay below needs it too (P6).
+  const frameDt = lastFrameAt ? now - lastFrameAt : 0;
   if (lastFrameAt) {
-    const dt = now - lastFrameAt;
-    note(health.frameGaps, dt);
-    // Ignore the first frame after a tab wake, which is not a dropped frame.
-    if (dt > health.worstFrame && dt < 2000) health.worstFrame = dt;
+    note(health.frameGaps, frameDt);
+    if (frameDt > health.worstFrame) health.worstFrame = frameDt;
   }
+  // Every frame, NOT only while a round is running (RD-080).
+  //
+  // This lived inside the `playing` block, so across the eight-second gap between
+  // rounds it stopped advancing and every frame reported `now` minus the last IN-ROUND
+  // frame — a fabricated gap climbing to 8000 ms. It made the render loop look like it
+  // was collapsing at every round boundary when it was running at a steady 60. The
+  // readout added to answer "is it the network or the phone" was, for one of those two
+  // answers, measuring itself.
+  //
+  // It also fed the correction decay a dt of seconds on the first frame of a new round.
+  lastFrameAt = now;
 
 
   // Send input at the tick rate, not the frame rate: at 120fps a phone would be
@@ -446,7 +458,7 @@ function frame(now: number): void {
         // The simulation is locked to TICK_MS so replay matches the server; the DRAWING
         // is not, or the character moves at 30 Hz on a 120 Hz screen (RD-077).
         const alpha = (now - lastSent) / TICK_MS;
-        const at = predictor.sample(now - lastFrameAt, alpha);
+        const at = predictor.sample(frameDt, alpha);
         me.x = at.x;
         me.y = at.y;
         me.z = at.z;
@@ -457,7 +469,6 @@ function frame(now: number): void {
         if (at.vy !== undefined) me.vy = at.vy;
       }
     }
-    lastFrameAt = now;
     // `mySlot` so you can find yourself among eight identical paper figures.
     renderer.syncPlayers(lerped, colours, now / 1000, mySlot);
     handler?.onFrame?.(renderer, now / 1000);

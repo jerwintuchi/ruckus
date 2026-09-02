@@ -622,3 +622,43 @@ describe("the round boundary stops the steering (RD-078)", () => {
     expect(p.sample(0, 1).x).toBeCloseTo(at, 10);
   });
 });
+
+describe("the frame clock advances every frame (RD-080, P6)", () => {
+  // `lastFrameAt` lived inside main.ts's `if (playing)` block, so across the eight
+  // seconds between rounds it stopped advancing and every frame reported `now` minus
+  // the last IN-ROUND frame — a fabricated gap climbing to 8000 ms. The `?debug=1`
+  // readout added to distinguish "the network stalled" from "the phone hitched" was, for
+  // one of those two answers, measuring itself: it showed frame p50 1850ms and p95
+  // 6351ms at every round boundary while the loop was running at a steady 60.
+  //
+  // It also fed the correction decay a dt of seconds on the first frame of a new round.
+  const main = () =>
+    readFileSync(join(here, "main.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  it("assigns lastFrameAt outside the playing block", () => {
+    const src = main();
+    const assign = src.indexOf("lastFrameAt = now");
+    expect(assign).toBeGreaterThan(-1);
+    const playingGate = src.indexOf("if (playing)");
+    expect(playingGate).toBeGreaterThan(-1);
+    // Before the gate, so it cannot be skipped when a round is not running.
+    expect(assign).toBeLessThan(playingGate);
+  });
+
+  it("captures the frame delta before moving the clock", () => {
+    // Assigning first and subtracting after would make every decay dt zero, which is
+    // silent: the correction would simply never blend.
+    const src = main();
+    expect(src.indexOf("const frameDt")).toBeLessThan(src.indexOf("lastFrameAt = now"));
+    expect(src).toContain("predictor.sample(frameDt");
+  });
+
+  it("does not cap the worst frame it will admit to", () => {
+    // The cap made `worst` smaller than p95, which is impossible for real data and was
+    // the tell that the numbers were fabricated. A genuinely slow frame is exactly what
+    // this readout exists to surface.
+    const src = main();
+    const worst = src.slice(src.indexOf("frameDt > health.worstFrame"), src.indexOf("frameDt > health.worstFrame") + 120);
+    expect(worst).not.toContain("< 2000");
+  });
+});
