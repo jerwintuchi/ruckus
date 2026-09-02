@@ -1,10 +1,11 @@
+import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Prim } from "@ruckus/shared";
 import { PAPER_VARIANTS, buildPrim } from "./render.ts";
 import { textureCount } from "./kit/textures.ts";
-import { GEO, materialCount } from "./kit/prims.ts";
+import { GEO, blobShadow, materialCount, shadowMat } from "./kit/prims.ts";
 
 const ALL: Prim[] = [
   { k: "box", pos: [1, 2, 3], size: [2, 3, 4], colour: "#112233" },
@@ -226,5 +227,33 @@ describe("exactly one character is marked as yours (find-yourself T2, R1, R3)", 
     const sync = src.slice(src.indexOf("syncPlayers("), src.indexOf("clearWorld"));
     expect(sync).toContain("const colour = colours.get(p.slot) ?? PALETTE.accent");
     expect(sync).toContain("new Character(colour, p.slot)");
+  });
+});
+
+describe("a shadow fade shares, it does not mutate (RD-089)", () => {
+  it("hands the same material to two shadows asking for the same opacity", () => {
+    // Sharing is the point — the cost guard asserts nothing is per-instance.
+    expect(blobShadow(0.45, 0.34).material).toBe(blobShadow(0.45, 0.34).material);
+  });
+
+  it("hands a DIFFERENT material for a different opacity", () => {
+    // Which is what makes fading possible without writing to a shared object.
+    expect(shadowMat(0.34)).not.toBe(shadowMat(0.17));
+  });
+
+  it("quantizes, so a continuous fade cannot grow the cache without bound", () => {
+    const before = materialCount();
+    for (let k = 0; k < 500; k++) shadowMat(0.34 * (k / 500));
+    // A hundredth of opacity per entry: at most ~35 for this range, not 500.
+    expect(materialCount() - before).toBeLessThan(40);
+  });
+
+  it("Character.update asks for a material rather than writing to one", () => {
+    // The actual bug: eight characters mutated one shared object every frame, so all
+    // eight shadows landed on whatever the last one drawn wanted — one player's jump
+    // faded everybody's shadow.
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "kit/character.ts"), "utf8");
+    expect(src).toContain("this.shadow.material = shadowMat(");
+    expect(src).not.toMatch(/shadow\.material as \{ opacity/);
   });
 });

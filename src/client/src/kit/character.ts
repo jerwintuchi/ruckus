@@ -17,7 +17,7 @@ import { MAX_SPEED } from "@ruckus/shared";
 import { poseFor } from "./actor.ts";
 import { faceFor } from "./face.ts";
 import { SLAB_DEPTH, slab } from "./paper.ts";
-import { blobShadow } from "./prims.ts";
+import { blobShadow, shadowMat } from "./prims.ts";
 
 /** Proportions. Footprint and height stay as the capsule's, so no collision moves. */
 export const BODY = {
@@ -191,7 +191,14 @@ export class Character {
     // `update` runs every frame, so it has to honour the eliminated fade rather than
     // writing over it — the first version set the fade once and then undid it 60 times
     // a second.
-    (this.shadow.material as { opacity: number }).opacity = 0.34 * shrink;
+    // ASK for the right material, never write to the one we were handed (RD-089).
+    //
+    // `shadowMat` is a shared cache keyed by opacity — that keying exists so a fade can
+    // share. Writing `material.opacity` instead meant all eight characters mutated the
+    // same object, so every shadow ended up at whatever opacity the last one drawn
+    // wanted: one player's jump faded everybody's shadow. The cache quantizes to a
+    // hundredth, so this is bounded at ~35 materials however many players jump.
+    this.shadow.material = shadowMat(0.34 * shrink);
   }
 
   /**

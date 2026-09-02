@@ -3340,3 +3340,76 @@ This is a development-loop cost rather than a gameplay one, and it is recorded b
 of how it presented: as flaky infrastructure ("the room went dead again") rather than as
 a defect. It was mine, it was in the shutdown path, and it was reproducible from the
 first occurrence — I killed the process by hand twice before reading the code.
+
+---
+
+## RD-089 — The freeze is the network after all, and the frame numbers that said otherwise were screenshots
+
+*2026-09-02. A before/after pair from the phone, and it corrects RD-088 as well as me.*
+
+Before a freeze, on a settled client:
+
+```
+gpu    geo 6  tex 5  prog 7  calls 0
+scene  prims 0 dyn 0 static 0 mats 195
+frame  p50 17ms  p95 18ms  worst 69ms
+```
+
+During one:
+
+```
+gpu    geo 13 tex 8 prog 7 calls 64
+scene  prims 1 dyn 4 static 5 mats 216
+net    p50 31ms  p95 35ms  worst 16294ms  stalls>300 2
+frame  p50 17ms  p95 19ms  worst 69ms
+predict HOLDING (no snapshots)
+```
+
+**`frame worst` is 69 ms.** The main thread is healthy through the freeze. RD-088 read
+3686 ms and then 4195 ms and concluded the thread was blocking for seconds — and those
+figures were almost certainly **the player taking a screenshot**, which stalls
+`requestAnimationFrame` on iOS and is recorded for ever by an all-time maximum. The
+instrument I built to end the guessing produced a number that caused a new wrong guess.
+
+So: the freeze is a genuine stall in snapshot delivery, with a healthy client and a
+server that never backed up (`skippedSnapshots` 0). **Three wrong attributions in a
+row** — the MTU (RD-082), the send backlog (RD-086), the main thread (RD-088). Each was
+plausible, each produced a real improvement, and none was the cause.
+
+### What an all-time maximum is good for, and what it is not
+
+`worst` cannot distinguish a defect from the player pressing the side buttons. Every
+number beside it — p50, p95, the counts — is windowed and was honest throughout: frame
+p95 never left 18-22 ms. **The windowed numbers were right the whole time and I read the
+outlier instead**, because it was the biggest.
+
+### What the counters did catch
+
+`mats` grew 195 → 216 in three minutes. Unexplained: tile and arena colours are
+constants, and the caches are keyed by colour. It is real, it is unbounded so far as
+anyone can show, and **it is not the freeze** — the client is fast throughout. Left
+open deliberately rather than guessed at a fourth time.
+
+They did catch one certain bug. `Character.update` wrote
+`shadow.material.opacity` every frame, and `shadowMat` is a **shared cache**. All eight
+characters mutated the same object, so every shadow ended up at whatever opacity the
+last one drawn wanted — one player's jump faded everybody's shadow.
+
+The first fix cloned the material, and `cost.test.ts` immediately failed: it asserts
+nothing is per-instance, and eight shadows had just become eight materials. The guard
+was right and the fix was lazy. `shadowMat` is *keyed by opacity* precisely so a fade
+can share, so `update` now **asks for the right material instead of writing to the one
+it was handed**, quantized to a hundredth and bounded at ~35 entries however many
+players jump.
+
+That is the general lesson worth keeping: **ask the cache, never write to what it gave
+you.** A shared thing that is mutated is not shared, it is a race.
+
+### Where this leaves the freeze
+
+Client healthy, server clean, both local paths clean, tunnel pings clean, snapshots stop
+anyway. The one segment never tested in isolation is Tailscale carrying a *sustained
+stream* between the phone and this host — `tailscale ping` is a small packet and proves
+only that the path is up. The decisive next step is to remove Tailscale from the picture
+entirely and reach the dev server over the LAN, which needs the one-time
+`tools/lan-setup.ps1` from an Administrator PowerShell.
