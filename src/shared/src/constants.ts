@@ -138,19 +138,23 @@ export const CORRECTION_MS = 100;
 export const SNAP_EPSILON = 0.005;
 
 /**
- * How stale the newest snapshot may get before prediction HOLDS (I6, P9).
+ * How far prediction may run ahead of the server's last word before it HOLDS (I6, P9).
  *
- * Nine snapshots at 30 Hz. Past this the server is not talking to us, and continuing
- * to predict is not optimism — it is provably wrong: the server keeps only the LATEST
- * input and overwrites rather than queueing (R10), so it will never replay the path
- * walked during a stall. Every metre predicted through one is a metre that has to be
- * taken back.
+ * The hold exists for exactly one reason: to stop the correction growing past
+ * `SNAP_DISTANCE`, where it stops being blended and becomes a teleport. So the quantity
+ * to bound is the DIVERGENCE, not the elapsed time — 80% of the snap distance, leaving
+ * headroom for the blend to do its job.
  *
- * I6 already says the client HOLDS the newest frame on starvation and never
- * extrapolates. That rule was written for the interpolated players and is just as true
- * for the predicted one; this is the constant that makes prediction obey it.
+ * A time threshold was tried first and is the wrong shape. It fires while standing
+ * still, where there is no divergence to bound and nothing to fix, so an ordinary
+ * network hiccup froze a stationary player for no reason. And it cannot be tuned out:
+ * `SNAP_DISTANCE / MAX_SPEED` is 364 ms, so any threshold generous enough to ride out
+ * mobile jitter is already long enough to guarantee the teleport it was added to
+ * prevent. Distance has neither problem — a stall costs nothing until it actually
+ * moves you, and it can never cost more than can be blended away.
  *
- * Well clear of ordinary jitter: the interpolation buffer absorbs 70 ms on its own, so
- * this only trips on a real stall.
+ * The server keeps only the LATEST input and overwrites rather than queueing (R10), so
+ * it never walks the path taken during a stall; every metre predicted through one has
+ * to be given back. This is the budget for how many.
  */
-export const PREDICT_STARVE_MS = 300;
+export const PREDICT_BUDGET_M = SNAP_DISTANCE * 0.8;

@@ -2825,3 +2825,57 @@ RD-075 named it and RD-077 named it again: each of these sat in a gap the proper
 not cross. This one is the sharpest yet — every prediction test drove a *running round*.
 None drove the eight seconds between two of them, which is roughly a seventh of the time
 anyone actually spends in a match.
+
+---
+
+## RD-079 — Bound the divergence, not the clock; and let the phone say which stall it is
+
+*2026-09-01, from the phone: "the freezing every now and then still occurs but this time
+I'm included in the freezing, not just the bots. Some kind of laggy experience."*
+
+The player freezing is RD-078's hold doing exactly what it was built to do — so the
+report is about the hold's *policy*, and the policy was wrong twice over.
+
+**My measurement was wrong.** The probe in RD-078 ran on `localhost`. It measured what
+the server emitted, not what reached a phone over Tailscale and wifi. "Clean mid-round"
+was a true statement about the server and an empty one about the network, and I reported
+it as though it settled the question. It did not.
+
+**The threshold was the wrong quantity.** A time-based hold fires while standing still,
+where there is no divergence to bound and so nothing to fix — an ordinary hiccup froze a
+stationary player for no reason at all. Worse, it cannot be tuned out of that: with
+`SNAP_DISTANCE / MAX_SPEED` at 364 ms, any threshold generous enough to ride out mobile
+jitter is already long enough to guarantee the teleport the hold exists to prevent.
+
+The hold exists to keep the correction inside `SNAP_DISTANCE`, so the thing to bound is
+the **divergence**. `PREDICT_BUDGET_M` is 80% of the snap distance. A stall now costs
+nothing until it actually moves you, can never cost more than the blend can absorb, and
+scales correctly with speed on its own — a dash diverges twice as fast and so is held
+twice as soon, which is exactly right and needed no special case.
+
+For a player at a dead run the budget is spent in about 290 ms, so this is *not* a
+smoothness win for someone sprinting through a stall. It cannot be. If the server is
+silent for N ms and you keep moving, the correction on its return is speed × N; the only
+choices are to freeze, to rubber-band, or to teleport. **The freeze is a symptom of the
+stall, and the cure is the stall.**
+
+### Which is why the device now reports
+
+`?debug=1` gains two lines, and they are the point of this entry:
+
+```
+net    p50 …  p95 …  worst …  stalls>300 …
+frame  p50 …  p95 …  worst …  drops>50 …
+```
+
+"It freezes every now and then" has two causes that look identical from the outside and
+need opposite fixes: the **snapshot stream** stalling, or the **frame loop** stalling on
+the phone. One of those two lines moves and the other does not. Nothing already in the
+toolbox could tell them apart — `visuals.sh` and `shoot.sh` answer *does it look right*,
+the suite answers *where is the character*, and neither has ever answered *when did the
+packet arrive*. `bench.html`'s p95 is still owed on hardware (RD-028), and if it is the
+frame line that moves, that is the debt coming due.
+
+The lesson is the one RD-053 already wrote down and I did not apply: some questions can
+only be answered from the device, and the cheap move is to make the device answer rather
+than to reason harder on a desktop.

@@ -265,6 +265,13 @@ function onMessage(msg: ServerMsg): void {
       break;
 
     case "snap": {
+      const arrived = performance.now();
+      if (health.lastSnapAt) {
+        const gap = arrived - health.lastSnapAt;
+        note(health.snapGaps, gap);
+        if (gap > health.worstSnap) health.worstSnap = gap;
+      }
+      health.lastSnapAt = arrived;
       const extra = (msg.extra ?? {}) as Record<string, unknown>;
       lastExtra = extra;
       // Reconcile before anything else reads the frame (input-prediction R2). `alive`
@@ -348,8 +355,46 @@ function onMessage(msg: ServerMsg): void {
 let lastSent = 0;
 /** Wall clock of the previous rendered frame, so the correction decays in real time (P6). */
 let lastFrameAt = 0;
+
+/**
+ * Where the time actually goes, measured on the device (RD-079).
+ *
+ * "It freezes every now and then" has two completely different causes and they need
+ * completely different fixes: the SNAPSHOT STREAM stalling (the network, or the server)
+ * or the FRAME LOOP stalling (this phone, dropping frames). From the outside they look
+ * identical — everything stops — and no test or screenshot can tell them apart. A probe
+ * run on the server host cannot see the first, because it never crosses the network the
+ * phone crosses.
+ *
+ * Counted always and shown only under `?debug=1`: a handful of numbers per frame is far
+ * cheaper than another round trip to whoever is holding the device (RD-053).
+ */
+const health = {
+  snapGaps: [] as number[],
+  lastSnapAt: 0,
+  frameGaps: [] as number[],
+  worstFrame: 0,
+  worstSnap: 0,
+};
+const RECENT = 600;
+function note(list: number[], v: number): void {
+  list.push(v);
+  if (list.length > RECENT) list.shift();
+}
+function pct(list: number[], q: number): number {
+  if (list.length === 0) return 0;
+  const a = [...list].sort((x, y) => x - y);
+  return Math.round(a[Math.min(a.length - 1, Math.floor(a.length * q))] ?? 0);
+}
 function frame(now: number): void {
   requestAnimationFrame(frame);
+
+  if (lastFrameAt) {
+    const dt = now - lastFrameAt;
+    note(health.frameGaps, dt);
+    // Ignore the first frame after a tab wake, which is not a dropped frame.
+    if (dt > health.worstFrame && dt < 2000) health.worstFrame = dt;
+  }
 
 
   // Send input at the tick rate, not the frame rate: at 120fps a phone would be
@@ -358,12 +403,6 @@ function frame(now: number): void {
   // at 50ms against a 33ms tick (responsiveness T3).
   if (now - lastSent >= TICK_MS) {
     lastSent = now;
-    // How stale the newest snapshot is. Past PREDICT_STARVE_MS the predictor holds
-    // rather than running on: the server overwrites the latest input rather than
-    // queueing it, so it never walks the path taken during a stall, and every metre
-    // predicted through one comes back as a teleport (RD-078, I6).
-    const newest = net.buffer.newest;
-    predictor.observeSnapshotAge(newest ? now - newest.at : 0);
     const i = input.read();
     // Stepped whether or not the socket is up: prediction is what makes the stick feel
     // attached to the thumb, and a stall in the transport is exactly when that matters
@@ -452,6 +491,16 @@ if (new URLSearchParams(location.search).has("debug")) {
       overlays: `menu:${shown("#menu")} join:${shown("#joining")} lobby:${shown("#lobby")}`,
       players: String(players.length),
       socket: net.connected ? "open" : "closed",
+      // The two lines that separate "the network stalled" from "this phone hitched"
+      // (RD-079). `net` is the snapshot stream; `frame` is the render loop. A freeze
+      // shows up in exactly one of them, and which one decides what to fix.
+      net: `p50 ${pct(health.snapGaps, 0.5)}ms  p95 ${pct(health.snapGaps, 0.95)}ms` +
+        `  worst ${Math.round(health.worstSnap)}ms  stalls>300 ` +
+        `${health.snapGaps.filter((g) => g > 300).length}`,
+      frame: `p50 ${pct(health.frameGaps, 0.5)}ms  p95 ${pct(health.frameGaps, 0.95)}ms` +
+        `  worst ${Math.round(health.worstFrame)}ms  drops>50 ` +
+        `${health.frameGaps.filter((g) => g > 50).length}`,
+      predict: predictor.holding ? "HOLDING (no snapshots)" : predictor.active ? "live" : "off",
     };
     box.textContent = Object.entries(state)
       .map(([k, v]) => `${k.padEnd(9)} ${v}`)

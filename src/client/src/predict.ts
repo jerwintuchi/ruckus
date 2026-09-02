@@ -24,7 +24,7 @@
 import {
   CORRECTION_MS,
   MAX_PENDING,
-  PREDICT_STARVE_MS,
+  PREDICT_BUDGET_M,
   SNAP_DISTANCE,
   SNAP_EPSILON,
   TICK_DT,
@@ -151,20 +151,6 @@ export class Predictor {
   /** Still rendering and still settling, but no longer steering (R3). */
   private frozen = false;
 
-  /**
-   * Snapshots have stopped arriving, so hold rather than run on (I6, P9).
-   *
-   * Reported from a phone: the bots froze, the player kept walking smoothly, and then
-   * the character was yanked back to where it had been when the freeze began. Only the
-   * last of those is a bug in the client — and it is this. The server overwrites
-   * `p.input` rather than queueing it, so it never walks the path taken during a stall;
-   * predicting through one guarantees a correction exactly as large as the distance
-   * covered, which `SNAP_DISTANCE` then applies in a single frame as a teleport.
-   *
-   * Holding instead means the local capsule stalls with everyone else — honest, and
-   * the same thing the interpolation buffer already does for every other player.
-   */
-  private starved = false;
   private speedMul = 1;
 
   /** Off until the round says otherwise — dead, spectating and off-roster all mean off (R4). */
@@ -191,7 +177,6 @@ export class Predictor {
     this.predictY = jumpSpeed > 0;
     this.facing = 0;
     this.frozen = false;
-    this.starved = false;
     this.base = makeBody(vec());
     this.body = makeBody(vec());
     this.prevPos = { x: 0, z: 0 };
@@ -242,7 +227,7 @@ export class Predictor {
     // Still returns a sequence, and main.ts still SENDS the input: the server should
     // have the freshest stick position the moment it can hear us again. What is
     // withheld is the local guess about where that input leads.
-    if (!this.on || this.frozen || this.starved) return seq;
+    if (!this.on || this.frozen || this.holding) return seq;
 
     this.pending.push({ seq, ax, ay, btn });
     // P4: bounded by MAX_PENDING, never by session length. A client whose acks have
@@ -264,8 +249,6 @@ export class Predictor {
    */
   reconcile(pos: Vec2, y: number, ack: number, speedMul: number): void {
     this.speedMul = speedMul;
-    // A snapshot is proof the server is talking to us again.
-    this.starved = false;
 
     // Where we currently claim to be, before the server's answer overwrites it.
     const wasX = this.body.pos.x + this.errX;
@@ -356,17 +339,18 @@ export class Predictor {
   }
 
   /**
-   * Report how stale the newest snapshot is, in ms (I6, P9).
+   * How far the drawn body has run ahead of the server's last word, in metres.
    *
-   * Called every frame by main.ts, which owns the buffer. Kept as a duration rather
-   * than a boolean so the threshold lives with the other netcode constants.
+   * In steady state this is a few tenths of a metre — one to three unacknowledged
+   * inputs. It only grows when the server stops answering.
    */
-  observeSnapshotAge(ms: number): void {
-    if (ms > PREDICT_STARVE_MS) this.starved = true;
+  get divergence(): number {
+    return Math.hypot(this.body.pos.x - this.base.pos.x, this.body.pos.z - this.base.pos.z);
   }
 
+  /** Running so far ahead that the correction could no longer be blended (I6, P9). */
   get holding(): boolean {
-    return this.starved;
+    return this.divergence >= PREDICT_BUDGET_M;
   }
 
   /** One fixed step of the shared integrator — the same call the server makes. */

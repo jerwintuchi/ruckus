@@ -15,7 +15,7 @@ import {
   JUMP_SPEED,
   MAX_PENDING,
   MAX_SPEED,
-  PREDICT_STARVE_MS,
+  PREDICT_BUDGET_M,
   SNAP_DISTANCE,
   TICK_DT,
   TICK_MS,
@@ -127,13 +127,23 @@ describe("reconciliation is idempotent (T3, P3)", () => {
 
 describe("replay is bounded, not unbounded (T3, T7, P4)", () => {
   it("never keeps more than MAX_PENDING inputs however long the acks stop", () => {
+    // A centred stick banks inputs without diverging, so this reaches the hard ceiling
+    // rather than stopping at the divergence budget (RD-079). Both bounds matter: the
+    // budget bounds the CORRECTION, this bounds the WORK — replay is O(MAX_PENDING),
+    // never O(uptime).
     const p = live();
     for (let k = 0; k < MAX_PENDING * 10; k++) {
-      p.step(1, 0, false);
+      p.step(0, 0, false);
       expect(p.pendingCount).toBeLessThanOrEqual(MAX_PENDING);
     }
-    // The bound is the whole cost story: replay is O(MAX_PENDING), never O(uptime).
     expect(p.pendingCount).toBe(MAX_PENDING);
+  });
+
+  it("stops banking early when movement spends the divergence budget first", () => {
+    const p = live();
+    for (let k = 0; k < MAX_PENDING * 4; k++) p.step(1, 0, false);
+    expect(p.pendingCount).toBeLessThan(MAX_PENDING);
+    expect(p.holding).toBe(true);
   });
 });
 
@@ -270,14 +280,17 @@ describe("prediction respects the arena it was given (T3, R1)", () => {
   it("predicts a dash at the speed multiplier the snapshot reported (R5)", () => {
     const p = live();
     p.reconcile(vec(0, 0), 0, 0, 2); // server says: you are dashing
-    const inputs = Array.from({ length: 10 }, () => ({ ax: 1, ay: 0, btn: false }));
+    // Three steps, not ten: a dash covers ground twice as fast and would otherwise
+    // spend the divergence budget mid-test and hold (RD-079), which is correct
+    // behaviour but not what this test is about.
+    const inputs = Array.from({ length: 3 }, () => ({ ax: 1, ay: 0, btn: false }));
     for (const i of inputs) p.step(i.ax, i.ay, i.btn);
     p.reconcile(vec(0, 0), 0, 0, 2);
 
     const server = authoritative(inputs, [], 0, 2);
     expect(p.sample(0).x).toBeCloseTo(server.pos.x, 6);
     // A dash must actually outrun the base speed, or `sm` is doing nothing.
-    expect(p.sample(0).x).toBeGreaterThan(MAX_SPEED * TICK_DT * 10);
+    expect(p.sample(0).x).toBeGreaterThan(MAX_SPEED * TICK_DT * 3);
   });
 });
 
@@ -518,79 +531,74 @@ describe("the drawing is smooth even though the simulation is not (RD-077)", () 
   });
 });
 
-describe("a stalled connection holds, it does not run on (RD-078, I6, P9)", () => {
-  // Reported from a phone: the bots froze, the player kept walking smoothly, then the
-  // character was yanked back to where it had been when the freeze started. Only the
-  // last of those is a client bug, and this is it. The server overwrites `p.input`
-  // rather than queueing it (R10), so it never walks the path taken during a stall —
-  // predicting through one guarantees a correction the size of the distance covered,
-  // which SNAP_DISTANCE then applies in a single frame as a teleport.
-  it("stops banking input once the newest snapshot is too old", () => {
+describe("prediction is bounded by divergence, not by time (RD-079, I6, P9)", () => {
+  // Reported from a phone: with a time-based hold the player froze too, and the whole
+  // thing felt laggy. Time is the wrong quantity. The hold exists to stop the
+  // correction growing past SNAP_DISTANCE, so what must be bounded is the DIVERGENCE.
+  it("never runs further ahead of the server than can be blended back", () => {
     const p = live();
-    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
-    for (let k = 0; k < 20; k++) p.step(1, 0, false);
-    expect(p.pendingCount).toBe(0);
-    expect(p.holding).toBe(true);
+    for (let k = 0; k < 300; k++) p.step(1, 0, false); // ten seconds of held stick
+    expect(p.divergence).toBeLessThanOrEqual(PREDICT_BUDGET_M + 0.2);
+    expect(p.divergence).toBeLessThan(SNAP_DISTANCE);
   });
 
-  it("holds position while starved rather than walking on", () => {
+  it("holds once the budget is spent, and banks nothing more", () => {
     const p = live();
-    for (let k = 0; k < 3; k++) p.step(1, 0, false);
+    for (let k = 0; k < 300; k++) p.step(1, 0, false);
+    expect(p.holding).toBe(true);
+    const banked = p.pendingCount;
     const at = p.sample(0, 1).x;
-    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
-    for (let k = 0; k < 30; k++) p.step(1, 0, false);
+    for (let k = 0; k < 60; k++) p.step(1, 0, false);
+    expect(p.pendingCount).toBe(banked);
     expect(p.sample(0, 1).x).toBeCloseTo(at, 10);
   });
 
-  it("keeps predicting through ordinary jitter, which is the common case", () => {
-    // The interpolation buffer absorbs 70 ms on its own; this must not trip on a
-    // hiccup or it would reintroduce the stutter it exists to avoid.
+  it("does not freeze a player who is standing still, however long the stall", () => {
+    // The time-based rule fired here, where there is no divergence to bound and so
+    // nothing to fix — an ordinary hiccup froze a stationary player for no reason.
     const p = live();
-    p.observeSnapshotAge(PREDICT_STARVE_MS - 1);
-    for (let k = 0; k < 5; k++) p.step(1, 0, false);
-    expect(p.pendingCount).toBe(5);
+    for (let k = 0; k < 300; k++) p.step(0, 0, false);
     expect(p.holding).toBe(false);
   });
 
-  it("resumes the moment a snapshot proves the server is back", () => {
+  it("keeps predicting through a short stall, which is the common case", () => {
+    // Five ticks is ~165ms at a dead run — longer than ordinary jitter and inside the
+    // budget, so it must stay perfectly smooth. At full speed the budget is spent in
+    // about nine ticks; a slower player gets proportionally longer, which is the point.
     const p = live();
-    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
-    p.step(1, 0, false);
-    expect(p.holding).toBe(true);
+    for (let k = 0; k < 5; k++) p.step(1, 0, false);
+    expect(p.holding).toBe(false);
+    expect(p.pendingCount).toBe(5);
+  });
 
-    p.reconcile(vec(0, 0), 0, 0, 1);
+  it("resumes the moment the server catches up", () => {
+    const p = live();
+    for (let k = 0; k < 300; k++) p.step(1, 0, false);
+    expect(p.holding).toBe(true);
+    // The server acknowledges everything and agrees where we are.
+    p.reconcile({ x: p.sample(0, 1).x, z: 0 }, 0, 1e9, 1);
     expect(p.holding).toBe(false);
     p.step(1, 0, false);
     expect(p.pendingCount).toBe(1);
   });
 
-  it("still issues sequence numbers while holding, so the wire stays in step", () => {
-    // main.ts still SENDS input while starved — the server should have the freshest
-    // stick position the instant it can hear us again. What is withheld is the local
-    // guess about where that input leads.
+  it("keeps the correction inside the blend, so recovery is never a teleport", () => {
+    // The whole point of the budget: whatever the server says on its return, the error
+    // is under SNAP_DISTANCE and is therefore blended rather than snapped.
     const p = live();
-    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
-    const a = p.step(1, 0, false);
-    const b = p.step(1, 0, false);
-    expect(b).toBe(a + 1);
-  });
-
-  it("has nothing to take back when the server returns", () => {
-    // The whole point: with no predicted movement during the stall, the correction on
-    // resume is not a teleport, because there is no divergence to correct.
-    const p = live();
-    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
-    for (let k = 0; k < 60; k++) p.step(1, 0, false); // two seconds of held stick
+    for (let k = 0; k < 300; k++) p.step(1, 0, false);
+    const drifted = p.sample(0, 1).x;
     p.reconcile(vec(0, 0), 0, 0, 1);
-    expect(p.sample(0, 1).x).toBeCloseTo(0, 6);
+    const first = p.sample(16, 1).x;
+    expect(Math.abs(first - drifted)).toBeLessThan(Math.abs(drifted));
+    expect(first).not.toBeCloseTo(0, 2);
   });
 
-  it("forgets it was starved at a round boundary", () => {
+  it("still issues sequence numbers while holding, so the wire stays in step", () => {
     const p = live();
-    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
-    expect(p.holding).toBe(true);
-    p.beginRound([], 0);
-    expect(p.holding).toBe(false);
+    for (let k = 0; k < 300; k++) p.step(1, 0, false);
+    const a = p.step(1, 0, false);
+    expect(p.step(1, 0, false)).toBe(a + 1);
   });
 });
 
