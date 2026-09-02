@@ -293,11 +293,17 @@ function onMessage(msg: ServerMsg): void {
 
     case "snap": {
       const arrived = performance.now();
-      if (health.lastSnapAt) {
+      if (health.lastSnapAt && !health.wasHidden) {
         const gap = arrived - health.lastSnapAt;
         note(health.snapGaps, gap);
         if (gap > health.worstSnap) health.worstSnap = gap;
+        // A stall nobody can blame on a sleeping page (RD-096).
+        if (gap > STALL_NOTICE_MS) health.visibleStalls++;
       }
+      // Only the MEASUREMENT is skipped across a suspension, never the snapshot itself:
+      // an early `break` here would drop the whole frame — no prims, no reconciliation —
+      // and cost a real one to avoid mis-recording a fake one.
+      health.wasHidden = false;
       health.lastSnapAt = arrived;
       const extra = (msg.extra ?? {}) as Record<string, unknown>;
       // Expand the grouped prims once, here, before anything downstream reads them
@@ -424,6 +430,24 @@ const health = {
   frameGaps: [] as number[],
   worstFrame: 0,
   worstSnap: 0,
+  /**
+   * Set the moment the page is hidden, cleared by the first snapshot after it returns
+   * (RD-096).
+   *
+   * The RD-094 reset was not enough. It ran on `visibilitychange`, but a hidden tab
+   * still RECEIVES WebSocket messages — so the snap handler recorded the whole
+   * suspension as a network gap before the frame loop ever resumed. Resetting a clock
+   * the other reader had already read is not a reset.
+   */
+  wasHidden: false,
+  /**
+   * Stalls over 300 ms with NO suspension anywhere near them.
+   *
+   * The one number this whole hunt has needed. A stall that coincides with a hidden tab
+   * says nothing — the page was not running. A stall while the page was visible the
+   * entire time is a real fault, and nothing has ever demonstrated one.
+   */
+  visibleStalls: 0,
 };
 const RECENT = 600;
 
@@ -445,7 +469,10 @@ const RECENT = 600;
  */
 let hiddenCount = 0;
 function onVisible(): void {
-  if (document.visibilityState !== "visible") return;
+  if (document.visibilityState !== "visible") {
+    health.wasHidden = true;
+    return;
+  }
   hiddenCount++;
   // Every baseline, together. A half-reset is worse than none: it would leave one
   // clock honest and the other reporting the whole suspension.
@@ -606,7 +633,7 @@ if (new URLSearchParams(location.search).has("debug")) {
       // shows up in exactly one of them, and which one decides what to fix.
       net: `p50 ${pct(health.snapGaps, 0.5)}ms  p95 ${pct(health.snapGaps, 0.95)}ms` +
         `  worst ${Math.round(health.worstSnap)}ms  stalls>300 ` +
-        `${health.snapGaps.filter((g) => g > 300).length}`,
+        `${health.snapGaps.filter((g) => g > 300).length}  REAL ${health.visibleStalls}`,
       frame: `p50 ${pct(health.frameGaps, 0.5)}ms  p95 ${pct(health.frameGaps, 0.95)}ms` +
         `  worst ${Math.round(health.worstFrame)}ms  drops>50 ` +
         `${health.frameGaps.filter((g) => g > 50).length}  hidden ${hiddenCount}`,

@@ -3702,3 +3702,56 @@ load of the full suite, so it was timing out on the default budget and reporting
 **determinism failure** — the most alarming possible label for "the machine was busy".
 The 200 seeds are the point of the property and were not reduced; the budget was told
 the truth about the work.
+
+---
+
+## RD-096 — Measuring the freeze was causing the freeze
+
+*2026-09-02. The playtester worked it out: "i think the hidden triggered because i hit
+screenshot so the focus lifted off the tab for a moment."*
+
+They are right, and it reframes the entire hunt. Pressing screenshot lifts focus, the
+tab goes hidden, `requestAnimationFrame` stops — and because **input is sent from inside
+the rAF loop**, the client stops sending too. So one screenshot manufactures, all at
+once:
+
+- a multi-second `frame worst` (RD-089 saw 3686 ms and I called it a blocked main thread)
+- a multi-second `net worst` on the next message
+- and a matching gap in the server's `worstInputGapMs` — 7111 ms, which I had just built
+  RD-095 to catch and would have read as proof of a bidirectional network stall
+
+**The act of capturing the evidence produces the artefact.** Every screenshot in this
+investigation carries it, and I have repeatedly treated the artefact as the finding.
+
+RD-094's fix was not enough, either: it reset the clocks on becoming *visible*, but a
+hidden tab still **receives** WebSocket messages, so the snap handler had already
+recorded the whole suspension as a network gap before the frame loop resumed. Resetting
+a clock the other reader has already read is not a reset. The page is now marked hidden
+on the way **out**.
+
+### The number that should have existed first
+
+`?debug=1` now reports `REAL n` beside the stall count: gaps over the notice threshold
+with **no suspension anywhere near them**. A stall that coincides with a hidden tab says
+nothing, because the page was not running. A stall while the page was awake throughout is
+a real fault — and across this entire investigation, not one has ever been demonstrated.
+
+That is the honest state: every multi-second number produced so far is now attributable
+to a deliberate pause (the round boundary, RD-090), a broken clock (RD-080), or the
+observer (RD-089, and this). What remains unexplained is a *felt* stutter, and RD-092
+found a genuine cause for that — a prediction clock running 27% slow — which is a
+different phenomenon from the chip firing.
+
+One bug caught while writing this: skipping the measurement across a suspension was
+first written as an early `break`, which would have dropped the whole snapshot — no
+prims, no reconciliation — costing a real frame to avoid mis-recording a fake gap.
+
+### And a suite that had started crying wolf
+
+Two property tests failed on separate runs — "determinism" and "keeps exactly one living
+holder" — both by **timeout**, not by assertion. They run hundreds of seeded rounds, take
+2-4 s alone, and cross the default 5 s under the parallel load of the full suite. The
+seed counts are the point of those properties and were not reduced; `testTimeout` was
+raised to 30 s for the whole suite instead. A suite that fails at random teaches people
+to re-run it rather than read it — and "determinism failure" is the most alarming
+possible label for "the machine was busy".

@@ -388,12 +388,7 @@ describe("round shape and scoring (T8, R6, P3)", () => {
 });
 
 describe("determinism (T9, R7, I3)", () => {
-  // 200 seeds x two full rounds takes ~3.9s alone and over 5s under the parallel load
-  // of the whole suite, so it was timing out on the default budget and reporting a
-  // DETERMINISM failure — the most alarming possible label for "the machine was busy".
-  // The seed count is the point of the property and is not being reduced; the budget is
-  // simply told the truth about the work.
-  it("same seed and inputs give an identical round", { timeout: 20_000 }, () => {
+  it("same seed and inputs give an identical round", () => {
     const scripted = (slot: number, elapsed: number): InputState => ({
       axis: vec(Math.sin((elapsed + slot * 211) / 280), Math.cos((elapsed + slot * 97) / 190)),
       btn: Math.floor(elapsed / 700 + slot) % 5 === 0,

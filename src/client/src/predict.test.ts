@@ -703,7 +703,9 @@ describe("the deliberate round-boundary gap is not a stall (RD-090)", () => {
     // Zeroing only helps if both readers skip a zero. The gap recorder must not treat
     // "no previous snapshot" as a gap of `now`, and the chip must not call it a stall.
     const src = main();
-    expect(src).toContain("if (health.lastSnapAt)");
+    // The condition gained a suspension guard (RD-096); what must hold is that a zero
+    // timestamp still means "no gap to measure".
+    expect(src).toContain("if (health.lastSnapAt &&");
     expect(src).toContain("health.lastSnapAt > 0");
   });
 
@@ -871,5 +873,39 @@ describe("a suspended tab is not a network fault (RD-094)", () => {
     p.resync();
     p.reconcile(vec(0.3, 0), 0, 1, 1);
     expect(p.sample(0, 1).x).toBeCloseTo(0.3, 6);
+  });
+});
+
+describe("a stall is only real if the page was awake for it (RD-096)", () => {
+  const main = () =>
+    readFileSync(join(here, "main.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  it("counts stalls that had no suspension anywhere near them", () => {
+    // The one number this hunt needed. Pressing screenshot lifts focus, the tab goes
+    // hidden, rAF stops, and both a frame gap and an input gap appear — so the act of
+    // capturing the evidence manufactures the artefact. A stall recorded while the page
+    // was visible throughout is the only kind that means anything.
+    const src = main();
+    expect(src).toContain("visibleStalls");
+    expect(src).toContain("if (health.lastSnapAt && !health.wasHidden)");
+  });
+
+  it("marks the page hidden on the way out, not only visible on the way back", () => {
+    // RD-094 reset the clocks on becoming visible, which was too late: a hidden tab
+    // still RECEIVES messages, so the snap handler had already recorded the whole
+    // suspension as a network gap. Resetting a clock the other reader has read is not
+    // a reset.
+    const src = main();
+    const fn = src.slice(src.indexOf("function onVisible"), src.indexOf("function onVisible") + 300);
+    expect(fn).toContain("health.wasHidden = true");
+  });
+
+  it("skips only the measurement across a suspension, never the snapshot", () => {
+    // An early `break` here would drop the whole frame — no prims, no reconciliation —
+    // costing a real snapshot to avoid mis-recording a fake gap.
+    const src = main();
+    const snap = src.slice(src.indexOf('case "snap"'), src.indexOf("const extra ="));
+    expect(snap).not.toContain("break;");
+    expect(snap).toContain("health.wasHidden = false");
   });
 });
