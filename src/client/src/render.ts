@@ -22,7 +22,7 @@ import { PALETTE } from "./kit/palette.ts";
 import { fitCamera } from "./kit/framing.ts";
 import { PIXEL_RATIO_CAP, lit } from "./kit/paper.ts";
 import { crease, stock } from "./kit/textures.ts";
-import { box, cylinder, sphere } from "./kit/prims.ts";
+import { box, cylinder, materialCount, sphere } from "./kit/prims.ts";
 import type { LerpedPlayer } from "./net.ts";
 
 export class Renderer {
@@ -260,6 +260,19 @@ export class Renderer {
       arena: cam ? `extent ${cam.extent?.toFixed(2) ?? "none"} look ${cam.look.join(",")}` : "none",
       authored: cam ? cam.eye.join(", ") : "none",
       fitted: cam ? String(fitCamera(cam, c.aspect) !== null) : "n/a",
+      // What is growing, if anything (RD-088).
+      //
+      // The phone reports multi-second frame stalls that get LONGER over a session
+      // (3686 ms, then 4195 ms a minute later) with frame p95 creeping 17 -> 22 ms.
+      // That is the shape of something accumulating, and there are only a few
+      // candidates: GPU resources three.js frees only on dispose(), scene children that
+      // are added and not removed, or cached materials. All three are countable, so
+      // count them rather than reason about them — the last two guesses at this freeze
+      // were both wrong (RD-082, RD-086).
+      gpu: `geo ${this.gl.info.memory.geometries} tex ${this.gl.info.memory.textures}` +
+        ` prog ${this.gl.info.programs?.length ?? 0} calls ${this.gl.info.render.calls}`,
+      scene: `prims ${this.prims.children.length} dyn ${this.dynamics.children.length}` +
+        ` static ${this.statics.children.length} mats ${materialCount()}`,
     };
   }
 }
