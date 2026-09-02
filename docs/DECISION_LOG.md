@@ -3313,3 +3313,30 @@ direct and 4 ms at rest, and the segment between the server host and the phone r
 the only unexplained part — a measurement I had *thought* was covered and was not: the
 "Tailscale interface" probe in RD-082 connected to this host's own Tailscale address,
 which never traverses WireGuard to a peer. It exonerated nothing about the tunnel.
+
+---
+
+## RD-087 — Shutting down means telling the clients, not just stopping the clock
+
+*2026-09-01, from an operational failure that had already cost two live rooms.*
+
+`GameServer.stop()` cleared the tick interval and nothing else. A WebSocket is a
+connection that never ends on its own, so `http.close()` waited for a callback that
+would never come, and `node --watch` hung on **"Waiting for graceful termination"** with
+the port still held. Twice this session that needed a `kill -9`, and each time the room
+a playtester was holding died with it.
+
+The signal handler existed and looked correct — which is why it went unexamined for so
+long. It stopped the clock and asked the HTTP server to close; the thing it never did
+was let go of the sockets.
+
+`stop()` now closes every connection with 1001 ("going away") and closes the
+`WebSocketServer`. `main.ts` also gets an **unref'd 500 ms backstop**, because
+`http.close` only fires once every connection has ended and one rude socket should not
+be able to hold the port for ever. Unref'd so it can never keep an otherwise-finished
+process alive.
+
+This is a development-loop cost rather than a gameplay one, and it is recorded because
+of how it presented: as flaky infrastructure ("the room went dead again") rather than as
+a defect. It was mine, it was in the shutdown path, and it was reproducible from the
+first occurrence — I killed the process by hand twice before reading the code.

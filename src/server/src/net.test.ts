@@ -224,3 +224,28 @@ describe("a backed-up socket is skipped, not queued onto (RD-086)", () => {
     expect(src).toContain("skippedSnapshots");
   });
 });
+
+describe("shutting down lets go of the sockets (RD-087)", () => {
+  it("closes every connection and the server, not just the tick timer", () => {
+    // Clearing the interval is not enough to let the process exit: a WebSocket never
+    // ends on its own, so `http.close()` waits for a callback that never comes and
+    // `node --watch` hangs on "Waiting for graceful termination" with the port held.
+    // That cost a kill -9 and a live room, twice in one session.
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "net.ts"), "utf8");
+    const stop = src.slice(src.indexOf("  stop(): void {"), src.indexOf("  stop(): void {") + 500);
+    expect(stop).toContain("clearInterval");
+    expect(stop).toContain("close(1001");
+    expect(stop).toContain("this.wss.close()");
+  });
+
+  it("has a backstop so shutdown cannot hang on one rude socket", () => {
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "main.ts"), "utf8");
+    expect(src).toContain("setTimeout(() => process.exit(0), 500).unref()");
+  });
+
+  it("survives being stopped twice, which a signal race can do", () => {
+    const g = mk();
+    g.start();
+    expect(() => { g.stop(); g.stop(); }).not.toThrow();
+  });
+});

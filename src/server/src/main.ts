@@ -63,5 +63,9 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     game.stop();
     http.close(() => process.exit(0));
+    // A backstop, because `http.close` only fires once every connection has ended and
+    // a socket that ignores its close frame would keep the port held for ever. Unref'd
+    // so it never keeps an otherwise-finished process alive (RD-087).
+    setTimeout(() => process.exit(0), 500).unref();
   });
 }

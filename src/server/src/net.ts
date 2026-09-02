@@ -74,9 +74,24 @@ export class GameServer {
     this.timer = setInterval(() => this.pump(), TICK_MS);
   }
 
+  /**
+   * Stop ticking, and let go of every socket (RD-087).
+   *
+   * Clearing the timer is not enough to let the process exit. A WebSocket is a
+   * connection that never ends on its own, so `http.close()` waits for a callback that
+   * will never come and `node --watch` hangs on "Waiting for graceful termination"
+   * with the port still held — twice this session, each time needing a `kill -9` and
+   * costing a live room. Shutting down means telling the clients, not just stopping
+   * the clock.
+   */
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    for (const conn of this.conns.values()) {
+      try { conn.ws.close(1001, "server going away"); } catch { /* already gone */ }
+    }
+    this.conns.clear();
+    try { this.wss.close(); } catch { /* already closed */ }
   }
 
   /**
