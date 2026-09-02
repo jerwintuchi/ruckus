@@ -679,3 +679,34 @@ describe("grouped prims are expanded before anything reads them (RD-085)", () =>
     expect(unpack).toBeLessThan(snap.indexOf("onSnapshot"));
   });
 });
+
+describe("the deliberate round-boundary gap is not a stall (RD-090)", () => {
+  const main = () =>
+    readFileSync(join(here, "main.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  it("forgets the last snapshot time when a round starts", () => {
+    // The server sends nothing for the whole RESULT_MS + INTRO_MS between rounds —
+    // eight seconds, measured, by design. The `reconnecting` chip and the `net worst`
+    // figure both key off "time since the last snapshot", so without this the chip
+    // fires at EVERY round transition on every device, network irrelevant, and the
+    // worst-gap number reports the boundary instead of a real stall.
+    const src = main();
+    const roundStart = src.slice(src.indexOf('case "roundStart"'), src.indexOf('case "snap"'));
+    expect(roundStart).toContain("health.lastSnapAt = 0");
+  });
+
+  it("guards both the chip and the gap stat behind a non-zero timestamp", () => {
+    // Zeroing only helps if both readers skip a zero. The gap recorder must not treat
+    // "no previous snapshot" as a gap of `now`, and the chip must not call it a stall.
+    const src = main();
+    expect(src).toContain("if (health.lastSnapAt)");
+    expect(src).toContain("health.lastSnapAt > 0");
+  });
+
+  it("still reports a stall that happens inside a round", () => {
+    // The fix must not blind the instrument: only the boundary is excused.
+    const src = main();
+    const stalled = src.slice(src.indexOf("ui.setStalled("), src.indexOf("ui.setStalled(") + 200);
+    expect(stalled).toContain("STALL_NOTICE_MS");
+  });
+});

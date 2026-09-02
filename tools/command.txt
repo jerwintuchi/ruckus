@@ -1,0 +1,1 @@
+powershell -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu-24.04\home\jerwin\projects\Ruckus\tools\lan-setup.ps1'

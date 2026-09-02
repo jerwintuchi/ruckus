@@ -3413,3 +3413,55 @@ stream* between the phone and this host — `tailscale ping` is a small packet a
 only that the path is up. The decisive next step is to remove Tailscale from the picture
 entirely and reach the dev server over the LAN, which needs the one-time
 `tools/lan-setup.ps1` from an Administrator PowerShell.
+
+---
+
+## RD-090 — The `reconnecting` chip was firing at every round boundary
+
+*2026-09-02. Two facts from a playtest killed four days of network theory in one
+sentence: "on my pc i can connect without problem and it still has that brief
+(reconnecting) problem even with port forwarding."*
+
+**On the PC. Over the LAN. With no Tailscale, no WiFi, and no phone.** Whatever the chip
+was reporting, it was not the tunnel, not the radio and not the device.
+
+It was us. `setStalled` asks one question — *how long since the last snapshot?* — and
+compares it to `STALL_NOTICE_MS`. But the server deliberately sends **no snapshot for
+the whole `RESULT_MS + INTRO_MS` between rounds**: eight seconds, measured at 8064-8158
+ms in RD-078, by design, because there is no simulation to snapshot. So at the instant a
+new round starts, the last snapshot is eight seconds old and the chip fires.
+
+A guaranteed false positive at **every round transition, on every device, on any
+network**. The chip added in RD-081 to make a stall legible was announcing the one gap
+that was never a stall.
+
+The same stale timestamp fed `net worst`, which is why that figure kept reading 8000 ms
+or 16294 ms: it was reporting the boundary, every time. `health.lastSnapAt` is now zeroed
+at `roundStart`, and both readers already skip a zero, so the next snapshot starts a
+fresh measurement rather than closing a gap that was never a fault.
+
+### The instrument has now been wrong three times
+
+RD-080: the frame clock stopped between rounds and invented 6351 ms frames. RD-089: an
+all-time `worst` recorded the player taking a screenshot. And now this. Every one of
+them sent me somewhere real-looking and wrong — the MTU, the send backlog, the main
+thread — and each time the *windowed* numbers beside them were honest and I read the
+outlier instead.
+
+The rule this earns: **an instrument reporting on a system with known, deliberate
+pauses must be told about them.** Not one of these three was a subtle measurement
+problem; all three were the instrument not knowing something the code already knew.
+
+Also fixed here: the readout still said `HOLDING (no snapshots)` long after RD-079
+changed that condition to a **divergence budget**. It now reports how far prediction
+actually ran ahead. A label that describes a rule the code no longer follows is worse
+than no label, because it is read as evidence.
+
+### What is still open
+
+Whether any genuine mid-round stall exists at all. Every multi-second number produced so
+far is now explained by a deliberate gap or a broken clock, and the honest position is
+that **there may never have been a network problem** — that the freezing is the
+eight-second round boundary being felt, with the chip confirming a fault that was not
+there. RD-078 already stopped prediction walking through it; nothing yet makes the
+boundary itself pleasant, and that is a design question rather than a netcode one.

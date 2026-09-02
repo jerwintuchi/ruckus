@@ -249,6 +249,16 @@ function onMessage(msg: ServerMsg): void {
       // Prediction is per-round state and takes the round's own arena and jump speed
       // (input-prediction R5). A mid-round joiner is watching, so it stays off for
       // them until they are actually on a roster (R4, P7).
+      // Forget the gap we just crossed (RD-090).
+      //
+      // The server sends NO snapshot for the whole RESULT_MS + INTRO_MS between rounds
+      // — eight seconds, measured, and entirely by design. Both the `reconnecting` chip
+      // and the `net worst` figure key off "time since the last snapshot", so without
+      // this the chip fires at every single round transition on every device, and the
+      // worst-gap number reports the boundary rather than any real stall. Zeroing it
+      // means the next snapshot starts a fresh measurement instead of closing a gap
+      // that was never a fault.
+      health.lastSnapAt = 0;
       predictor.beginRound(msg.arena.solids ?? [], msg.jumpSpeed);
       if (amOnRoster(msg.roster, mySlot)) {
         controls.show(msg.buttonLabel);
@@ -523,7 +533,12 @@ if (new URLSearchParams(location.search).has("debug")) {
       frame: `p50 ${pct(health.frameGaps, 0.5)}ms  p95 ${pct(health.frameGaps, 0.95)}ms` +
         `  worst ${Math.round(health.worstFrame)}ms  drops>50 ` +
         `${health.frameGaps.filter((g) => g > 50).length}`,
-      predict: predictor.holding ? "HOLDING (no snapshots)" : predictor.active ? "live" : "off",
+      // Says what the condition actually is. It read "(no snapshots)" long after
+      // RD-079 changed the rule to a DIVERGENCE budget, and that wrong label sent me
+      // looking for a network stall more than once.
+      predict: predictor.holding
+        ? `HOLDING (ran ${predictor.divergence.toFixed(2)}m ahead)`
+        : predictor.active ? "live" : "off",
     };
     box.textContent = Object.entries(state)
       .map(([k, v]) => `${k.padEnd(9)} ${v}`)
