@@ -2762,3 +2762,66 @@ one sample per step, which is precisely the case where the bug is invisible.
 That is the third time in two days that a defect has sat in a gap the properties did
 not cross (RD-075 names the other three). The pattern is now explicit enough to state:
 **a property test proves what you sampled, at the rate you sampled it.**
+
+---
+
+## RD-078 — The freeze was the round boundary, and prediction walked straight through it
+
+*2026-09-01, from the phone: "the bots are frozen/stuck then I can freely move smoothly
+then the position of my character resets to where I'm from... and I notice that freezing
+happens regularly like every minute or minute and a half."*
+
+Measured rather than guessed. A probe client joined a live room, timestamped every
+`snap`, and reported gaps over three minutes:
+
+```
+ 54.5s roundEnd → 65.6s intro → 69.6s roundStart → SNAP GAP 15160ms
+102.0s roundEnd → 106.0s intro → 110.0s roundStart → SNAP GAP  8073ms
+134.1s roundEnd → 138.1s intro → 142.1s roundStart → SNAP GAP  8047ms
+```
+
+**Snapshots stop for exactly eight seconds at every round boundary** — `RESULT_MS` +
+`INTRO_MS`, by design, because there is no simulation to snapshot between rounds. Mid
+round the stream is clean: not one gap over 200 ms in three minutes. The reported period
+is the round cycle, 50-90 s of play plus that 8 s gap.
+
+Two defects follow, and the second is the one that hurt.
+
+**`predictor.step()` sat outside the `playing` guard.** Every other per-round activity
+stops at `roundEnd`; prediction did not. On a held stick it walked the body for the full
+eight seconds, and the next round's first snapshot took all of it back at once — past
+`SNAP_DISTANCE`, so applied whole, as a teleport. That is the "position resets to where
+I'm from" exactly. It now freezes at `roundEnd` and `matchEnd`: the round is over, there
+is nothing left to steer.
+
+**Prediction never obeyed its own starvation rule.** I6 has always said the client
+**holds** the newest frame when the buffer starves and never extrapolates — and that is
+why the bots froze rather than sliding away. Prediction did the opposite: it ran on
+indefinitely. The rule was written for the interpolated players and is just as true for
+the predicted one, because the server keeps only the **latest** input and overwrites
+rather than queueing (R10). It never walks the path taken during a stall, so every metre
+predicted through one is a metre that must be taken back. `PREDICT_STARVE_MS` (300 ms,
+nine snapshots — well clear of ordinary jitter, which the 70 ms buffer already absorbs)
+now makes prediction hold with everyone else. Input is still *sent* while holding; what
+is withheld is the local guess about where it leads.
+
+Together these mean a stall of any cause — this boundary, a dropped phone, a bad
+network — now stops the local capsule instead of running it somewhere it will have to be
+dragged back from.
+
+### What is not yet explained
+
+`playing` is false for the whole boundary gap, so the arena should not be updating and
+the player should not *see* themselves walk. The frozen bots and the position reset are
+fully accounted for; **being able to move during the freeze is not**, and the difference
+matters because it would mean a path where `playing` is true without snapshots. Both
+fixes above are correct regardless, and both were verified by measurement rather than by
+reasoning about frames. If the walking survives them, that is a third defect and it is
+somewhere else.
+
+### The pattern, for the fourth time
+
+RD-075 named it and RD-077 named it again: each of these sat in a gap the properties did
+not cross. This one is the sharpest yet — every prediction test drove a *running round*.
+None drove the eight seconds between two of them, which is roughly a seventh of the time
+anyone actually spends in a match.

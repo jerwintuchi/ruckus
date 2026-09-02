@@ -71,6 +71,17 @@
   120 fps; alpha is clamped so nothing extrapolates past the newest step; a
   reconciliation still leaves a tween rather than flattening it
 
+- [x] T11 [R1, R3] — Holds through a stall instead of running through it (RD-078)
+  Measured with a probe client: the server sends no snapshot for the 8 s of
+  `RESULT_MS` + `INTRO_MS` at every round boundary, and the stream is otherwise clean —
+  no gap over 200 ms in three minutes of play. Prediction ran straight through that gap
+  on a held stick and the next round took it all back past `SNAP_DISTANCE`, as a
+  teleport. Fixed twice over: the predictor freezes at `roundEnd`/`matchEnd`, and it now
+  obeys I6's starvation rule via `PREDICT_STARVE_MS` for stalls of any cause.
+  Test: `predict.test.ts` — holds position and banks nothing while starved; keeps
+  predicting through ordinary jitter; resumes on the first snapshot; has nothing to take
+  back when the server returns
+
 - [ ] T8 [R1, R3] — Felt on a phone, over the real network
   Test: manual, and the only test that matters for this spec. Does the stick feel
   attached to the thumb? And — the question prediction actually risks — does a shove in

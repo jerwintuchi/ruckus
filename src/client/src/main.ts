@@ -308,6 +308,10 @@ function onMessage(msg: ServerMsg): void {
     case "roundEnd":
       playing = false;
       controls.hide();
+      // The round is over: there is nothing left to steer, and the server stops
+      // sending snapshots for the whole 8 s of result-plus-intro (measured, RD-078).
+      // Without this the predictor walks the body for that entire gap on a held stick.
+      predictor.freeze();
       ui.clearHud();
       // The chip belongs to one round; a spectator is re-evaluated at the next
       // roundStart, when the roster is known again.
@@ -320,6 +324,7 @@ function onMessage(msg: ServerMsg): void {
     case "matchEnd":
       playing = false;
       controls.hide();
+      predictor.freeze();
       // The match is over: the last round's bodies must not stand around behind the
       // result card until someone happens to return to the lobby.
       renderer.clearWorld();
@@ -353,6 +358,12 @@ function frame(now: number): void {
   // at 50ms against a 33ms tick (responsiveness T3).
   if (now - lastSent >= TICK_MS) {
     lastSent = now;
+    // How stale the newest snapshot is. Past PREDICT_STARVE_MS the predictor holds
+    // rather than running on: the server overwrites the latest input rather than
+    // queueing it, so it never walks the path taken during a stall, and every metre
+    // predicted through one comes back as a teleport (RD-078, I6).
+    const newest = net.buffer.newest;
+    predictor.observeSnapshotAge(newest ? now - newest.at : 0);
     const i = input.read();
     // Stepped whether or not the socket is up: prediction is what makes the stick feel
     // attached to the thumb, and a stall in the transport is exactly when that matters

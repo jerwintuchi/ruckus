@@ -15,7 +15,7 @@
 | `find-yourself` | 🟡 dormant | 3 | 1 | 0 | 2026-09-01 | — |
 | `flat-controls` | 🟡 dormant | 3 | 1 | 0 | 2026-09-01 | — |
 | `in-game-menu` | 🟡 dormant | 5 | 1 | 0 | 2026-09-01 | — |
-| `input-prediction` | 🟡 dormant | 8 | 1 | 0 | 2026-09-01 | — |
+| `input-prediction` | 🟡 dormant | 10 | 1 | 0 | 2026-09-02 | — |
 | `lobby-flow` | 🟡 dormant | 21 | 1 | 0 | 2026-09-01 | — |
 | `player-collision` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
 | `responsiveness` | 🟡 dormant | 3 | 1 | 1 | 2026-09-01 | — |

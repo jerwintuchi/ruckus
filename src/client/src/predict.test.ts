@@ -15,6 +15,7 @@ import {
   JUMP_SPEED,
   MAX_PENDING,
   MAX_SPEED,
+  PREDICT_STARVE_MS,
   SNAP_DISTANCE,
   TICK_DT,
   TICK_MS,
@@ -514,5 +515,102 @@ describe("the drawing is smooth even though the simulation is not (RD-077)", () 
     const at = p.sample(16, 1);
     expect(at.x).toBeCloseTo(3, 10);
     expect(at.z).toBeCloseTo(-4, 10);
+  });
+});
+
+describe("a stalled connection holds, it does not run on (RD-078, I6, P9)", () => {
+  // Reported from a phone: the bots froze, the player kept walking smoothly, then the
+  // character was yanked back to where it had been when the freeze started. Only the
+  // last of those is a client bug, and this is it. The server overwrites `p.input`
+  // rather than queueing it (R10), so it never walks the path taken during a stall —
+  // predicting through one guarantees a correction the size of the distance covered,
+  // which SNAP_DISTANCE then applies in a single frame as a teleport.
+  it("stops banking input once the newest snapshot is too old", () => {
+    const p = live();
+    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
+    for (let k = 0; k < 20; k++) p.step(1, 0, false);
+    expect(p.pendingCount).toBe(0);
+    expect(p.holding).toBe(true);
+  });
+
+  it("holds position while starved rather than walking on", () => {
+    const p = live();
+    for (let k = 0; k < 3; k++) p.step(1, 0, false);
+    const at = p.sample(0, 1).x;
+    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
+    for (let k = 0; k < 30; k++) p.step(1, 0, false);
+    expect(p.sample(0, 1).x).toBeCloseTo(at, 10);
+  });
+
+  it("keeps predicting through ordinary jitter, which is the common case", () => {
+    // The interpolation buffer absorbs 70 ms on its own; this must not trip on a
+    // hiccup or it would reintroduce the stutter it exists to avoid.
+    const p = live();
+    p.observeSnapshotAge(PREDICT_STARVE_MS - 1);
+    for (let k = 0; k < 5; k++) p.step(1, 0, false);
+    expect(p.pendingCount).toBe(5);
+    expect(p.holding).toBe(false);
+  });
+
+  it("resumes the moment a snapshot proves the server is back", () => {
+    const p = live();
+    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
+    p.step(1, 0, false);
+    expect(p.holding).toBe(true);
+
+    p.reconcile(vec(0, 0), 0, 0, 1);
+    expect(p.holding).toBe(false);
+    p.step(1, 0, false);
+    expect(p.pendingCount).toBe(1);
+  });
+
+  it("still issues sequence numbers while holding, so the wire stays in step", () => {
+    // main.ts still SENDS input while starved — the server should have the freshest
+    // stick position the instant it can hear us again. What is withheld is the local
+    // guess about where that input leads.
+    const p = live();
+    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
+    const a = p.step(1, 0, false);
+    const b = p.step(1, 0, false);
+    expect(b).toBe(a + 1);
+  });
+
+  it("has nothing to take back when the server returns", () => {
+    // The whole point: with no predicted movement during the stall, the correction on
+    // resume is not a teleport, because there is no divergence to correct.
+    const p = live();
+    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
+    for (let k = 0; k < 60; k++) p.step(1, 0, false); // two seconds of held stick
+    p.reconcile(vec(0, 0), 0, 0, 1);
+    expect(p.sample(0, 1).x).toBeCloseTo(0, 6);
+  });
+
+  it("forgets it was starved at a round boundary", () => {
+    const p = live();
+    p.observeSnapshotAge(PREDICT_STARVE_MS + 1);
+    expect(p.holding).toBe(true);
+    p.beginRound([], 0);
+    expect(p.holding).toBe(false);
+  });
+});
+
+describe("the round boundary stops the steering (RD-078)", () => {
+  it("banks nothing once the round has ended", () => {
+    // Measured: the server sends no snapshot for the whole RESULT_MS + INTRO_MS gap,
+    // eight seconds. Without freezing, a held stick walks the body that entire time
+    // and the next round's first snapshot takes it all back at once.
+    const p = live();
+    p.freeze();
+    for (let k = 0; k < 240; k++) p.step(1, 0, false); // 8 s at 30 Hz
+    expect(p.pendingCount).toBe(0);
+  });
+
+  it("does not move the drawn body through the gap", () => {
+    const p = live();
+    for (let k = 0; k < 3; k++) p.step(1, 0, false);
+    const at = p.sample(0, 1).x;
+    p.freeze();
+    for (let k = 0; k < 240; k++) p.step(1, 0, false);
+    expect(p.sample(0, 1).x).toBeCloseTo(at, 10);
   });
 });

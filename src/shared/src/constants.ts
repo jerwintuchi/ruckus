@@ -136,3 +136,21 @@ export const CORRECTION_MS = 100;
  * tracking the quantiser's noise, not the server's opinion.
  */
 export const SNAP_EPSILON = 0.005;
+
+/**
+ * How stale the newest snapshot may get before prediction HOLDS (I6, P9).
+ *
+ * Nine snapshots at 30 Hz. Past this the server is not talking to us, and continuing
+ * to predict is not optimism — it is provably wrong: the server keeps only the LATEST
+ * input and overwrites rather than queueing (R10), so it will never replay the path
+ * walked during a stall. Every metre predicted through one is a metre that has to be
+ * taken back.
+ *
+ * I6 already says the client HOLDS the newest frame on starvation and never
+ * extrapolates. That rule was written for the interpolated players and is just as true
+ * for the predicted one; this is the constant that makes prediction obey it.
+ *
+ * Well clear of ordinary jitter: the interpolation buffer absorbs 70 ms on its own, so
+ * this only trips on a real stall.
+ */
+export const PREDICT_STARVE_MS = 300;
