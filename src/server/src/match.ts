@@ -17,6 +17,7 @@ import {
   type PlayerRuntime,
   type Solid,
   MIN_PLAYERS_TO_START,
+  MATCH_RESULT_MS,
   RESULT_MS,
   ROUNDS_PER_MATCH,
   TICK_DT,
@@ -299,7 +300,7 @@ export class Match {
   private beginMatchResult(): void {
     const best = [...this.room.players.values()].sort((a, b) => b.score - a.score)[0];
     this.room.state = "MATCH_RESULT";
-    this.phaseEndsAt = this.elapsed + RESULT_MS;
+    this.phaseEndsAt = this.elapsed + MATCH_RESULT_MS;
     this.events.onMatchEnd(best?.slot ?? 0);
   }
 }

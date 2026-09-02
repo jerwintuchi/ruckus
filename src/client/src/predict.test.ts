@@ -12,10 +12,13 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   CORRECTION_MS,
+  INTRO_MS,
   JUMP_SPEED,
+  MATCH_RESULT_MS,
   MAX_PENDING,
   MAX_SPEED,
   PREDICT_BUDGET_M,
+  RESULT_MS,
   SNAP_DISTANCE,
   TICK_DT,
   TICK_MS,
@@ -708,5 +711,56 @@ describe("the deliberate round-boundary gap is not a stall (RD-090)", () => {
     const src = main();
     const stalled = src.slice(src.indexOf("ui.setStalled("), src.indexOf("ui.setStalled(") + 200);
     expect(stalled).toContain("STALL_NOTICE_MS");
+  });
+});
+
+describe("the world keeps breathing between rounds (RD-091)", () => {
+  const main = () =>
+    readFileSync(join(here, "main.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  it("syncs players on `playing OR worldLive`, not on `playing` alone", () => {
+    // syncPlayers used to sit inside `if (playing)`, so for the whole gap between
+    // rounds every character stood frozen mid-stride. The scene was still drawn; it
+    // just never updated. Eight seconds of that reads as a hang, not as pacing.
+    const src = main();
+    expect(src).toContain("if (playing || worldLive)");
+    const block = src.slice(src.indexOf("if (playing || worldLive)"));
+    expect(block.indexOf("renderer.syncPlayers")).toBeGreaterThan(-1);
+  });
+
+  it("keeps the HUD and prediction gated on a LIVE round", () => {
+    // The world outliving the round must not hand a spectator a HUD, or let the
+    // predictor steer a body after the round has ended.
+    const src = main();
+    expect(src).toContain("if (playing) ui.renderHud(");
+    expect(src).toContain("if (playing && predictor.active)");
+    expect(src).toContain("if (playing) handler?.onFrame?.(");
+  });
+
+  it("clears worldLive wherever the world itself is cleared", () => {
+    // A stale `worldLive` would animate the corpses of a previous match behind a lobby.
+    const src = main();
+    const clears = src.split("worldLive = false").length - 1;
+    expect(clears).toBeGreaterThanOrEqual(3); // lobby, matchEnd, quit
+    expect(src).toContain("worldLive = true");
+  });
+});
+
+describe("the gap between rounds is shorter than it was (RD-091)", () => {
+  it("keeps the intro intact and cuts only the result dwell", () => {
+    // INTRO_MS is 1s of plain card so the rule can be read, then a 3-2-1 count
+    // (round-brief R1, R4). Cutting it clips the first number or takes away the read.
+    expect(INTRO_MS).toBe(4000);
+    expect(RESULT_MS).toBeLessThan(INTRO_MS);
+    expect(INTRO_MS + RESULT_MS).toBeLessThan(8000);
+  });
+
+  it("still leaves the scores up long enough to read", () => {
+    // Three to six rows are read in about two seconds; this is not a flash.
+    expect(RESULT_MS).toBeGreaterThanOrEqual(2000);
+  });
+
+  it("gives the end of a whole match longer than the end of one round", () => {
+    expect(MATCH_RESULT_MS).toBeGreaterThan(RESULT_MS);
   });
 });

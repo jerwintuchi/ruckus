@@ -84,8 +84,36 @@ export function minThicknessFor(speedMul: number): number {
 
 /** Rounds per match, and the fixed intro dwell that shows the one-sentence rule (R4). */
 export const ROUNDS_PER_MATCH = 5;
+/**
+ * The rule card, then the count (round-brief R1, R4).
+ *
+ * NOT padding, and not freely shortenable: one second of plain card so the rule can be
+ * read before the numbers start pulling the eye, then a three-second 3-2-1. Cutting it
+ * either clips the first number or takes away the read — vision pillar 1 gives a rule
+ * five seconds to land, and this is already under that.
+ */
 export const INTRO_MS = 4000;
-export const RESULT_MS = 4000;
+
+/**
+ * How long the round-over scores stay up (RD-091).
+ *
+ * Was 4000, alongside a 4000 ms intro, for eight seconds between rounds — which a
+ * playtester called "too long" and which the client spent entirely frozen. Three or
+ * six rows of scores are read in about two seconds; the extra was dead air.
+ *
+ * Cut here rather than in `INTRO_MS` because this dwell has no structure to protect,
+ * where the intro's is load-bearing.
+ */
+export const RESULT_MS = 2500;
+
+/**
+ * The final standings, at the end of a whole match.
+ *
+ * Deliberately longer than a round's result: it is the end of ten minutes rather than
+ * of fifty seconds, there is a winner to look at, and nobody is waiting to play through
+ * it — the next thing is the lobby, not another round.
+ */
+export const MATCH_RESULT_MS = 4000;
 
 /** The client renders this far behind the newest snapshot and interpolates (RD-004). */
 /**

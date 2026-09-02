@@ -3465,3 +3465,73 @@ that **there may never have been a network problem** — that the freezing is th
 eight-second round boundary being felt, with the chip confirming a fault that was not
 there. RD-078 already stopped prediction walking through it; nothing yet makes the
 boundary itself pleasant, and that is a design question rather than a netcode one.
+
+---
+
+## RD-091 — Eight seconds between rounds, and only one of them was the duration
+
+*2026-09-02. "8 seconds between rounds is too long, shorten it or what's the best
+possible solution like the industry standard solution."*
+
+The gap is `RESULT_MS + INTRO_MS`. Shortening it is half an answer, and the smaller half.
+
+### The world was frozen, not merely waiting
+
+`renderer.syncPlayers` sat inside `if (playing)`. `playing` means *a round is running*,
+and it also gated every character update — so for the whole gap **the scene was still
+drawn and nothing in it moved.** Eight identical paper figures, stopped mid-stride,
+under a scoreboard.
+
+That is why the boundary was reported as a *freeze* rather than as pacing, and it is
+almost certainly the same thing that made RD-090's false `reconnecting` chip so
+convincing: the interface said the connection had died and the picture agreed.
+
+Character animation is procedural and time-driven, so the fix is to keep calling
+`syncPlayers` over the frame already in the buffer. Everyone idles in place instead of
+turning to stone. It costs nothing on the wire and nothing on the server; the HUD,
+prediction and each minigame's per-frame flourish stay gated on `playing`, because those
+do belong to a live round.
+
+**This is the industry-standard answer, and it is not about duration.** A commercial
+party game never shows a static frame between rounds: results animate in over a living
+scene, characters idle, a camera drifts. The eye reads *stillness* as failure long
+before it reads *length* as slow.
+
+### Then the duration, where it can be afforded
+
+| | was | now | why |
+|---|---|---|---|
+| `RESULT_MS` | 4000 | **2500** | three to six rows of score are read in ~2 s |
+| `INTRO_MS` | 4000 | **4000** | unchanged, deliberately |
+| `MATCH_RESULT_MS` | — | **4000** | new; the end of a match is not the end of a round |
+
+`INTRO_MS` is **not padding** and was left alone: round-brief R1 spends the first second
+on a plain card so the rule can be read before the numbers pull the eye, then R4's
+3-2-1. Cutting it clips the first number or takes away the read, and vision pillar 1
+already gives a rule five seconds to land — four is under budget, not over it.
+
+The match result got its own constant rather than inheriting the shorter one. It is the
+end of ten minutes rather than of fifty seconds, there is a winner to look at, and
+nothing is waiting behind it.
+
+Eight seconds becomes 6.5, and the 6.5 is animated.
+
+### A test that looked like a determinism bug and was not
+
+Shortening `RESULT_MS` broke the golden match transcript with *lower pickup counts at
+identical round timestamps* — which reads exactly like a UI constant changing gameplay,
+and would be serious if it were. It is not. The round RNG is `seedFrom(code, round)` and
+never sees elapsed time; the transcript's `scriptedInput(slot, tick)` keys off the
+**global** tick, so moving a phase boundary shifts which scripted inputs land inside
+which round. The harness is sensitive to phase duration by construction.
+
+Regenerated, and checked rather than trusted: same five rounds, same games, same order,
+same lobby ending — `diff` over every structural line is empty. Only the sampled
+snapshots moved.
+
+### What was NOT done, and why
+
+Overlapping the result with the next round's intro — the other standard trick — buys
+little here. It exists to hide loading, and this game has nothing to load: geometry is
+code and an arena is built in a frame. Adding a concurrent phase to the match state
+machine to save a second, in a shell whose simplicity is the point, is the wrong trade.

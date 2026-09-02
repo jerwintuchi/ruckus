@@ -71,6 +71,20 @@ let host = -1;
 let players: PlayerView[] = [];
 let colours = new Map<number, string>();
 let playing = false;
+/**
+ * The arena is on screen and should keep breathing, even between rounds (RD-091).
+ *
+ * `playing` means "a round is running" and gates input, the HUD and prediction. It also
+ * gated `syncPlayers`, which meant that for the whole gap between rounds the characters
+ * were never updated — the scene was still drawn, but every figure stood frozen mid
+ * stride. Eight seconds of that does not read as pacing, it reads as a hang, and it is
+ * most of why the boundary was reported as a freeze.
+ *
+ * Character animation is procedural and time-driven, so simply keeping the call alive
+ * over the held frame makes everyone idle in place instead of turning to stone. It
+ * costs nothing on the wire.
+ */
+let worldLive = false;
 /** Have we seen a round begin since joining? False only for a mid-match arrival. */
 let roundSeen = false;
 let bannerUntil = 0;
@@ -127,6 +141,7 @@ const ui = new Ui(overlay, {
   onQuit: () => {
     net.close();
     predictor.stop();
+    worldLive = false;
     renderer.clearWorld();
     renderer.setPrims([]);
     lastExtra = undefined;
@@ -187,6 +202,7 @@ function onMessage(msg: ServerMsg): void {
       dispatch({ t: "room", players: msg.players, host: msg.host, state: msg.state });
       if (msg.state === "LOBBY") {
         playing = false;
+        worldLive = false;
         // The whole world, not just the players: a round's arena, tiles and pickups
         // must leave with the round, or the lobby shows the last one's leftovers.
         renderer.clearWorld();
@@ -243,6 +259,7 @@ function onMessage(msg: ServerMsg): void {
       handler = clientMinigame(msg.game);
       handler?.onRoundStart?.(renderer);
       playing = true;
+      worldLive = true;
       roundSeen = true;
       // The round says which controls it needs; the shell never asks which game it is.
       // A mid-round joiner is watching, not playing, and gets no controls (R4).
@@ -346,6 +363,7 @@ function onMessage(msg: ServerMsg): void {
 
     case "matchEnd":
       playing = false;
+      worldLive = false;
       controls.hide();
       predictor.freeze();
       // The match is over: the last round's bodies must not stand around behind the
@@ -465,15 +483,15 @@ function frame(now: number): void {
     if (playing) ui.hideBanner();
   }
 
-  if (playing) {
-    // The HUD reads the snapshot and nothing else — no minigame is named here (RD-009).
-    ui.renderHud(lastExtra, roundLabelInfo ?? undefined);
+  if (playing || worldLive) {
+    // The HUD belongs to a live round; the WORLD outlives it by a few seconds.
+    if (playing) ui.renderHud(lastExtra, roundLabelInfo ?? undefined);
     const lerped = net.buffer.sample(now);
     // Everyone else comes from the interpolation buffer; YOU come from the predictor,
     // with no buffer delay and no network wait (input-prediction R1). Overwritten in
     // place rather than appended so a predictor that is off leaves the snapshot's own
     // position exactly as it was (P7).
-    if (predictor.active) {
+    if (playing && predictor.active) {
       const me = lerped.find((p) => p.slot === mySlot);
       if (me) {
         // How far between the last simulated step and the next one this frame falls.
@@ -493,7 +511,9 @@ function frame(now: number): void {
     }
     // `mySlot` so you can find yourself among eight identical paper figures.
     renderer.syncPlayers(lerped, colours, now / 1000, mySlot);
-    handler?.onFrame?.(renderer, now / 1000);
+    // The minigame's own per-frame flourish stops with the round — a floor should not
+    // go on shuddering under a scoreboard.
+    if (playing) handler?.onFrame?.(renderer, now / 1000);
   }
   renderer.render();
 }
