@@ -58,6 +58,19 @@
   is still predicted in one with; facing follows the stick and holds when centred;
   freezing converges on the server rather than jumping to it
 
+- [x] T10 [R1] — Smooth, not merely early (RD-077)
+  Reported from the phone: the local player stuttered while the bots did not. Prediction
+  stepped at `TICK_MS` and the renderer drew the raw simulated position, so the
+  character moved at 30 Hz on a 60-120 Hz screen — the drawn position changed on 24 of
+  61 frames at 60 fps, 28 of 120 at 120 fps. The bots were smooth because they were
+  never predicted: they still come from the interpolation buffer.
+  The simulation stays on `TICK_DT` (replay only matches the server at the server's
+  timestep) and the render interpolates between the last two simulated states. After:
+  57 of 61, and 115 of 120.
+  Test: `predict.test.ts` — the drawn position moves on >90% of frames at both 60 and
+  120 fps; alpha is clamped so nothing extrapolates past the newest step; a
+  reconciliation still leaves a tween rather than flattening it
+
 - [ ] T8 [R1, R3] — Felt on a phone, over the real network
   Test: manual, and the only test that matters for this spec. Does the stick feel
   attached to the thumb? And — the question prediction actually risks — does a shove in

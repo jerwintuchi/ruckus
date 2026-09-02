@@ -392,7 +392,11 @@ function frame(now: number): void {
     if (predictor.active) {
       const me = lerped.find((p) => p.slot === mySlot);
       if (me) {
-        const at = predictor.sample(now - lastFrameAt);
+        // How far between the last simulated step and the next one this frame falls.
+        // The simulation is locked to TICK_MS so replay matches the server; the DRAWING
+        // is not, or the character moves at 30 Hz on a 120 Hz screen (RD-077).
+        const alpha = (now - lastSent) / TICK_MS;
+        const at = predictor.sample(now - lastFrameAt, alpha);
         me.x = at.x;
         me.y = at.y;
         me.z = at.z;

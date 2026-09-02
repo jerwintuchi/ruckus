@@ -17,6 +17,7 @@ import {
   MAX_SPEED,
   SNAP_DISTANCE,
   TICK_DT,
+  TICK_MS,
   type Solid,
   makeBody,
   stepMovement,
@@ -422,5 +423,96 @@ describe("being eliminated settles, it does not snap (R3)", () => {
     p.reconcile(vec(0, 0), 0, 0, 1);
     p.step(1, 0, false);
     expect(p.pendingCount).toBe(1);
+  });
+});
+
+describe("the drawing is smooth even though the simulation is not (RD-077)", () => {
+  // Reported from a phone: "the bots seem fine but the player looks like it's
+  // stuttering when walking". The simulation is locked to TICK_MS so replay matches the
+  // server tick-for-tick — but the screen refreshes two to four times as often, so
+  // drawing the raw simulated position holds the character still for one or two frames
+  // and then jumps it. The bots were smooth throughout because they never left the
+  // interpolation buffer, which is continuous.
+  const walk = (fps: number, interpolate: boolean) => {
+    const p = live();
+    let lastStep = 0;
+    let moved = 0;
+    let frames = 0;
+    let prev = Number.NaN;
+    for (let t = 0; t <= 1000; t += 1000 / fps) {
+      if (t - lastStep >= TICK_MS) { lastStep = t; p.step(1, 0, false); }
+      const alpha = interpolate ? (t - lastStep) / TICK_MS : 1;
+      const x = p.sample(1000 / fps, alpha).x;
+      frames++;
+      if (x !== prev) moved++;
+      prev = x;
+    }
+    return moved / frames;
+  };
+
+  it("moves the drawn position on nearly every frame at 60fps", () => {
+    expect(walk(60, true)).toBeGreaterThan(0.9);
+  });
+
+  it("moves it on nearly every frame at 120fps too, where the stutter was worst", () => {
+    // Without interpolation this was 28 of 120 — the character was static on three
+    // frames out of four on a high-refresh phone.
+    expect(walk(120, true)).toBeGreaterThan(0.9);
+  });
+
+  it("is a real improvement over drawing the raw simulated position", () => {
+    for (const fps of [60, 120]) {
+      expect(walk(fps, true)).toBeGreaterThan(walk(fps, false) * 2);
+    }
+  });
+
+  it("clamps rather than extrapolating past the newest step", () => {
+    // Guessing beyond the last simulated step would slide the character through a wall
+    // it has already been stopped by, and would keep it moving for a third of a second
+    // after the stick is released — a worse artefact than the one being fixed.
+    const p = live();
+    for (let k = 0; k < 4; k++) p.step(1, 0, false);
+    const atEnd = p.sample(0, 1).x;
+    expect(p.sample(0, 2).x).toBeCloseTo(atEnd, 10);
+    expect(p.sample(0, 50).x).toBeCloseTo(atEnd, 10);
+  });
+
+  it("never draws behind the previous step either", () => {
+    const p = live();
+    for (let k = 0; k < 4; k++) p.step(1, 0, false);
+    const atStart = p.sample(0, 0).x;
+    expect(p.sample(0, -3).x).toBeCloseTo(atStart, 10);
+  });
+
+  it("interpolates strictly between the two steps it has", () => {
+    const p = live();
+    for (let k = 0; k < 4; k++) p.step(1, 0, false);
+    const lo = p.sample(0, 0).x;
+    const hi = p.sample(0, 1).x;
+    expect(hi).toBeGreaterThan(lo);
+    const mid = p.sample(0, 0.5).x;
+    expect(mid).toBeGreaterThan(lo);
+    expect(mid).toBeLessThan(hi);
+    expect(mid).toBeCloseTo((lo + hi) / 2, 9);
+  });
+
+  it("keeps a tween across reconciliation, so a snapshot does not reintroduce a jump", () => {
+    // A reconciliation rebuilds the drawn body from the acknowledged base; if it
+    // flattened `prev` onto the new position the character would freeze for one frame
+    // every snapshot — the same stutter at 30 Hz instead of a smooth line.
+    const p = live();
+    for (let k = 0; k < 4; k++) p.step(1, 0, false);
+    p.reconcile(vec(0, 0), 0, 1, 1);
+    expect(p.sample(0, 1).x).not.toBeCloseTo(p.sample(0, 0).x, 6);
+  });
+
+  it("still lands exactly on the server's position at alpha 1 (P2 holds)", () => {
+    // Interpolation must not have quietly changed where prediction says you ARE, only
+    // how the frames between are drawn.
+    const p = live();
+    p.reconcile(vec(3, -4), 0, 0, 1);
+    const at = p.sample(16, 1);
+    expect(at.x).toBeCloseTo(3, 10);
+    expect(at.z).toBeCloseTo(-4, 10);
   });
 });

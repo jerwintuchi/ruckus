@@ -128,6 +128,22 @@ export class Predictor {
    */
   private predictY = false;
 
+  /**
+   * The position one step back, so the render can interpolate between ticks (R1).
+   *
+   * The simulation MUST stay on the fixed `TICK_DT` — replay only lands where the
+   * server lands if it uses the server's timestep. But the display refreshes two to
+   * four times as often, so drawing the raw simulated position holds the character
+   * still for one or two frames and then jumps it: measured, static on 61% of frames
+   * at 60 fps. The bots looked smooth throughout because they were still coming from
+   * the interpolation buffer, which is continuous.
+   *
+   * So: simulate at 30 Hz, draw between. The classic fixed-timestep-plus-render-
+   * interpolation pairing, and the reason it is a pairing.
+   */
+  private prevPos: Vec2 = { x: 0, z: 0 };
+  private prevY = 0;
+
   /** Held between inputs, exactly as the server holds it when the stick is centred. */
   private facing = 0;
 
@@ -161,6 +177,8 @@ export class Predictor {
     this.frozen = false;
     this.base = makeBody(vec());
     this.body = makeBody(vec());
+    this.prevPos = { x: 0, z: 0 };
+    this.prevY = 0;
     this.pending = [];
     this.errX = 0;
     this.errZ = 0;
@@ -211,6 +229,8 @@ export class Predictor {
     // stopped arriving drops its oldest input rather than growing without limit.
     if (this.pending.length > MAX_PENDING) this.pending.shift();
 
+    this.prevPos = { x: this.body.pos.x, z: this.body.pos.z };
+    this.prevY = this.body.y;
     this.apply(this.body, { seq, ax, ay, btn });
     return seq;
   }
@@ -242,9 +262,19 @@ export class Predictor {
 
     this.pending = this.pending.filter((p) => p.seq > ack);
 
-    // Replay the rest onto a copy, which is what gets drawn.
+    // Replay the rest onto a copy, which is what gets drawn. The state one step short
+    // of the end is kept so the render still has something to interpolate from — a
+    // reconciliation must not flatten the tween and reintroduce the stutter.
     this.body = cloneBody(this.base);
-    for (const p of this.pending) this.apply(this.body, p);
+    this.prevPos = { x: this.body.pos.x, z: this.body.pos.z };
+    this.prevY = this.body.y;
+    for (let i = 0; i < this.pending.length; i++) {
+      if (i === this.pending.length - 1) {
+        this.prevPos = { x: this.body.pos.x, z: this.body.pos.z };
+        this.prevY = this.body.y;
+      }
+      this.apply(this.body, this.pending[i]!);
+    }
 
     if (first) {
       // The first snapshot of a round is not a misprediction — there was nothing to
@@ -275,7 +305,7 @@ export class Predictor {
    * time and not on how many frames it was split into: the same correction lands
    * identically at 30 fps and at 120 fps.
    */
-  sample(dtMs: number): Predicted {
+  sample(dtMs: number, alpha = 1): Predicted {
     const k = Math.exp(-Math.max(0, dtMs) / CORRECTION_MS);
     this.errX *= k;
     this.errZ *= k;
@@ -284,11 +314,19 @@ export class Predictor {
     if (Math.abs(this.errX) < SNAP_EPSILON) this.errX = 0;
     if (Math.abs(this.errZ) < SNAP_EPSILON) this.errZ = 0;
 
+    // Where we are between the last two simulated steps. Clamped rather than
+    // extrapolated: guessing past the newest step would slide the character on past a
+    // wall it has already been stopped by, and would keep it moving for a third of a
+    // second after the stick is released — a worse artefact than the one being fixed.
+    const a = alpha < 0 ? 0 : alpha > 1 ? 1 : alpha;
+    const x = this.prevPos.x + (this.body.pos.x - this.prevPos.x) * a;
+    const z = this.prevPos.z + (this.body.pos.z - this.prevPos.z) * a;
+
     return {
-      x: this.body.pos.x + this.errX,
+      x: x + this.errX,
       // `base.y` is the server's own word, untouched by replay (R4).
-      y: this.predictY ? this.body.y : this.base.y,
-      z: this.body.pos.z + this.errZ,
+      y: this.predictY ? this.prevY + (this.body.y - this.prevY) * a : this.base.y,
+      z: z + this.errZ,
       facing: this.facing,
       speed: Math.hypot(this.body.vel.x, this.body.vel.z),
       ...(this.predictY ? { vy: this.body.vy } : {}),

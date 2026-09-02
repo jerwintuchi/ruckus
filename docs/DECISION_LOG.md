@@ -2708,3 +2708,57 @@ It also drove a real design fix: the opener is now its own fixed element rather 
 part of the per-frame HUD, because R1 wants it in the lobby and on the round-over card
 too — and a button rebuilt every frame needs its listener rebound every frame, which is
 the RD-042 shape waiting to happen.
+
+---
+
+## RD-077 — Simulate at 30 Hz, draw between
+
+*2026-09-01, from the phone: "the bots seem fine but the player looks like it's
+stuttering when walking — this has something to do with the recent latency update."
+Correct on both counts, and a regression I introduced in RD-074.*
+
+Prediction stepped the local body once per `TICK_MS`, and the renderer drew whatever
+that body's position happened to be. So the character **moved at 30 Hz on a screen
+refreshing at 60 or 120** — hold, hold, jump. Measured before the fix: the drawn
+position changed on **24 of 61 frames** at 60 fps and **28 of 120** at 120 fps. Static
+on three frames out of four on a high-refresh phone.
+
+The bots were smooth throughout, which is the detail that makes the report so precise:
+they were never predicted. They still come from `SnapshotBuffer.sample()`, which
+interpolates continuously between snapshots. RD-074 replaced a smooth 30 Hz stream with
+a stair-stepped one and only for the person playing.
+
+**The simulation cannot simply run faster.** Replay lands where the server lands only
+if it uses the server's timestep; stepping prediction at frame rate would make every
+reconciliation disagree with the server by construction. The fixed step is not
+incidental, it is the thing that makes prediction correct.
+
+So the two are separated: **the simulation stays on `TICK_DT`, and the render
+interpolates between the last two simulated states** using how far the frame falls
+between ticks. Textbook fixed-timestep-plus-render-interpolation — and this is exactly
+why it is a *pairing* rather than two independent techniques. After: 57 of 61 frames at
+60 fps, 115 of 120 at 120 fps.
+
+**Interpolating, not extrapolating.** Guessing past the newest step would buy back the
+half-tick this costs, but it would slide the character through a wall it has already
+been stopped by, and keep it moving for a third of a second after the stick is
+released. Both artefacts are worse than the one being fixed, and both appear at exactly
+the moments a player is paying most attention. The cost is half a tick of render lag —
+about 17 ms, against the ~112 ms this spec started from.
+
+One thing that had to be handled deliberately: reconciliation rebuilds the drawn body
+from the acknowledged base, and if it flattened the previous position onto the new one
+the character would freeze for a frame on every snapshot — the same stutter at 30 Hz
+instead of a smooth line. The state one step short of the end is kept through replay.
+
+### Why no test caught it
+
+Every property in `predict.test.ts` asked *where is the character*, and every one of
+them was right. None asked *how often does the drawn position change*, because
+smoothness is not a property of a position — it is a property of a **sequence** of
+positions sampled at a rate the tests never modelled. The suite ran the predictor at
+one sample per step, which is precisely the case where the bug is invisible.
+
+That is the third time in two days that a defect has sat in a gap the properties did
+not cross (RD-075 names the other three). The pattern is now explicit enough to state:
+**a property test proves what you sampled, at the rate you sampled it.**
