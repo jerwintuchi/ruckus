@@ -34,6 +34,19 @@
   | `hot-potato` | 649 / 684 | 490 / 516 | 0 → 0 |
   | `falling-floor` | 397 / 670 | 315 / 565 | 0 → 0 |
 
+  **Grouped as well, RD-085** — prims differing only in position now share one
+  descriptor, so a shape's constants travel once rather than once per copy:
+
+  | game | original | + quantized | + grouped |
+  |---|---|---|---|
+  | `scramble` | 1123 / **1647** | 755 / 1070 | **682 / 704** |
+  | `sweepers` | 707 / 895 | 593 / 690 | 559 / 682 |
+  | `hot-potato` | 649 / 684 | 490 / 516 | 469 / 505 |
+  | `falling-floor` | 397 / 670 | 315 / 565 | 313 / 569 |
+
+  `scramble`'s worst case is down 57% from where it started, and every minigame now sits
+  at roughly half a packet — headroom for eight players, where the margin had been thin.
+
   Every snapshot of every minigame now fits one packet. That matters beyond bandwidth:
   a snapshot spanning two TCP segments doubles the chance a loss stalls the stream, and
   a WebSocket has no way to route around head-of-line blocking.

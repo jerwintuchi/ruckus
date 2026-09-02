@@ -3184,3 +3184,71 @@ in this client where an ordinary cost gets multiplied by sixty. Anything called 
 should be assumed hot until measured otherwise. It is also why this bug was invisible —
 every test asserted what the HUD *contained*, which was correct on every frame, and none
 asserted how often it was rewritten.
+
+---
+
+## RD-085 — Hoist the constants: a prim's shape travels once, not once per copy
+
+*2026-09-01. RD-083 named shrinking the envelope as the first move if the stalls ever
+justify it, and the answer was to do it now rather than wait — smaller packets are fewer
+losses, and this needed no transport change and no new dependency.*
+
+A prim is mostly constant. `scramble` ships one sphere per pickup, and 40 of its 66
+bytes are `"k":"sphere"`, `"r":0.35` and `"colour":"#ffd23f"` — repeated in full for
+every pickup. At fifteen pickups that is **600 of 1006 bytes saying the same three
+things over and over.**
+
+Prims that differ only in position now travel as one group:
+
+```
+{"at":[[1.19,0.5,-6.68],[9.45,0.65,-9.01], …14 positions… ],
+ "k":"sphere","r":0.35,"colour":"#ffd23f"}
+```
+
+294 bytes on the wire where the loose form was about 924.
+
+### The tradeoff, stated
+
+**Cost:** a second wire shape, and a pack/unpack step. **Bought:** the numbers below.
+
+The cost is contained deliberately. The shell packs in `sendSnapshot` and the client
+unpacks the moment a `snap` arrives, so **a minigame still authors plain prims and the
+renderer still receives a plain list** — the compression is invisible on both sides of
+the wire, exactly as quantization (RD-082) and the round timer already are. That keeps
+the whole risk in one shared function with a round-trip property test, instead of
+spreading it across four minigames and a renderer.
+
+Order across groups is not preserved when kinds interleave. That is safe because
+`Renderer.setPrims` clears and rebuilds every prim independently, so nothing reads a
+prim's index — **checked before writing this, not after**, because it is the one
+assumption that would have made the compression silently wrong.
+
+### Measured, over a full match
+
+Bytes per snapshot at 5-6 players, against the 1240 B TCP payload of a 1280-MTU path:
+
+| game | original | + quantized (RD-082) | + grouped (RD-085) |
+|---|---|---|---|
+| `scramble` | 1123 / **1647** | 755 / 1070 | **682 / 704** |
+| `sweepers` | 707 / 895 | 593 / 690 | 559 / 682 |
+| `hot-potato` | 649 / 684 | 490 / 516 | 469 / 505 |
+| `falling-floor` | 397 / 670 | 315 / 565 | 313 / 569 |
+
+`scramble`'s worst case fell from **1647 to 704 bytes, 57% off**, and its mean by 39%.
+The worst case gained most, which is the right shape: the snapshot with the most pickups
+is both the one most likely to cross an MTU and the one with the most repetition to
+remove. Every minigame now sits at roughly half a packet, leaving headroom for eight
+players where the earlier margin was thin.
+
+### What is verified, and what is not
+
+Round-trip is a property test over mixed kinds and optional fields; the packed wire
+format was read off a live server; the client throws no exception on it; and a
+source-order guard asserts the unpack happens before `setPrims` and before any client
+minigame handler.
+
+**Not verified: a screenshot of a rendered `scramble` round.** `shoot.sh`'s virtual
+clock keeps landing the capture before the first snapshot arrives (RD-054), so the last
+attempt showed the arena's statics with no pickups *and no players* — and players do not
+travel through this path at all, which is what says the capture was early rather than
+the change broken. It remains the one link in the chain argued rather than seen.

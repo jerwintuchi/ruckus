@@ -54,3 +54,55 @@ export function quantPrim<T>(prim: T): T {
   if (typeof p.rotY === "number") out.rotY = rad3(p.rotY);
   return out as unknown as T;
 }
+
+/**
+ * The wire form of a run of prims that differ only in position (RD-085).
+ *
+ * A prim is mostly constant: `scramble` ships one sphere per pickup and 40 of its 66
+ * bytes are `"k":"sphere"`, `"r":0.35` and `"colour":"#ffd23f"` — repeated, in full,
+ * for every single pickup. At fifteen pickups that is 600 bytes of the 1006 saying the
+ * same three things over and over.
+ */
+export type PrimGroup = Record<string, unknown> & { at: [number, number, number][] };
+
+/** Everything about a prim except where it is, with keys in a stable order. */
+function signature(p: Record<string, unknown>): string {
+  return JSON.stringify(
+    Object.keys(p).filter((k) => k !== "pos").sort().map((k) => [k, p[k]]),
+  );
+}
+
+/**
+ * Group prims that differ only in position, so the constants travel once (RD-085).
+ *
+ * Order within a group is preserved, and groups appear in first-seen order. Order
+ * across groups is not preserved when kinds are interleaved — which is safe because
+ * `Renderer.setPrims` clears and rebuilds every prim independently, so nothing reads a
+ * prim's index. That is a real coupling, and it is why the renderer's behaviour was
+ * checked before this was written rather than after.
+ */
+export function packPrims<T>(prims: readonly T[]): PrimGroup[] {
+  const groups = new Map<string, PrimGroup>();
+  for (const prim of prims) {
+    const p = prim as unknown as Record<string, unknown>;
+    const key = signature(p);
+    let g = groups.get(key);
+    if (!g) {
+      g = { at: [] };
+      for (const k of Object.keys(p)) if (k !== "pos") g[k] = p[k];
+      groups.set(key, g);
+    }
+    g.at.push(p.pos as [number, number, number]);
+  }
+  return [...groups.values()];
+}
+
+/** Expand what `packPrims` produced, back into ordinary prims. */
+export function unpackPrims<T>(groups: readonly PrimGroup[]): T[] {
+  const out: T[] = [];
+  for (const g of groups) {
+    const { at, ...constants } = g;
+    for (const pos of at) out.push({ ...constants, pos } as unknown as T);
+  }
+  return out;
+}

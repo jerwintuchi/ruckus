@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dequantAngle, dequantPos, quantAngle, quantPos, quantPrim } from "./quant.ts";
+import { dequantAngle, dequantPos, quantAngle, quantPos, quantPrim, packPrims, unpackPrims } from "./quant.ts";
 import { makeRng } from "./sim/rng.ts";
 
 describe("position quantization (T4, P3)", () => {
@@ -91,5 +91,74 @@ describe("prims are quantized before they go on the wire (RD-082, I5)", () => {
     expect(after).toBeLessThan(before * 0.70);
     // The number that matters: fifteen pickups must fit a 1240-byte TCP payload.
     expect(after).toBeLessThan(1240);
+  });
+});
+
+describe("prims travel grouped, so their constants go once (RD-085)", () => {
+  const sphere = (x: number, z: number) => ({
+    k: "sphere" as const, pos: [x, 0.62, z] as [number, number, number],
+    r: 0.35, colour: "#ffd23f",
+  });
+
+  it("round-trips: unpack(pack(x)) is x", () => {
+    // The property that makes the compression safe to ship. If this ever fails the
+    // client draws something the server did not describe.
+    const prims = Array.from({ length: 15 }, (_, i) => sphere(i * 1.1, i * -2.2));
+    expect(unpackPrims(packPrims(prims))).toEqual(prims);
+  });
+
+  it("round-trips a mixed bag of kinds and optional fields", () => {
+    const mixed = [
+      sphere(1, 2),
+      { k: "box" as const, pos: [0, 0, 0] as [number, number, number], size: [1, 2, 3] as [number, number, number], colour: "#fff" },
+      { k: "box" as const, pos: [4, 0, 0] as [number, number, number], size: [1, 2, 3] as [number, number, number], colour: "#fff", rotY: 0.5 },
+      sphere(3, 4),
+      { k: "cyl" as const, pos: [0, 1, 0] as [number, number, number], r: 0.5, h: 2, colour: "#abc" },
+    ];
+    const back = unpackPrims<typeof mixed[number]>(packPrims(mixed));
+    // Order across groups is not preserved — `setPrims` rebuilds every prim
+    // independently, so nothing reads an index — but the SET must be identical.
+    expect(back).toHaveLength(mixed.length);
+    for (const m of mixed) expect(back).toContainEqual(m);
+  });
+
+  it("does not merge prims that differ in anything but position", () => {
+    const groups = packPrims([
+      sphere(0, 0),
+      { ...sphere(1, 1), colour: "#ff0000" },
+      { ...sphere(2, 2), r: 0.9 },
+    ]);
+    expect(groups).toHaveLength(3);
+  });
+
+  it("emits one group for a run of identical shapes", () => {
+    const groups = packPrims(Array.from({ length: 15 }, (_, i) => sphere(i, i)));
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.at).toHaveLength(15);
+    expect(groups[0]!.colour).toBe("#ffd23f");
+    // The constants are stated once and `pos` is gone from the group itself.
+    expect(groups[0]!.pos).toBeUndefined();
+  });
+
+  it("is insensitive to the order keys happen to be written in", () => {
+    const a = { k: "sphere", pos: [0, 0, 0], r: 1, colour: "#fff" };
+    const b = { colour: "#fff", r: 1, k: "sphere", pos: [1, 0, 0] };
+    // Same shape, authored differently. They must still share a group, or a minigame's
+    // key order silently costs bytes.
+    expect(packPrims([a, b])).toHaveLength(1);
+  });
+
+  it("actually shrinks the payload it was added for", () => {
+    const prims = Array.from({ length: 15 }, (_, i) => sphere(i * 1.11, i * -2.22));
+    const loose = JSON.stringify(prims.map(quantPrim)).length;
+    const packed = JSON.stringify(packPrims(prims.map(quantPrim))).length;
+    // 40 of a sphere's 66 bytes are the constants, repeated per pickup.
+    expect(packed).toBeLessThan(loose * 0.45);
+  });
+
+  it("handles the empty and single cases without special-casing them", () => {
+    expect(packPrims([])).toEqual([]);
+    expect(unpackPrims([])).toEqual([]);
+    expect(unpackPrims(packPrims([sphere(1, 1)]))).toEqual([sphere(1, 1)]);
   });
 });

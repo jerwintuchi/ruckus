@@ -4,7 +4,7 @@
  * (I1, I6), and everything sent is an intention.
  */
 import {
-  STALL_NOTICE_MS, TICK_MS, dequantPos, type PlayerView, type Prim, type ServerMsg, type WireAction,
+  STALL_NOTICE_MS, TICK_MS, dequantPos, unpackPrims, type PrimGroup, type PlayerView, type Prim, type ServerMsg, type WireAction,
 } from "@ruckus/shared";
 import {
   amOnRoster, initialState, reduce, rosterChange, shouldShowWaiting, type FlowEvent,
@@ -273,6 +273,12 @@ function onMessage(msg: ServerMsg): void {
       }
       health.lastSnapAt = arrived;
       const extra = (msg.extra ?? {}) as Record<string, unknown>;
+      // Expand the grouped prims once, here, before anything downstream reads them
+      // (RD-085). The renderer and any client minigame handler go on seeing a plain
+      // list, so the compression is invisible past this line.
+      if (Array.isArray(extra.prims)) {
+        extra.prims = unpackPrims(extra.prims as PrimGroup[]);
+      }
       lastExtra = extra;
       // Reconcile before anything else reads the frame (input-prediction R2). `alive`
       // is the server's word and is never predicted (R4, P5): a dead player stops

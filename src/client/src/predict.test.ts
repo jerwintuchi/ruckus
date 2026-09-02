@@ -662,3 +662,20 @@ describe("the frame clock advances every frame (RD-080, P6)", () => {
     expect(worst).not.toContain("< 2000");
   });
 });
+
+describe("grouped prims are expanded before anything reads them (RD-085)", () => {
+  const main = () =>
+    readFileSync(join(here, "main.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  it("unpacks in the snap handler, ahead of setPrims and the minigame handler", () => {
+    // The server groups prims that differ only in position. Everything downstream — the
+    // renderer, any client minigame handler — still expects a plain list, so the
+    // expansion has to happen first or they receive a shape they have never seen.
+    const src = main();
+    const snap = src.slice(src.indexOf('case "snap"'), src.indexOf('case "roundEnd"'));
+    const unpack = snap.indexOf("unpackPrims");
+    expect(unpack).toBeGreaterThan(-1);
+    expect(unpack).toBeLessThan(snap.indexOf("setPrims"));
+    expect(unpack).toBeLessThan(snap.indexOf("onSnapshot"));
+  });
+});

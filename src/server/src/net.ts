@@ -21,6 +21,7 @@ import {
   type InputScheme,
   type ServerMsg,
   type SnapPlayer,
+  packPrims,
   quantPrim,
 } from "@ruckus/shared";
 import { FixedLoop } from "./loop.ts";
@@ -202,7 +203,13 @@ export class GameServer {
     // of 1123 B and a max of 1647 B — 30% of its snapshots over the 1240 B TCP payload
     // of a 1280-MTU path, and so split across two packets — down inside one packet.
     const e = extra as { prims?: unknown[] } | null | undefined;
-    if (e && Array.isArray(e.prims)) e.prims = e.prims.map((p) => quantPrim(p));
+    if (e && Array.isArray(e.prims)) {
+      // Quantize, then group prims that differ only in position (RD-082, RD-085). Both
+      // here rather than in each minigame: a minigame authors plain prims and never
+      // learns the wire has a compressed shape, exactly as it never learns about
+      // quantization or the round timer.
+      e.prims = packPrims(e.prims.map((p) => quantPrim(p)));
+    }
 
     // The round's own roster, not everyone connected. A mid-round joiner is not in the
     // simulation, so putting them in the snapshot drew a body the round had never dealt
