@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { INTERP_DELAY_MS, TICK_MS, quantAngle, quantPos, type SnapPlayer } from "@ruckus/shared";
-import { SnapshotBuffer, lerpAngle } from "./net.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { INTERP_DELAY_MS, TICK_MS, quantAngle, quantPos, type SnapPlayer, type ServerMsg } from "@ruckus/shared";
+import { Net, SnapshotBuffer, lerpAngle } from "./net.ts";
 
 const snap = (slot: number, x: number, z: number, y = 0, a = 0): SnapPlayer => ({
   slot,
@@ -138,5 +138,106 @@ describe("the buffer is per-round state and is emptied like it (RD-050)", () => 
     b.clear();
     b.push(frame(true), {}, 0);
     expect(b.sample(0)[0]?.alive).toBe(true);
+  });
+});
+
+describe("a dropped socket reconnects instead of ejecting you (RD-109)", () => {
+  /** A fake WebSocket we can open, close and inspect. */
+  class FakeWs {
+    // `send` gates on `WebSocket.OPEN`, so the fake has to carry it or every send is
+    // silently dropped and the test proves nothing.
+    static readonly OPEN = 1;
+    static made: FakeWs[] = [];
+    onopen: (() => void) | null = null;
+    onmessage: ((e: { data: string }) => void) | null = null;
+    onclose: (() => void) | null = null;
+    sent: unknown[] = [];
+    readyState = 0;
+    constructor(readonly url: string) { FakeWs.made.push(this); }
+    send(s: string) { this.sent.push(JSON.parse(s)); }
+    close() { this.readyState = 3; }
+    open() { this.readyState = 1; this.onopen?.(); }
+    drop() { this.readyState = 3; this.onclose?.(); }
+    deliver(msg: unknown) { this.onmessage?.({ data: JSON.stringify(msg) }); }
+  }
+
+  const setup = () => {
+    FakeWs.made = [];
+    vi.stubGlobal("WebSocket", FakeWs as unknown as typeof WebSocket);
+    const seen: ServerMsg[] = [];
+    const net = new Net("ws://x", (m) => seen.push(m));
+    return { net, seen, made: () => FakeWs.made };
+  };
+
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  it("does not report a transport error the instant a socket drops", () => {
+    // The old behaviour: ANY close became `BAD_MSG`, so backgrounding the tab to read a
+    // message ejected the player from the room with a "bad message" error.
+    vi.useFakeTimers();
+    const { net, seen, made } = setup();
+    net.connect({ t: "join", code: "ABCD", name: "sam" });
+    made()[0]!.open();
+    made()[0]!.drop();
+    expect(seen.some((m) => m.t === "err"), "no error yet — it is retrying").toBe(false);
+  });
+
+  it("rejoins the SAME room rather than creating a new one", () => {
+    // The trap in the obvious fix: replaying the original `create` hello would mint a
+    // brand new room and silently strand everyone the host had invited.
+    vi.useFakeTimers();
+    const { net, made } = setup();
+    net.connect({ t: "create", name: "host" });
+    made()[0]!.open();
+    made()[0]!.deliver({ t: "welcome", slot: 0, code: "WXYZ", host: 0 });
+    made()[0]!.drop();
+
+    vi.advanceTimersByTime(5000);
+    const reconnected = made()[1]!;
+    reconnected.open();
+    expect(reconnected.sent[0]).toEqual({ t: "join", code: "WXYZ", name: "host" });
+  });
+
+  it("keeps retrying, and backs off rather than hammering the server", () => {
+    vi.useFakeTimers();
+    const { net, made } = setup();
+    net.connect({ t: "join", code: "ABCD", name: "sam" });
+    made()[0]!.open();
+    made()[0]!.drop();
+
+    const counts: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      vi.advanceTimersByTime(4000);
+      counts.push(made().length);
+      made()[made().length - 1]!.drop();
+    }
+    // It really did keep trying, and each attempt is a NEW socket.
+    expect(counts[counts.length - 1]).toBeGreaterThan(1);
+    expect(new Set(made()).size).toBe(made().length);
+  });
+
+  it("gives up eventually, and only then says the connection is gone", () => {
+    vi.useFakeTimers();
+    const { net, seen, made } = setup();
+    net.connect({ t: "join", code: "ABCD", name: "sam" });
+    made()[0]!.open();
+    made()[0]!.drop();
+    for (let i = 0; i < 40; i++) {
+      vi.advanceTimersByTime(10_000);
+      const last = made()[made().length - 1]!;
+      if (last.readyState !== 3) last.drop();
+    }
+    expect(seen.some((m) => m.t === "err")).toBe(true);
+  });
+
+  it("stops retrying the moment the player leaves deliberately", () => {
+    vi.useFakeTimers();
+    const { net, made } = setup();
+    net.connect({ t: "join", code: "ABCD", name: "sam" });
+    made()[0]!.open();
+    net.close();
+    const before = made().length;
+    vi.advanceTimersByTime(60_000);
+    expect(made().length, "quitting is not a fault to recover from").toBe(before);
   });
 });

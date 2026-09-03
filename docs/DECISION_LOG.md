@@ -4465,3 +4465,53 @@ Five specs follow, each shippable alone: `main-menu`, `lobby-social`, `round-ope
 `round-status`, `mutators`.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-109 — Switching tabs ejected you from the room
+
+*2026-09-03. Found by a playtester trying to send me a room code.*
+
+They created a room on their phone, switched to another app to type me the four letters,
+and came back to find themselves out of it. Twice, with two different codes.
+
+`src/client/src/net.ts` had this, and nothing else:
+
+```js
+ws.onclose = () => this.onMsg({ t: "err", code: "BAD_MSG" });
+```
+
+**Any** close became a transport error. There was no reconnection of any kind. On a phone
+that is not an edge case: backgrounding a tab is enough to close a WebSocket, so glancing
+at a notification ejected you from the room — with "bad message" as the explanation, which
+is both wrong and unactionable.
+
+RD-100 had made it worse without either of us noticing. Freeing a lobby slot on disconnect
+fixed a real leak, but it also means a transient drop in the lobby now DELETES the player
+rather than reserving their place. The two changes are individually right and were never
+considered together.
+
+### The fix, and the trap inside it
+
+`Net` now retries on an unexpected close — 300 ms doubling to 4 s, giving up after 30 s —
+and only reports an error once it has actually given up. A deliberate `close()` stops it,
+because a quit the player asked for is not a fault to recover from.
+
+The trap is worth recording because the obvious implementation has it: **replaying the
+original hello would make a host mint a brand new room.** A host's first message is
+`create`; replaying that on reconnect strands everyone they had already invited in a room
+their host has silently left. So the reconnect hello is always a `join`, and the code is
+learned from `welcome` rather than assumed.
+
+### What it does not fix
+
+A lobby reconnect takes a **fresh slot**, so colour and readiness are lost — RD-100 freed
+the old one. Mid-match, `join`-by-name still reclaims the slot and the score (I8), which
+is the case that actually matters. Making the lobby reserve a slot for a few seconds would
+fix it and reopens RD-100's leak; it is not worth that trade until someone reports it.
+
+Two test-harness notes, both of which cost a cycle: `vi.advanceTimersByTime` does not move
+`performance.now()`, and a fake WebSocket needs `static OPEN` or `send()` silently drops
+everything and the test proves nothing.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

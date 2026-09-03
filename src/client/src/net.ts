@@ -164,9 +164,30 @@ export function lerpAngle(a: number, b: number, t: number): number {
 
 export type NetHandler = (msg: ServerMsg) => void;
 
+/** How long to keep trying before admitting the connection is gone (RD-109). */
+export const RECONNECT_LIMIT_MS = 30_000;
+/** The first retry delay; it doubles up to this ceiling. */
+export const RECONNECT_MIN_MS = 300;
+export const RECONNECT_MAX_MS = 4_000;
+
 export class Net {
   private ws: WebSocket | null = null;
   readonly buffer = new SnapshotBuffer();
+
+  /**
+   * How to get back in, if the socket drops (RD-109).
+   *
+   * Always a `join`, NEVER the original `create`. Replaying a create would mint a brand
+   * new room and silently strand everyone the host had invited — so the code is learned
+   * from `welcome` and used from then on.
+   */
+  private rejoin: { code: string; name: string } | null = null;
+  private name = "";
+  private retryAt = 0;
+  private retryIn = RECONNECT_MIN_MS;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  /** Set by `close()`: a quit the player asked for is not a fault to recover from. */
+  private done = false;
 
   constructor(
     private readonly url: string,
@@ -175,9 +196,24 @@ export class Net {
 
   /** `hello` is the first thing sent once open — `create` or `join` (lobby-flow R1). */
   connect(hello: { t: "create"; name: string } | { t: "join"; code: string; name: string }): void {
+    this.done = false;
+    this.name = hello.name;
+    if (hello.t === "join") this.rejoin = { code: hello.code, name: hello.name };
+    this.retryAt = 0;
+    this.retryIn = RECONNECT_MIN_MS;
+    this.open(hello);
+  }
+
+  private open(hello: { t: "create"; name: string } | { t: "join"; code: string; name: string }): void {
     const ws = new WebSocket(this.url);
     this.ws = ws;
-    ws.onopen = () => this.send(hello);
+    ws.onopen = () => {
+      // A successful open resets the backoff, so a long session that hiccups twice does
+      // not inherit the last outage's patience.
+      this.retryIn = RECONNECT_MIN_MS;
+      this.retryAt = 0;
+      this.send(hello);
+    };
     ws.onmessage = (ev) => {
       let msg: ServerMsg;
       try {
@@ -185,10 +221,40 @@ export class Net {
       } catch {
         return; // a malformed frame from the server is dropped, same as the reverse
       }
+      // Learn the room from the server rather than assuming it: this is what makes a
+      // host's reconnect a rejoin instead of a new room.
+      if (msg.t === "welcome") this.rejoin = { code: msg.code, name: this.name };
       if (msg.t === "snap") this.buffer.push(msg.players, msg.extra, performance.now());
       this.onMsg(msg);
     };
-    ws.onclose = () => this.onMsg({ t: "err", code: "BAD_MSG" });
+    ws.onclose = () => this.lost();
+  }
+
+  /**
+   * The socket went away without being asked to (RD-109).
+   *
+   * Backgrounding a tab to read a message is enough to do this on a phone, and the old
+   * behaviour turned any close into `BAD_MSG` — so glancing at a notification ejected
+   * you from the room with a "bad message" error and no way back except retyping the
+   * code. It retries, quietly, and only gives up after RECONNECT_LIMIT_MS.
+   */
+  private lost(): void {
+    if (this.done) return;
+    const target = this.rejoin;
+    if (!target) return void this.onMsg({ t: "err", code: "BAD_MSG" });
+
+    const now = performance.now();
+    if (this.retryAt === 0) this.retryAt = now;
+    if (now - this.retryAt > RECONNECT_LIMIT_MS) {
+      return void this.onMsg({ t: "err", code: "BAD_MSG" });
+    }
+    const wait = this.retryIn;
+    this.retryIn = Math.min(this.retryIn * 2, RECONNECT_MAX_MS);
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      if (this.done) return;
+      this.open({ t: "join", code: target.code, name: target.name });
+    }, wait);
   }
 
   /**
@@ -204,6 +270,9 @@ export class Net {
    * one always rots.
    */
   close(): void {
+    this.done = true;
+    this.rejoin = null;
+    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     const ws = this.ws;
     this.ws = null;
     if (!ws) return;
