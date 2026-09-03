@@ -4515,3 +4515,54 @@ Two test-harness notes, both of which cost a cycle: `vi.advanceTimersByTime` doe
 everything and the test proves nothing.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-110 — iOS discards the page, and the socket fix could not have helped
+
+*2026-09-03. The second attempt at "switching apps throws me out", and the first was wrong.*
+
+RD-109 taught the client to reconnect a dropped socket. The playtester switched apps
+again and was thrown out again. The photo settled it in one detail: **the name field was
+empty.**
+
+An empty name field is not a dropped socket. It is a fresh page. iOS discards a
+backgrounded tab under memory pressure and RELOADS it on return — the socket, the roster,
+the predictor and the name all go together. There was no socket left to reconnect.
+
+What the reload does is worse than nothing: `main.ts` puts the room code in the URL so an
+invite is shareable, so the reloaded page sees `?room=VZ4R`, takes the deep-link path, and
+presents **the join screen for the room you were already in**, with the code locked and the
+name blank. The player had been HOST both times.
+
+### The fix
+
+Identity outlives the page. `session.ts` keeps `{name, code, at}` in `localStorage`; on
+load, a link carrying `?room=CODE` **plus a remembered name for that same code** rejoins
+directly instead of presenting a form. The server sees an ordinary `join`, and join-by-name
+reclaims the slot and the score (I8).
+
+Narrow on purpose, and every clause is a case in the tests:
+
+- **only for the code in the link** — a stale session must not drag a player into a room
+  they did not tap
+- **30 minutes** — a match is ten, so yesterday's tab does not rejoin itself
+- **forgotten when they quit** — leaving is deliberate and must stay leaving
+- **never throws** — a private window makes every call throw, and that is not a reason for
+  the game to stop working (the discipline RD-068 already set for the mute preference)
+- **never trusted** — malformed JSON, wrong types, or a name that trims to nothing all
+  return null, and the server validates it again anyway (I2)
+
+### What this says about RD-109
+
+RD-109 was not wasted — a dropped socket with the page still alive is real, and it now
+recovers. But it was shipped as *the* fix for a symptom I had diagnosed from the code
+rather than from the device, and it did not touch the actual cause. The photo contained
+the answer and I had not asked for one before changing anything.
+
+**The rule, again, and it keeps costing the same way: when a playtester reports a symptom,
+get the artefact before writing the fix.** RD-098 was found by measuring two clocks
+instead of theorising; RD-103 by measuring the think loop; this by looking at an empty
+text field.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

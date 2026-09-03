@@ -1,6 +1,8 @@
 # Main Menu — Tasks
 
-- [ ] T1 [R1, P3] — Remember the name on the device, in `src/client/src/ui/screens.ts`
+- [x] T1 [R1, P3] — Remember the name on the device, in `src/client/src/session.ts`
+  *(Done early and for a harder reason than convenience: a reloaded page needs an
+  identity to walk back in with — RD-110.)*
   Test: `menu.dom.test.ts` — mounted: a stored name pre-fills the field; a fresh device
   shows it empty; with `localStorage` throwing on read AND write the menu still renders,
   accepts a name and hosts

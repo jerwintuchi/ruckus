@@ -10,6 +10,7 @@ import {
   amOnRoster, initialState, reduce, shouldShowWaiting, type FlowEvent,
 } from "./flow.ts";
 import { Health, STALL_MS, pct } from "./health.ts";
+import { forgetSession, loadSession, rememberSession } from "./session.ts";
 import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
@@ -66,6 +67,11 @@ for (const ev of ["pointerdown", "touchstart", "keydown"]) {
   window.addEventListener(ev, () => sound.unlock(), { once: false, passive: true });
 }
 
+/** The name this client last sent, so a remembered session can reuse it (RD-110). */
+let myName = "";
+/** One handle, guarded once: a blocked storage must not break the game (RD-068). */
+const store = (() => { try { return window.localStorage; } catch { return null; } })();
+
 let mySlot = -1;
 const predictor = new Predictor();
 let host = -1;
@@ -121,6 +127,7 @@ const ui = new Ui(overlay, {
     dispatch({ t: "setName", name });
     dispatch({ t: "wantCreate" });
     dispatch({ t: "connecting" });
+    myName = name;
     net.connect({ t: "create", name });
   },
   onJoin: (code, name) => {
@@ -130,6 +137,7 @@ const ui = new Ui(overlay, {
     // silently and a join that is still in flight look identical otherwise.
     if (flow.code.length === 4) {
       dispatch({ t: "connecting" });
+      myName = name;
       net.connect({ t: "join", code: flow.code, name });
     }
   },
@@ -148,6 +156,7 @@ const ui = new Ui(overlay, {
    * left behind is a ghost in the next room this client joins.
    */
   onQuit: () => {
+    forgetSession(store);
     net.close();
     leaveRoom();
     flow = initialState();
@@ -209,6 +218,8 @@ function onMessage(msg: ServerMsg): void {
       // Put the code in the URL so "send them this link" is the whole invite flow,
       // and on screen so it can be read aloud across a room.
       history.replaceState(null, "", `?room=${msg.code}`);
+      // Remember who we are, so a page iOS discards can walk straight back in (RD-110).
+      rememberSession(store, { name: myName, code: msg.code }, Date.now());
       break;
 
     case "room": {
@@ -620,7 +631,20 @@ if (new URLSearchParams(location.search).has("debug")) {
 
 // A shared link opens straight on the join screen with its code filled and locked.
 const fromUrl = new URLSearchParams(location.search).get("room");
-if (fromUrl) dispatch({ t: "deepLink", code: fromUrl });
+if (fromUrl) {
+  dispatch({ t: "deepLink", code: fromUrl });
+  // A page iOS discarded and reloaded looks exactly like a cold tap on a shared link,
+  // and it is not: we were IN this room a moment ago. If the device remembers a name
+  // for this very code, rejoin rather than presenting an empty form (RD-110). The
+  // server treats it as any other join — join-by-name reclaims the slot and score (I8).
+  const back = loadSession(store, fromUrl.toUpperCase(), Date.now());
+  if (back) {
+    myName = back.name;
+    dispatch({ t: "setName", name: back.name });
+    dispatch({ t: "connecting" });
+    net.connect({ t: "join", code: back.code, name: back.name });
+  }
+}
 
 /**
  * `?auto=NAME`: join and play without hands (auto-playtest R1).

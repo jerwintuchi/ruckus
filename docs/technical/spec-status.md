@@ -11,7 +11,7 @@ These are disagreements between what a spec says and what the tree contains.
 
 ### `specs/main-menu/` — 🟡 dormant
 
-- **LIKELY-SHIPPED** — 4 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T1, T2, T3, T4
+- **LIKELY-SHIPPED** — 3 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T2, T3, T4
 
 ### `specs/mutators/` — 🟡 dormant
 
@@ -32,7 +32,7 @@ These are disagreements between what a spec says and what the tree contains.
 
 | spec | status | done | open | superseded | last touched | flags |
 |---|---|---:|---:|---:|---|---|
-| `main-menu` | 🟡 dormant | 0 | 5 | 0 | 2026-09-03 | LIKELY-SHIPPED |
+| `main-menu` | 🟡 dormant | 1 | 4 | 0 | 2026-09-03 | LIKELY-SHIPPED |
 | `mutators` | 🟡 dormant | 0 | 12 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
 | `round-open` | 🟡 dormant | 0 | 9 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
 | `round-status` | 🟡 dormant | 0 | 9 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
