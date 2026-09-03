@@ -389,6 +389,15 @@ export class GameServer {
         return;
       }
 
+      case "skip": {
+        if (!conn.room) return;
+        const e = this.rooms.get(conn.room.code);
+        // No reply and no broadcast: skipping is a nudge, and a nudge that arrives at
+        // the wrong moment is not an error worth telling anyone about.
+        e?.match.skip(conn.slot);
+        return;
+      }
+
       case "ready": {
         if (!conn.room) return;   // before joining: not an error, just nothing to do
         conn.room.setReady(conn.slot, msg.on);

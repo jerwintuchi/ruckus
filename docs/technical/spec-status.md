@@ -20,8 +20,8 @@ These are disagreements between what a spec says and what the tree contains.
 
 ### `specs/round-open/` — 🟡 dormant
 
-- **MISSING** — open tasks name 2 file(s) not in the tree: intro.test.ts, intro.dom.test.ts
-- **LIKELY-SHIPPED** — 3 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T2, T3, T5
+- **MISSING** — open tasks name 1 file(s) not in the tree: intro.dom.test.ts
+- **LIKELY-SHIPPED** — 1 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T5
 
 ### `specs/round-status/` — 🟡 dormant
 
@@ -34,7 +34,7 @@ These are disagreements between what a spec says and what the tree contains.
 |---|---|---:|---:|---:|---|---|
 | `main-menu` | 🟡 dormant | 1 | 4 | 0 | 2026-09-03 | LIKELY-SHIPPED |
 | `mutators` | 🟡 dormant | 0 | 12 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
-| `round-open` | 🟡 dormant | 0 | 9 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
+| `round-open` | 🟡 dormant | 5 | 4 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
 | `round-status` | 🟡 dormant | 0 | 9 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
 | `action-button` | 🟡 dormant | 10 | 1 | 0 | 2026-09-01 | — |
 | `arena-framing` | 🟡 dormant | 6 | 1 | 0 | 2026-09-01 | — |

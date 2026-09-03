@@ -33,6 +33,8 @@ export type ClientMsg =
   | { t: "ready"; on: boolean }
   | { t: "colour"; c: string }
   | { t: "kick"; slot: number }
+  /** "I have read the rule" (round-open R2). Idempotent; only during ROUND_INTRO. */
+  | { t: "skip" }
   | { t: "pong"; id: number };
 
 /* Server to client. */
@@ -179,6 +181,8 @@ export function parseClientMsg(raw: unknown): ClientMsg | null {
       // are facts about live state and belong to the room (I2 step 2).
       if (!isStr(raw.c)) return null;
       return { t: "colour", c: raw.c };
+    case "skip":
+      return { t: "skip" };
     case "kick":
       if (!isNum(raw.slot) || raw.slot < 0) return null;
       return { t: "kick", slot: Math.floor(raw.slot) };

@@ -1,21 +1,21 @@
 # Round Open — Tasks
 
-- [ ] T1 [R2, P1, P2, P3] — Unanimous skip on the server, in `src/server/src/match.ts`
+- [x] T1 [R2, P1, P2, P3] — Unanimous skip on the server, in `src/server/src/match.ts`
   Test: `intro.test.ts` — property: for any pattern of skips (none, some, all, repeated,
   from non-members, from disconnected players) the intro ends at or before `INTRO_MS` and
   never later; unanimity ends it early; a disconnect mid-intro does not make unanimity
   unreachable
 
-- [ ] T2 [R2] — The `skip` message, in `src/shared/src/protocol.ts`
+- [x] T2 [R2] — The `skip` message, in `src/shared/src/protocol.ts`
   Test: `protocol.test.ts` — parsed; idempotent per player; refused outside `ROUND_INTRO`;
   refused from a socket not in the room, replying to that socket only (I2)
 
-- [ ] T3 [R3, R4, P5] — Broadcast the round's state through the intro, in `src/server/src/net.ts`
+- [x] T3 [R3, R4, P5] — Broadcast the round's state through the intro, in `src/server/src/net.ts`
   Test: `net.test.ts` — snapshots flow during `ROUND_INTRO`; the simulation does not step
   (positions are identical across every intro snapshot); the first differing snapshot is
   the first tick of `ROUND_PLAY`
 
-- [ ] T4 [R4] — No minigame animates during the count
+- [x] T4 [R4] — No minigame animates during the count
   Test: `intro.test.ts` — property over every registered minigame: `elapsed` does not
   advance during the intro, so any time-driven flourish is still
 
@@ -33,7 +33,7 @@
   HUD is present; the count is derived from the server's deadline, not a local timer
   (RD-065)
 
-- [ ] T8 [R5] — A mid-match joiner joins the denominator when they join the roster
+- [x] T8 [R5] — A mid-match joiner joins the denominator when they join the roster
   Test: `intro.test.ts` — a player who arrives mid-round is not counted for that round's
   intro and is counted for the next
 

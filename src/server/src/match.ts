@@ -47,6 +47,8 @@ export class Match {
   private phaseEndsAt = 0;
   private elapsed = 0;
   private startRequested = false;
+  /** Slots that have asked to skip THIS round's card (round-open R2). */
+  private readonly skipped = new Set<number>();
 
   private game: Minigame<never> | null = null;
   private gameState: unknown = null;
@@ -126,7 +128,12 @@ export class Match {
         return false;
 
       case "ROUND_INTRO":
-        if (this.elapsed >= this.phaseEndsAt) this.beginPlay();
+        // A still world, drawn but not simulated (R4). `tick` is never called here, so
+        // `elapsed` does not advance and no time-driven flourish runs.
+        this.events.onSnapshot(this.game!.snapshot(this.gameState as never));
+        // The timer is authoritative and is checked FIRST: unanimity is an accelerator,
+        // never a gate (P1, P2).
+        if (this.elapsed >= this.phaseEndsAt || this.allSkipped()) this.beginPlay();
         return false;
 
       case "ROUND_PLAY":
@@ -172,15 +179,59 @@ export class Match {
     return { game: this.game as Minigame<never>, state: this.gameState as never };
   }
 
+  /**
+   * Open the round: show the rule, and BUILD the world behind it (round-open R3, R4).
+   *
+   * The arena used to be constructed at `beginPlay`, so for the whole intro there was
+   * nothing to send and the countdown ran over a card. The first thing a player saw when
+   * a round began was therefore a surprise. Building here means snapshots flow through
+   * the intro of a world that is real and completely still — the simulation does not
+   * step until `beginPlay` — so the count sits over the arena and the transition into
+   * play is simply the first tick arriving.
+   */
   private beginIntro(): void {
     this.room.round += 1;
     this.game = this.bag.next();
     this.room.state = "ROUND_INTRO";
     this.phaseEndsAt = this.elapsed + INTRO_MS;
+    this.skipped.clear();
+    this.buildRound();
     this.events.onIntro(this.game, this.room.round);
+    this.events.onRoundStart(this.game, this.gameState);
+  }
+
+  /**
+   * One player has seen enough (round-open R2).
+   *
+   * Idempotent, and counted only for players on THIS round's roster: someone who arrived
+   * during the intro is audience, not a vote, and a player who leaves must not make
+   * unanimity unreachable. The dwell always expires regardless, so this can only ever
+   * make the card faster — never hold it open (I8).
+   */
+  skip(slot: number): void {
+    if (this.room.state !== "ROUND_INTRO") return;
+    if (!this.roundRoster.some((r) => r.slot === slot)) return;
+    this.skipped.add(slot);
+  }
+
+  /** Everyone still connected on this round's roster has asked to move on. */
+  private allSkipped(): boolean {
+    const live = this.roundRoster.filter(
+      (r) => this.room.players.get(r.slot)?.connected === true,
+    );
+    return live.length > 0 && live.every((r) => this.skipped.has(r.slot));
   }
 
   private beginPlay(): void {
+    const game = this.game!;
+    this.roundElapsed = 0;
+    this.room.state = "ROUND_PLAY";
+    // P2: the shell owns the deadline, not the minigame.
+    this.phaseEndsAt = this.elapsed + game.maxDurationMs;
+  }
+
+  /** Place everyone and hand the round to its minigame. Called once, at the intro. */
+  private buildRound(): void {
     const game = this.game!;
     // A round begins from nothing (round-lifecycle R1).
     //
@@ -210,11 +261,6 @@ export class Match {
     // ROUND_START, so its solids are static for the round and rebuilding them every
     // tick to resolve collisions would be waste.
     this.roundSolids = game.arena(this.gameState as never).solids;
-    this.roundElapsed = 0;
-    this.room.state = "ROUND_PLAY";
-    // P2: the shell owns the deadline, not the minigame.
-    this.phaseEndsAt = this.elapsed + game.maxDurationMs;
-    this.events.onRoundStart(game, this.gameState);
   }
 
   private tickPlay(): boolean {
