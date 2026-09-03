@@ -172,6 +172,9 @@ export const scramble: Minigame<ScrambleState> = {
     for (const p of ctx.players) {
       const input = ctx.input(p.slot);
       const tumbling = s.elapsed < (s.tumbleUntil.get(p.slot) ?? 0);
+      // Declared so the shell can echo it to the owning client, which predicts the
+      // dash without ever learning what a tumble is (input-prediction R5).
+      p.speedMul = tumbling ? TUMBLE_SPEED_MUL : 1;
       stepMovement(
         p.body,
         { axis: input.axis, jump: false },

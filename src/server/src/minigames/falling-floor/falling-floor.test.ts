@@ -32,6 +32,8 @@ const mkPlayers = (n: number): PlayerRuntime[] =>
     alive: true,
     connected: true,
     facing: 0,
+    lastAppliedSeq: 0,
+    speedMul: 1,
   }));
 
 /** Drive the round exactly as the shell does, so the tests exercise the real path. */

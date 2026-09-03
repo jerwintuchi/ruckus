@@ -9,6 +9,7 @@ import { MAX_PLAYERS, type PlayerView } from "@ruckus/shared";
 import type { FlowEvent, FlowState } from "../flow.ts";
 import { createState, joinState, standings, startState, type Standing } from "../flow.ts";
 import { colourFor, escapeHtml } from "./kit.ts";
+import { VOLUME_STEPS } from "../kit/sound.ts";
 import { renderHud, rollTo, roundLabel, type HudData } from "./hud.ts";
 
 export interface UiHandlers {
@@ -20,6 +21,10 @@ export interface UiHandlers {
    *  not screen state, and putting it in the reducer would put it in the totality
    *  property for no benefit (audio design). */
   onToggleMute(): boolean;
+  /** Leave the room entirely and go back to the main menu (in-game-menu R3). */
+  onQuit(): void;
+  /** Set the master level by step index (R2). */
+  onVolume(step: number): void;
 }
 
 /**
@@ -46,6 +51,13 @@ export class Ui {
   private readonly joining: HTMLElement;
   private readonly lobby: HTMLElement;
   private readonly banner: HTMLElement;
+  private spectating: { round?: number; of?: number } | null = null;
+  private stalled = false;
+  /** The markup currently in the HUD, so an unchanged frame touches no DOM (RD-084). */
+  private hudHtml = "";
+  private readonly settings: HTMLElement;
+  /** Set by main.ts, which owns the sound and therefore the current step. */
+  onOpenSettings: (() => void) | null = null;
   private readonly scoreboard: HTMLElement;
   private readonly hud: HTMLElement;
   private readonly toastEl: HTMLElement;
@@ -64,6 +76,7 @@ export class Ui {
     this.joining = this.q("#joining");
     this.lobby = this.q("#lobby");
     this.banner = this.q("#banner");
+    this.settings = this.q("#settings");
     this.toastEl = this.q("#toast");
     this.scoreboard = this.q("#scoreboard");
     this.hud = this.q("#hud");
@@ -85,6 +98,12 @@ export class Ui {
     this.q("#startBtn").addEventListener("click", () => this.handlers.onStart());
     this.q("#shareBtn").addEventListener("click", () => void this.share());
     this.q("#muteBtn").addEventListener("click", () => this.setMuted(this.handlers.onToggleMute()));
+    this.q("#gearBtn").addEventListener("click", () => this.onOpenSettings?.());
+    this.q("#closeSettings").addEventListener("click", () => this.closeSettings());
+    this.q("#quitBtn").addEventListener("click", () => {
+      this.closeSettings();
+      this.handlers.onQuit();
+    });
   }
 
   /**
@@ -200,13 +219,128 @@ export class Ui {
   }
 
   /** The in-round HUD, driven by the snapshot and nothing else (T16). */
+  /**
+   * Draw the HUD, and only actually touch the DOM when it changed (RD-084).
+   *
+   * This is called once per rendered frame — 60 to 120 times a second — and it used to
+   * assign `innerHTML` every time, so the browser reparsed the markup and rebuilt the
+   * subtree on every frame. The content changes about once a second: the clock ticks,
+   * a count goes up.
+   *
+   * The cost was not only the parse. **A recreated element restarts its CSS
+   * animation**, so the pulsing dot on the spectator and stalled chips was destroyed
+   * and rebuilt before it could advance a frame — it has never once pulsed, on any
+   * device, since the day it was written. Holding the markup still is what lets an
+   * animation run at all.
+   */
   renderHud(extra: HudData | undefined, label?: { name: string; round: number; of: number }): void {
     const gauges = renderHud(extra);
     const round = label ? roundLabel(label.name, label.round, label.of) : "";
-    this.hud.innerHTML = round + gauges;
+    const html = round + this.stalledChip() + this.spectateChip() + gauges;
+    if (html === this.hudHtml) return;
+    this.hudHtml = html;
+    this.hud.innerHTML = html;
+  }
+
+  /**
+   * Watching this round, playing the next one (spectating R2).
+   *
+   * A mid-round joiner DOES get `roundStart` — the server sends the round in progress
+   * so there is something to look at — which sets `roundSeen` and takes the waiting
+   * card away. The arena then plays on with no controls and nothing saying why, which
+   * reads as being broken rather than as being early. Reported from the first phone
+   * playtest.
+   *
+   * A chip in the HUD rather than the waiting overlay, because R3 wants the arena
+   * *visible* while you wait: an overlay that explains the wait by hiding the thing
+   * you are waiting to watch trades one dead screen for another.
+   */
+  setSpectating(on: boolean, round?: number, of?: number): void {
+    this.spectating = on ? { ...(round === undefined ? {} : { round }), ...(of === undefined ? {} : { of }) } : null;
+  }
+
+  /**
+   * The settings panel (in-game-menu R1, R4).
+   *
+   * Opening it changes nothing about the round: no wire traffic, no predictor
+   * interaction, and the arena keeps rendering behind it (P4). A player who opens this
+   * mid-round is standing still in a live arena and will probably lose it — which is
+   * the honest behaviour, because the server did not stop.
+   */
+  openSettings(step: number): void {
+    this.renderSteps(step);
+    this.settings.style.display = "flex";
+  }
+
+  closeSettings(): void {
+    this.settings.style.display = "none";
+  }
+
+  /**
+   * Show or hide the opener (R1).
+   *
+   * On whenever the client is in a room — lobby, live round, round-over card — and off
+   * on the main menu, where "leave the room" would have nothing to leave.
+   */
+  setInRoom(inRoom: boolean): void {
+    this.q("#gearBtn").style.display = inRoom ? "flex" : "none";
+    if (!inRoom) this.closeSettings();
+  }
+
+  get settingsOpen(): boolean {
+    return this.settings.style.display === "flex";
+  }
+
+  /** Four segments; exactly one is marked, in the player's own colour (R2, R5). */
+  private renderSteps(step: number): void {
+    const host = this.q("#volSteps");
+    host.innerHTML = VOLUME_STEPS.map((_, i) =>
+      `<button class="step${i === step ? " on" : ""}" data-step="${i}" ` +
+      `aria-label="volume ${i}" aria-pressed="${i === step}"></button>`).join("");
+    for (const el of Array.from(host.querySelectorAll(".step"))) {
+      el.addEventListener("click", () => {
+        const i = Number((el as HTMLElement).dataset.step ?? 0);
+        this.handlers.onVolume(i);
+        this.renderSteps(i);
+      });
+    }
+  }
+
+  /**
+   * The connection has stopped answering (RD-081).
+   *
+   * Measured on a phone: p50 31 ms, p95 41 ms, and then an occasional multi-second
+   * blackout. Everything correctly freezes when that happens — the interpolation buffer
+   * holds (I6) and prediction holds with it — but a game that freezes and says nothing
+   * reads as broken rather than as a game waiting for a packet.
+   *
+   * The same argument the spectating spec makes for watching: a stall is a state the
+   * game is in, not an absence of one. Saying so costs nothing and turns "it's laggy"
+   * into "my signal dropped", which is the truth and is actionable.
+   */
+  setStalled(on: boolean): void {
+    this.stalled = on;
+  }
+
+  private stalledChip(): string {
+    if (!this.stalled) return "";
+    return `<div class="gauge stalled"><span class="eye"></span>reconnecting</div>`;
+  }
+
+  private spectateChip(): string {
+    if (!this.spectating) return "";
+    const { round, of } = this.spectating;
+    // Says which round you are in from, when it knows — a wait with a shape (R2).
+    const when = round !== undefined && of !== undefined && round < of
+      ? `in for round ${round + 1}`
+      : "in next round";
+    return `<div class="gauge spectate"><span class="eye"></span>watching · ${when}</div>`;
   }
 
   clearHud(): void {
+    // Invalidated, not just emptied: otherwise the next render of identical markup
+    // would compare equal to the memo and skip an assignment the DOM needs.
+    this.hudHtml = "";
     this.hud.innerHTML = "";
   }
 
@@ -427,6 +561,35 @@ const TEMPLATE = `
 <div id="toast" class="toast"></div>
 
 <div id="banner" class="overlay" style="display:none"></div>
+
+<!--
+  The settings opener (in-game-menu R1). Its own fixed element rather than part of the
+  HUD: the HUD is rewritten every frame and only while a round is playing, and R1 wants
+  this reachable in the lobby and on the round-over card too. Bound once, shown whenever
+  the client is in a room.
+-->
+<button id="gearBtn" class="iconbtn gear" aria-label="settings" title="settings" style="display:none">
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M4 7h16M4 12h16M4 17h16"></path>
+  </svg>
+</button>
+
+<!--
+  Settings (in-game-menu R1). Reachable in a live round from the HUD's top-left, the
+  one corner no control uses. It does NOT pause: the server never stops (I1), and a
+  menu that looked like a pause it could not deliver would be a lie.
+-->
+<div id="settings" class="overlay" style="display:none">
+  <div class="card">
+    <h2>settings</h2>
+    <div class="setrow">
+      <span class="setlabel">sound</span>
+      <div id="volSteps" class="steps"></div>
+    </div>
+    <button id="closeSettings">back to the game</button>
+    <button id="quitBtn" class="danger">leave the room</button>
+  </div>
+</div>
 
 <!--
   Portrait nudge (arena-framing T5). Always in the DOM; a media query decides whether

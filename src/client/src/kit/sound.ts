@@ -144,6 +144,56 @@ export interface StorageLike {
 }
 
 export const MUTE_KEY = "ruckus.muted";
+export const VOLUME_KEY = "ruckus.volume";
+
+/**
+ * Four levels, off to full (in-game-menu R2).
+ *
+ * Steps rather than a continuous slider: a drag target is the one control a thumb has
+ * to be precise with, and the Kit has no draggable widget outside the stick. Four taps
+ * cover the actual range of "too loud in this room".
+ */
+export const VOLUME_STEPS = [0, 0.35, 0.7, 1] as const;
+export const FULL_VOLUME = VOLUME_STEPS.length - 1;
+
+/**
+ * The same context, pointing at the master gain instead of the speakers.
+ *
+ * Written out rather than spread: the methods live on `AudioContext.prototype`, so a
+ * spread copies none of them, and `currentTime` is a live getter that a snapshot would
+ * freeze at the moment of unlocking — every envelope after the first would then be
+ * scheduled in the past and never sound.
+ */
+function voiceProxy(ctx: Ctx, destination: NodeLike): Ctx {
+  return {
+    get currentTime() { return ctx.currentTime; },
+    get sampleRate() { return ctx.sampleRate; },
+    destination,
+    createOscillator: () => ctx.createOscillator(),
+    createGain: () => ctx.createGain(),
+    createBiquadFilter: () => ctx.createBiquadFilter(),
+    createBufferSource: () => ctx.createBufferSource(),
+    createBuffer: (c, l, r) => ctx.createBuffer(c, l, r),
+  };
+}
+
+const clampStep = (i: number): number =>
+  Number.isFinite(i) ? Math.min(FULL_VOLUME, Math.max(0, Math.floor(i))) : FULL_VOLUME;
+
+/**
+ * The stored level, defaulting to FULL (P2).
+ *
+ * A missing, corrupt or out-of-range value falls back to full and never to silence: a
+ * game that starts mute because `localStorage` returned rubbish is indistinguishable,
+ * to the person holding it, from a game that is broken.
+ */
+function readStep(store: StorageLike | null): number {
+  let raw: string | null = null;
+  try { raw = store?.getItem(VOLUME_KEY) ?? null; } catch { raw = null; }
+  if (raw === null || raw.trim() === "") return FULL_VOLUME;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 && n <= FULL_VOLUME ? Math.floor(n) : FULL_VOLUME;
+}
 
 /**
  * The four moments, and the gate in front of them (R2, R3).
@@ -154,16 +204,41 @@ export const MUTE_KEY = "ruckus.muted";
  */
 export class Sound {
   private ctx: Ctx | null = null;
+  /** The proxy handed to the voices: identical, but pointing at the master gain. */
+  private voiceCtx: Ctx | null = null;
+  private master: GainLike | null = null;
   private isMuted: boolean;
+  private step: number;
 
   constructor(
     private readonly make: () => Ctx,
     private readonly store: StorageLike | null = null,
   ) {
     this.isMuted = store?.getItem(MUTE_KEY) === "1";
+    this.step = readStep(store);
   }
 
   get muted(): boolean { return this.isMuted; }
+
+  /** Which of `VOLUME_STEPS` is chosen. Independent of `muted` (P1). */
+  get volumeStep(): number { return this.step; }
+
+  get gain(): number { return VOLUME_STEPS[this.step] ?? 1; }
+
+  /**
+   * Set the level, and persist the INDEX rather than the gain (P2).
+   *
+   * A stored `0.7` would quietly become a different level the day the curve is
+   * retuned, and what the player chose was "mid", not a number.
+   *
+   * Deliberately does not touch `muted` (P1): muting preserves the level so unmuting
+   * returns to it, and the two only ever agree by both ending in silence.
+   */
+  setVolumeStep(i: number): void {
+    this.step = clampStep(i);
+    if (this.master) this.master.gain.setValueAtTime(this.gain, this.ctx?.currentTime ?? 0);
+    try { this.store?.setItem(VOLUME_KEY, String(this.step)); } catch { /* private mode */ }
+  }
 
   /** Survives a reload, because it is a device preference and not screen state. */
   setMuted(v: boolean): void {
@@ -174,7 +249,18 @@ export class Sound {
   /** Called from the first real gesture. Idempotent: exactly one context, ever. */
   unlock(): void {
     if (this.ctx || this.isMuted) return;
-    try { this.ctx = this.make(); } catch { this.ctx = null; }
+    try {
+      this.ctx = this.make();
+      // One master gain between every voice and the destination (R2). The voices are
+      // untouched: they connect to `ctx.destination`, so they are handed a proxy whose
+      // destination IS the master. `Ctx` is an interface, so this is a spread and one
+      // override rather than a wrapper class.
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(this.gain, this.ctx.currentTime);
+      g.connect(this.ctx.destination);
+      this.master = g;
+      this.voiceCtx = voiceProxy(this.ctx, g);
+    } catch { this.ctx = null; this.master = null; this.voiceCtx = null; }
   }
 
   /** True once a gesture has built the context. Nothing plays before that. */
@@ -182,7 +268,8 @@ export class Sound {
 
   private play(fn: (c: Ctx) => number): void {
     if (this.isMuted || !this.ctx) return;
-    try { fn(this.ctx); } catch { /* a sound is never worth an exception */ }
+    // Through the proxy, so everything passes the master gain.
+    try { fn(this.voiceCtx ?? this.ctx); } catch { /* a sound is never worth an exception */ }
   }
 
   /** One tick of the pre-round count. Rises as it approaches zero. */

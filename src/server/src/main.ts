@@ -24,6 +24,13 @@ const http = createServer((req, res) => {
         ok: true,
         started: STARTED_AT,
         minigames: MINIGAMES.map((m) => m.id),
+        // Snapshots the server declined to queue on a socket that had not drained
+        // (RD-086). A stalling client should leave a trace here too, not only on the
+        // phone that suffered it.
+        skippedSnapshots: game.skippedSnapshots,
+        // The longest gap between two inputs from any client, in ms (RD-095). Measures
+        // the real clients' upstream path, which no probe on this host can reach.
+        worstInputGapMs: game.worstInputGap,
       }),
     );
     return;
@@ -59,5 +66,9 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     game.stop();
     http.close(() => process.exit(0));
+    // A backstop, because `http.close` only fires once every connection has ended and
+    // a socket that ignores its close frame would keep the port held for ever. Unref'd
+    // so it never keeps an otherwise-finished process alive (RD-087).
+    setTimeout(() => process.exit(0), 500).unref();
   });
 }

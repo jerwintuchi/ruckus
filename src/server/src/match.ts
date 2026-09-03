@@ -17,6 +17,7 @@ import {
   type PlayerRuntime,
   type Solid,
   MIN_PLAYERS_TO_START,
+  MATCH_RESULT_MS,
   RESULT_MS,
   ROUNDS_PER_MATCH,
   TICK_DT,
@@ -244,7 +245,23 @@ export class Match {
       },
     };
 
+    // Reset before the tick, read after it (input-prediction R5). A minigame that
+    // scales movement sets this during its own tick; resetting here means one that
+    // stops scaling — or a round that never scaled at all — cannot leave a stale
+    // multiplier behind for the next round to inherit.
+    for (const p of players) p.speedMul = 1;
+
     game.tick(state, ctx);
+
+    // Acknowledge the input the simulation just consumed (input-prediction R2).
+    //
+    // After `game.tick`, not before: `ack` must mean "already reflected in the position
+    // in this snapshot". Acknowledging an input the tick had not yet applied would make
+    // the client drop it from its replay buffer one frame early and settle on a
+    // position the server had not reached, which reads as a twitch backwards.
+    for (const p of this.room.connected) {
+      p.runtime.lastAppliedSeq = p.input.seq;
+    }
 
     // Players are solid, everywhere, enforced once (player-collision R1).
     //
@@ -283,7 +300,7 @@ export class Match {
   private beginMatchResult(): void {
     const best = [...this.room.players.values()].sort((a, b) => b.score - a.score)[0];
     this.room.state = "MATCH_RESULT";
-    this.phaseEndsAt = this.elapsed + RESULT_MS;
+    this.phaseEndsAt = this.elapsed + MATCH_RESULT_MS;
     this.events.onMatchEnd(best?.slot ?? 0);
   }
 }

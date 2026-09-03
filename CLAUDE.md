@@ -30,17 +30,20 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 <!-- Max 20 lines. Pointer + next actions only. No history. -->
 
-Phase: **Verifying on the phone.**
+Phase: **The phone, and nothing else.**
 
-The build work of the phone phase is done: framing, touch controls, the action button,
-spectating, collision. Nine specs now hold **one open box each, and every one of them is
-a manual playtest task** — the questions those specs were written to ask, which only a
-person holding a device can answer.
+`specs/in-game-menu/` and `specs/input-prediction/` are built, each with one open box
+and each of those a playtest (RD-074, RD-076). **There is no keyboard work left in
+Ruckus**: every open box in every spec is now a manual task needing a device.
 
-Next: three specced UI passes, in this order — `specs/flat-controls/` (a shadow means
-an object, so controls have none), `specs/find-yourself/` (nothing marks your own
-character in a round), `specs/ui-identity/` (a wordmark, rolling scores, a slot strip).
-Behind them: eleven manual boxes that need a phone, including `specs/audio/` T4–T5.
+They batch. One Hot Potato round at eight players answers `find-yourself` T4,
+`spectating` T3, `flat-controls` T4 and `action-button` T7 together. `input-prediction`
+T8 and `responsiveness` T5 are the same question asked twice.
+
+The one that can invalidate work is **`input-prediction` T8** — if a mispredicted shove
+reads as rubber-banding, the correction needs retuning and RD-074 was the wrong call.
+
+Also owed on hardware: `bench.html` p95 (RD-028) and `specs/audio/` T4-T5.
 
 ## Trust Boundary
 

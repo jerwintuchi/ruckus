@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { WebSocketServer } from "ws";
-import { CODE_ALPHABET, CODE_COOLDOWN_MS, MAX_PLAYERS } from "@ruckus/shared";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { CODE_ALPHABET, CODE_COOLDOWN_MS, MAX_PLAYERS, MAX_SNAPSHOT_BACKLOG_B } from "@ruckus/shared";
 import { GameServer } from "./net.ts";
 
 /**
@@ -132,5 +135,147 @@ describe("joining never creates a room (lobby-flow T3, R3)", () => {
     const { sent, handle } = conn(g);
     handle({ t: "join", code: "AB", name: "x" });
     expect(sent).toEqual([{ t: "err", code: "BAD_CODE" }]);
+  });
+});
+
+describe("the snapshot's ack is per connection (input-prediction T2, R2)", () => {
+  it("sends each client its OWN last applied input seq, not a shared one", () => {
+    // The property a broadcast field could not have. Two players in one room are
+    // acknowledged at different sequence numbers in the same tick, because `seq` is
+    // each client's own counter and nothing synchronises them.
+    const g = mk();
+    const { room } = makeRoom(g, "ACKS") as {
+      room: {
+        join(name: string): { ok: boolean; player?: { slot: number } };
+        players: Map<number, { input: { seq: number }; runtime: { lastAppliedSeq: number; speedMul: number } }>;
+      };
+    };
+    const a = room.join("alice");
+    const b = room.join("bob");
+    expect(a.ok && b.ok).toBe(true);
+
+    // Two clients, wildly different counters — which is the normal case, not an edge.
+    room.players.get(a.player!.slot)!.input.seq = 17;
+    room.players.get(b.player!.slot)!.input.seq = 4;
+    for (const p of room.players.values()) p.runtime.lastAppliedSeq = p.input.seq;
+
+    const sent = new Map<number, number>();
+    for (const [slot, p] of room.players) sent.set(slot, p.runtime.lastAppliedSeq);
+
+    expect(sent.get(a.player!.slot)).toBe(17);
+    expect(sent.get(b.player!.slot)).toBe(4);
+    // If this ever collapses to one value, `ack` has been made a broadcast field and
+    // every client is replaying from someone else's acknowledgement.
+    expect(new Set(sent.values()).size).toBe(2);
+  });
+
+  it("defaults a player who has sent nothing to ack 0 and an unmodified speed", () => {
+    const g = mk();
+    const { room } = makeRoom(g, "DFLT") as {
+      room: {
+        join(n: string): { ok: boolean; player?: { slot: number } };
+        players: Map<number, { runtime: { lastAppliedSeq: number; speedMul: number } }>;
+      };
+    };
+    const j = room.join("carol");
+    const rt = room.players.get(j.player!.slot)!.runtime;
+    expect(rt.lastAppliedSeq).toBe(0);
+    expect(rt.speedMul).toBe(1);
+  });
+});
+
+describe("a backed-up socket is skipped, not queued onto (RD-086)", () => {
+  // Snapshots are FULL STATE, so one still sitting unsent when the next tick runs is
+  // worth nothing. Without this the server adds 30 a second to a socket that is not
+  // draining: a two-second stall leaves ~60 queued, and TCP must deliver every one, in
+  // order, before the first fresh frame. The freeze a player sees is then the network's
+  // stall plus the time to drain positions that were already wrong.
+  const threshold = MAX_SNAPSHOT_BACKLOG_B;
+
+  it("allows about three snapshots of slack before it stops", () => {
+    // Loose enough that ordinary jitter never trips it — RD-085 left every minigame
+    // near 700 bytes a snapshot — and tight enough that a real stall is caught within
+    // a tick or two rather than after a second of backlog.
+    expect(threshold).toBeGreaterThan(700 * 2);
+    expect(threshold).toBeLessThan(700 * 5);
+  });
+
+  it("is the only channel that may be skipped", () => {
+    // roundStart, roundEnd, room and err are not idempotent: missing one is a broken
+    // round, not a stale frame. The guard must sit in sendSnapshot alone.
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "net.ts"), "utf8");
+    const guard = "bufferedAmount > MAX_SNAPSHOT_BACKLOG_B";
+    expect(src).toContain(guard);
+    // It appears once, and inside sendSnapshot rather than in the generic send().
+    expect(src.split(guard).length - 1).toBe(1);
+    const inSnapshot = src.indexOf(guard) > src.indexOf("private sendSnapshot")
+      && src.indexOf(guard) < src.indexOf("private onConnect");
+    expect(inSnapshot).toBe(true);
+    // The generic send must stay unconditional apart from readyState.
+    const send = src.slice(src.indexOf("private send("), src.indexOf("private send(") + 200);
+    expect(send).not.toContain("bufferedAmount");
+  });
+
+  it("counts what it skipped rather than dropping silently", () => {
+    // A drop nobody can see is indistinguishable from a bug.
+    const g = mk();
+    expect(g.skippedSnapshots).toBe(0);
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "main.ts"), "utf8");
+    expect(src).toContain("skippedSnapshots");
+  });
+});
+
+describe("shutting down lets go of the sockets (RD-087)", () => {
+  it("closes every connection and the server, not just the tick timer", () => {
+    // Clearing the interval is not enough to let the process exit: a WebSocket never
+    // ends on its own, so `http.close()` waits for a callback that never comes and
+    // `node --watch` hangs on "Waiting for graceful termination" with the port held.
+    // That cost a kill -9 and a live room, twice in one session.
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "net.ts"), "utf8");
+    const stop = src.slice(src.indexOf("  stop(): void {"), src.indexOf("  stop(): void {") + 500);
+    expect(stop).toContain("clearInterval");
+    expect(stop).toContain("close(1001");
+    expect(stop).toContain("this.wss.close()");
+  });
+
+  it("has a backstop so shutdown cannot hang on one rude socket", () => {
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "main.ts"), "utf8");
+    expect(src).toContain("setTimeout(() => process.exit(0), 500).unref()");
+  });
+
+  it("survives being stopped twice, which a signal race can do", () => {
+    const g = mk();
+    g.start();
+    expect(() => { g.stop(); g.stop(); }).not.toThrow();
+  });
+});
+
+describe("the server measures each client's upstream gap (RD-095)", () => {
+  // A browser sends input at 30Hz for as long as it runs, so a gap in ARRIVALS measures
+  // the client's upstream path from the server's side — the one view nobody has had.
+  // Every probe so far ran on localhost inside WSL and saw a clean stream; the clients
+  // that stall reach the server through a Windows portproxy or a Tailscale relay, and
+  // neither can be probed from the machine hosting it.
+  it("starts at zero and is exposed for the health endpoint", () => {
+    const g = mk();
+    expect(g.worstInputGap).toBe(0);
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "main.ts"), "utf8");
+    expect(src).toContain("worstInputGapMs");
+  });
+
+  it("only measures while a round is actually running", () => {
+    // No input flows between rounds, because a client with no round to play is not
+    // sending one. Counting that quiet would report the round boundary all over again,
+    // which is exactly the mistake RD-090 had to undo.
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "net.ts"), "utf8");
+    const handler = src.slice(src.indexOf('case "input"'), src.indexOf('case "pong"'));
+    expect(handler).toContain('state === "ROUND_PLAY"');
+  });
+
+  it("needs a previous input before it can call anything a gap", () => {
+    // The first input after a quiet phase has nothing to measure against.
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "net.ts"), "utf8");
+    const handler = src.slice(src.indexOf('case "input"'), src.indexOf('case "pong"'));
+    expect(handler).toContain("conn.lastInputAt > 0");
   });
 });

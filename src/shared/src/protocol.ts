@@ -19,7 +19,12 @@ export type ClientMsg =
   | { t: "create"; name: string }
   | { t: "join"; code: string; name: string }
   | { t: "start" }
-  | { t: "input"; ax: number; ay: number; btn: boolean }
+  /**
+   * `seq` is what the server's `ack` refers to (input-prediction R2). It is the
+   * client's own counter, not a shared clock, so the server compares it only against
+   * the same client's previous value and never against another player's.
+   */
+  | { t: "input"; ax: number; ay: number; btn: boolean; seq: number }
   | { t: "pong"; id: number };
 
 /* Server to client. */
@@ -71,12 +76,27 @@ export type ServerMsg =
       /** How to draw the controls: the input scheme, and the button's word if it has one. */
       input: InputScheme;
       buttonLabel?: string;
+      /**
+       * How fast this round's jump leaves the ground, in m/s, or 0 where the round has
+       * no jump. A generic movement number, not a minigame fact: the client predicts
+       * the arc without ever learning which round it is in (R5, RD-009).
+       */
+      jumpSpeed: number;
     }
-  // No sequence number: WebSocket delivers in order and without gaps, so one would be
-  // a field nobody could act on — and this one was `Date.now() & 0xffff`, a wall-clock
-  // value that wrapped every 65 seconds and that the client never read (RD-066). I5:
-  // a snapshot carries only what the client must draw.
-  | { t: "snap"; players: SnapPlayer[]; extra: MinigameSnapshot }
+  // RD-066 removed a sequence number from here because it was `Date.now() & 0xffff` —
+  // a wall-clock value that wrapped every 65 seconds and that nobody read. `ack` is
+  // not that field: it is PER CONNECTION, and the client acts on it every frame to
+  // decide which inputs to replay (input-prediction R2). The lesson of RD-066 — never
+  // put a field on the wire that no one consumes — still holds.
+  | {
+      t: "snap";
+      players: SnapPlayer[];
+      extra: MinigameSnapshot;
+      /** The last `input.seq` this server applied FOR THE RECIPIENT (R2). */
+      ack: number;
+      /** The recipient's own speed multiplier, so a dash or slow predicts (R5). */
+      sm: number;
+    }
   | { t: "roundEnd"; scores: Record<number, number>; totals: Record<number, number> }
   | { t: "matchEnd"; totals: Record<number, number>; winner: number }
   | { t: "err"; code: ErrCode }
@@ -131,9 +151,15 @@ export function parseClientMsg(raw: unknown): ClientMsg | null {
       return { t: "join", code: normalizeCode(raw.code), name: sanitizeName(raw.name) };
     case "start":
       return { t: "start" };
-    case "input":
+    case "input": {
       if (!isNum(raw.ax) || !isNum(raw.ay)) return null;
-      return { t: "input", ax: raw.ax, ay: raw.ay, btn: raw.btn === true };
+      // Coerced, never rejected (I2). A client with no `seq`, a fractional one or a
+      // negative one must still be able to move: dropping the message would let a
+      // malformed field stall a round that waits on movement, which is exactly the
+      // failure the "clamp, never reject" rule exists to prevent.
+      const seq = isNum(raw.seq) && raw.seq >= 0 ? Math.floor(raw.seq) : 0;
+      return { t: "input", ax: raw.ax, ay: raw.ay, btn: raw.btn === true, seq };
+    }
     case "pong":
       if (!isNum(raw.id)) return null;
       return { t: "pong", id: raw.id };

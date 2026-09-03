@@ -377,8 +377,15 @@ describe("a spectator is not handed controls that do nothing (spectating R4)", (
   it("is what main.ts gates the controls on, not an unconditional show", () => {
     // The button was shown to a mid-round joiner with no verb behind it, so it drew
     // as a blank disc that still swallowed taps.
+    //
+    // Anchored on the GATE rather than on one formatting of it: the branch grew a body
+    // when the spectator chip landed (spectating R2), and a guard that breaks on
+    // reindentation gets deleted rather than heeded. What must stay true is that
+    // `controls.show` is reachable only under `amOnRoster`.
     const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "main.ts"), "utf8");
-    expect(src).toContain("if (amOnRoster(msg.roster, mySlot)) controls.show(msg.buttonLabel);");
-    expect(src).not.toMatch(/^\s*controls\.show\(msg\.buttonLabel\);/m);
+    expect(src).toContain("amOnRoster(msg.roster, mySlot)");
+    // Every `controls.show(msg.buttonLabel)` must be inside that branch, never at the
+    // statement level of the case.
+    expect(src).not.toMatch(/^\s{6}controls\.show\(msg\.buttonLabel\);/m);
   });
 });

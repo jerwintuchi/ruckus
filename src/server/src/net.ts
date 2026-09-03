@@ -21,6 +21,9 @@ import {
   type InputScheme,
   type ServerMsg,
   type SnapPlayer,
+  MAX_SNAPSHOT_BACKLOG_B,
+  packPrims,
+  quantPrim,
 } from "@ruckus/shared";
 import { FixedLoop } from "./loop.ts";
 import { Match } from "./match.ts";
@@ -31,16 +34,66 @@ interface Conn {
   ws: WebSocket;
   room: Room | null;
   slot: number;
+  /** When this client's last `input` arrived, for RD-095's gap measurement. */
+  lastInputAt: number;
 }
 
 export class GameServer {
   private readonly rooms = new Map<string, { room: Room; match: Match }>();
   private readonly conns = new Map<WebSocket, Conn>();
   private readonly rng = makeRng(Date.now() >>> 0);
+  /**
+   * Snapshots not sent because the socket had not drained (RD-086).
+   *
+   * Counted rather than silent: dropping frames is the right call for a full-state
+   * protocol, but a drop nobody can see is indistinguishable from a bug. Exposed on
+   * `/health` so a stalling client leaves a trace on the server too, not only on the
+   * phone that suffered it.
+   */
+  private snapshotsSkipped = 0;
+
+  /**
+   * The longest gap between two `input` messages from any one client (RD-095).
+   *
+   * A browser sends input at 30 Hz, unconditionally, for as long as it is running. So
+   * this measures the client's UPSTREAM path from the server's side — the one view
+   * nobody has had. Every probe so far ran on `localhost` inside WSL and saw a clean
+   * stream; the clients that stall reach the server through a Windows portproxy or a
+   * Tailscale relay, and neither path can be probed from the machine hosting it.
+   *
+   * If a client reports a two-second snapshot gap and this shows a two-second input gap
+   * at the same moment, the path stalled in BOTH directions and the fault is the
+   * transport. If this stays at ~33 ms while the client sees nothing arrive, the stall
+   * is downstream only, and that is a completely different bug.
+   *
+   * Ignores the first input after a quiet phase: no input flows between rounds because
+   * a client with no round to play is not sending one, and counting that would report
+   * the round boundary all over again (RD-090's mistake, in a new place).
+   */
+  private worstInputGapMs = 0;
+
+  get worstInputGap(): number {
+    return this.worstInputGapMs;
+  }
+
+  get skippedSnapshots(): number {
+    return this.snapshotsSkipped;
+  }
   /** code -> the time it was retired, so it is not reissued straight away (P1). */
   private readonly retired = new Map<string, number>();
   private readonly loop = new FixedLoop();
-  private last = Date.now();
+  /**
+   * MONOTONIC, never the wall clock (RD-098).
+   *
+   * `Date.now()` can jump: a VM guest's clock is resynchronised with its host, and this
+   * one moved ~5.14 s roughly every 65 s. Fed into a fixed-timestep accumulator, a
+   * backward jump stops the simulation until real time repays it — a multi-second
+   * freeze for every client simultaneously, invisible to any network probe because no
+   * packet was ever lost.
+   *
+   * `performance.now()` cannot jump. It is the only clock a game loop may use.
+   */
+  private last = performance.now();
   private timer: NodeJS.Timeout | null = null;
 
   private readonly wss: WebSocketServer;
@@ -53,14 +106,29 @@ export class GameServer {
   }
 
   start(): void {
-    this.last = Date.now();
+    this.last = performance.now();
     // A plain interval, not a busy loop: the accumulator absorbs the jitter (P8).
     this.timer = setInterval(() => this.pump(), TICK_MS);
   }
 
+  /**
+   * Stop ticking, and let go of every socket (RD-087).
+   *
+   * Clearing the timer is not enough to let the process exit. A WebSocket is a
+   * connection that never ends on its own, so `http.close()` waits for a callback that
+   * will never come and `node --watch` hangs on "Waiting for graceful termination"
+   * with the port still held — twice this session, each time needing a `kill -9` and
+   * costing a live room. Shutting down means telling the clients, not just stopping
+   * the clock.
+   */
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    for (const conn of this.conns.values()) {
+      try { conn.ws.close(1001, "server going away"); } catch { /* already gone */ }
+    }
+    this.conns.clear();
+    try { this.wss.close(); } catch { /* already closed */ }
   }
 
   /**
@@ -128,7 +196,8 @@ export class GameServer {
         this.broadcastRoom(room);
       },
       onRoundStart: (
-        game: { id: string; input: InputScheme; buttonLabel?: string; arena: (s: never) => unknown },
+        game: { id: string; input: InputScheme; buttonLabel?: string; jumpSpeed?: number;
+          arena: (s: never) => unknown },
         state: unknown,
       ) => {
         this.broadcast(room, {
@@ -142,6 +211,7 @@ export class GameServer {
           // absent key from one explicitly set to undefined, and a `stick` minigame has
           // no label at all.
           ...(game.buttonLabel === undefined ? {} : { buttonLabel: game.buttonLabel }),
+          jumpSpeed: game.jumpSpeed ?? 0,
         });
       },
       onSnapshot: (extra: unknown) => this.sendSnapshot(room, extra),
@@ -163,7 +233,7 @@ export class GameServer {
   }
 
   private pump(): void {
-    const now = Date.now();
+    const now = performance.now();
     const steps = this.loop.advance(now - this.last);
     this.last = now;
     for (let i = 0; i < Math.min(steps, MAX_CATCHUP_STEPS); i++) {
@@ -186,10 +256,27 @@ export class GameServer {
       roster: match.roster.map((r) => r.slot),
       input: live.game.input,
       ...(live.game.buttonLabel === undefined ? {} : { buttonLabel: live.game.buttonLabel }),
+      jumpSpeed: live.game.jumpSpeed ?? 0,
     });
   }
 
   private sendSnapshot(room: Room, extra: unknown): void {
+    // Round the per-tick prims once, here, before anyone serialises them (I5).
+    //
+    // In the shell rather than in each minigame's `snapshot()`, for the reason the
+    // round timer and `resolvePlayerOverlaps` live here: four minigames each
+    // remembering is four chances to forget. Measured: it takes `scramble` from a mean
+    // of 1123 B and a max of 1647 B — 30% of its snapshots over the 1240 B TCP payload
+    // of a 1280-MTU path, and so split across two packets — down inside one packet.
+    const e = extra as { prims?: unknown[] } | null | undefined;
+    if (e && Array.isArray(e.prims)) {
+      // Quantize, then group prims that differ only in position (RD-082, RD-085). Both
+      // here rather than in each minigame: a minigame authors plain prims and never
+      // learns the wire has a compressed shape, exactly as it never learns about
+      // quantization or the round timer.
+      e.prims = packPrims(e.prims.map((p) => quantPrim(p)));
+    }
+
     // The round's own roster, not everyone connected. A mid-round joiner is not in the
     // simulation, so putting them in the snapshot drew a body the round had never dealt
     // in — standing at the arena's centre, unable to move (RD-046).
@@ -203,11 +290,33 @@ export class GameServer {
       a: quantAngle(p.facing),
       alive: p.alive,
     }));
-    this.broadcast(room, { t: "snap", players, extra: extra as never });
+    // Sent per connection, not broadcast: `ack` and `sm` describe the RECIPIENT, so a
+    // single shared message could not carry them (input-prediction R2). `broadcast`
+    // already loops over sockets and serialises per socket, so the only added cost is
+    // the two numbers themselves.
+    for (const conn of this.conns.values()) {
+      if (conn.room !== room) continue;
+      // Skip a socket that is not draining (RD-086). A snapshot is full state, so one
+      // still queued when the next tick runs is worth nothing — sending it only delays
+      // the current one behind it. Measured as `skipped` so this cannot become a
+      // silent drop nobody can see.
+      if (conn.ws.bufferedAmount > MAX_SNAPSHOT_BACKLOG_B) {
+        this.snapshotsSkipped++;
+        continue;
+      }
+      const mine = room.players.get(conn.slot)?.runtime;
+      this.send(conn.ws, {
+        t: "snap",
+        players,
+        extra: extra as never,
+        ack: mine?.lastAppliedSeq ?? 0,
+        sm: mine?.speedMul ?? 1,
+      });
+    }
   }
 
   private onConnect(ws: WebSocket): void {
-    const conn: Conn = { ws, room: null, slot: -1 };
+    const conn: Conn = { ws, room: null, slot: -1, lastInputAt: 0 };
     this.conns.set(ws, conn);
 
     ws.on("message", (data) => {
@@ -283,10 +392,18 @@ export class GameServer {
 
       case "input": {
         if (!conn.room) return; // silently ignored: input before joining is not an error
+        // Only while a round is actually running: between rounds there is no input to
+        // miss, and measuring the deliberate quiet would repeat RD-090's error.
+        const now = Date.now();
+        if (conn.room.state === "ROUND_PLAY" && conn.lastInputAt > 0) {
+          const gap = now - conn.lastInputAt;
+          if (gap > this.worstInputGapMs) this.worstInputGapMs = gap;
+        }
+        conn.lastInputAt = conn.room.state === "ROUND_PLAY" ? now : 0;
         const p = conn.room.players.get(conn.slot);
         // R10: overwriting rather than queueing is the rate limit. A client sending a
         // thousand inputs a second simply has the last one read, at no extra cost.
-        if (p) p.input = { ax: msg.ax, ay: msg.ay, btn: msg.btn };
+        if (p) p.input = { ax: msg.ax, ay: msg.ay, btn: msg.btn, seq: msg.seq };
         return;
       }
 

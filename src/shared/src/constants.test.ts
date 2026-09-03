@@ -53,8 +53,22 @@ describe("nothing in the sim is measured in ticks (P3)", () => {
 describe("input is sent at the rate the server can read (T3, R3)", () => {
   it("derives the send interval from TICK_MS rather than a literal", () => {
     // These drifted apart once already: a 50ms send against a 33ms tick.
+    //
+    // Anchored on the cadence itself rather than on the connection check, which moved:
+    // the predictor steps on this same cadence whether or not the socket is up
+    // (input-prediction R1), so `net.connected` now gates only the send.
     const main = readFileSync(join(ROOT, "client", "src", "main.ts"), "utf8");
-    const send = main.slice(main.indexOf("net.connected && now - lastSent"));
-    expect(send.slice(0, 80)).toContain("TICK_MS");
+    // Anchored on the accumulator that now schedules the step. `lastSent = now` was
+    // replaced because it reset the schedule to whenever a frame landed rather than to
+    // the tick grid, running the simulation 27% slow (RD-092). What must stay true is
+    // unchanged: the cadence comes from TICK_MS, never from a literal.
+    const send = main.slice(main.indexOf("acc += frameDt"));
+    expect(send.slice(0, 200)).toContain("TICK_MS");
+    // Comments stripped before asserting the old clock is gone: the block comment that
+    // explains WHY it went names it, and a guard that trips over its own documentation
+    // gets weakened rather than heeded — the same lesson as kit_check and the RD-009
+    // minigame-name guard.
+    const code = main.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(code).not.toContain("lastSent");
   });
 });

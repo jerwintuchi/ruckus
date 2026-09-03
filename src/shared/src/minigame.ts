@@ -55,6 +55,18 @@ export interface PlayerRuntime {
   alive: boolean;
   connected: boolean;
   facing: number;
+  /**
+   * The last `input.seq` the simulation has consumed for this player, echoed back as
+   * `snap.ack` so the client knows which of its inputs to stop replaying
+   * (input-prediction R2). Shell-owned: no minigame reads or writes it.
+   */
+  lastAppliedSeq: number;
+  /**
+   * The speed multiplier in force for this player, echoed as `snap.sm` so a dash or a
+   * slow is predicted without the client knowing its cause (R5). A minigame that
+   * scales movement sets this; the default 1 means "unmodified".
+   */
+  speedMul: number;
 }
 
 /**
@@ -133,6 +145,15 @@ export interface Minigame<S = unknown> {
    * the shell just renders the string (touch-controls R3).
    */
   buttonLabel?: string;
+  /**
+   * How fast this round's jump leaves the ground, m/s. Omit where there is no jump.
+   *
+   * Declared for the same reason as `buttonLabel`: the client must predict the arc
+   * (input-prediction R5) and the alternative is the shell knowing which minigame has
+   * a jump, which RD-009 forbids. It is a movement number, not a rule — the round
+   * still decides entirely on its own when a jump is allowed.
+   */
+  jumpSpeed?: number;
   /** Hard stop. The shell enforces it; a round always ends (R5, I8). */
   maxDurationMs: number;
 

@@ -16,6 +16,16 @@
   the unassigned slot (-1, before `welcome`) never counts as playing; `main` is
   asserted to gate `controls.show` on it rather than calling it unconditionally
 
+- [x] T3a [R2] — A mid-round joiner is told they are watching, and from when
+  Found by playing it: the joiner DOES get `roundStart` (the server sends the round in
+  progress so there is something to watch), which sets `roundSeen` and takes away the
+  very waiting card that explained the wait. The arena then plays on with no controls
+  and no explanation. A chip in the HUD rather than the overlay, because R3 wants the
+  arena visible while you wait.
+  Test: `ui/spectate.dom.test.ts` — mounted, not asserted as a string: it names the
+  round you are in from, never promises one past the last, survives the per-frame HUD
+  re-render, clears so it cannot outlive its round, and is never a blocking overlay
+
 - [ ] T3 [R3] — Watched, on a phone
   Test: manual. Two thirds of a Hot Potato round is spent eliminated. Is it worth
   watching, and can you tell who is still in?

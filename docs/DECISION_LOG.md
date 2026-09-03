@@ -2528,3 +2528,1400 @@ opened a code I gave them and found it dead — once because my own edit to a se
 triggered `node --watch` and dropped every room (I7), once because the bots had finished
 and the room had retired. Both cost them a trip to their phone for something a
 fifteen-second screenshot would have caught.
+
+---
+
+## RD-074 — Prediction stops at the integrator, not at the rules
+
+*2026-09-01. Reverses RD-004's "no client-side prediction in v1", and supersedes the
+"Not this spec" note in `specs/responsiveness/requirements.md`. Netcode-invariant I6
+is rewritten in the same commit.*
+
+The first real phone playtest answered `responsiveness` T5. The verdict was "press
+feels much better now, but I want as little latency as possible" — and tuning had run
+out of road. Of the ~112 ms left before RTT, **70 ms is the interpolation buffer**, and
+no rate change removes it: raising the tick rate to 60 Hz would have bought ~48 ms at
+double the bandwidth and double the server CPU, and still left the buffer in the path.
+
+The request was for "the industry standard algorithm", explicitly without paying for it
+in bandwidth. That algorithm is prediction plus reconciliation, and it is cheap on the
+wire precisely because it moves *work* to the client rather than *packets* to the
+network: **+1.4%**, measured — 19 B per snapshot and 10 B per input against the 41 KiB/s
+worst case `responsiveness` T4 already measured.
+
+### Why RD-004's reasoning does not forbid this
+
+RD-004 rejected prediction because it "doubles the rules surface by putting a copy of
+every minigame in the client". **That reasoning is correct and is not being reversed.**
+It simply never applied to *position*:
+
+- `stepMovement` and `resolveCircleAabb` already live in `src/shared/src/sim/`, and I4
+  names that exact category — "vector math, collision resolution, RNG" — as belonging
+  there. The client runs **the same function the server runs**, not a second copy.
+- `ArenaDescriptor.solids` is already typed `Solid[]` and already reaches the client at
+  `roundStart`. The collision geometry needed no new channel.
+
+So the client gained a copy of the **integrator**, which was always shared, and gained
+no copy of any **rule**. The distinction is now written into I6 as *position versus
+outcome*: `alive`, scores, pickups, passes, tiles and shoves are never predicted.
+
+### What this cost that was not obvious
+
+**The server sends a position but not a velocity**, and velocity is state. The first
+implementation restored position on reconciliation and kept the current velocity, which
+integrates the same inputs twice and bends the predicted path away from the server's by
+a few millimetres per tick. It looked plausible and was wrong; the P1 property test —
+*replay must land where the server independently lands* — caught it immediately. The
+predictor now keeps two bodies: an acknowledged `base` carrying the velocity we
+predicted at that input, and the drawn body that replays onto a copy of it.
+
+Two more consequences worth naming:
+
+- **`ack` had to be per connection**, so `snap` is no longer one broadcast message. It
+  was already serialised per socket, so this cost structure nothing. RD-066 removed a
+  sequence number from `snap` for being a field nobody read; this one is read every
+  frame, which is the distinction that matters.
+- **Minigame movement modifiers had to become generic numbers.** A dash is predicted
+  because the shell echoes the player's own `speedMul`, and a jump because the round
+  declares `jumpSpeed` — neither names a minigame, so RD-009 still holds. `speedMul` is
+  reset by the shell before each tick so a round that stops scaling cannot leave a
+  stale multiplier for the next one to inherit.
+
+`falling-floor`'s holes are deliberately not predicted: the client passes a flat ground
+plane, so a local capsule keeps standing until the server says it fell. Falling is an
+outcome, and shipping tile state into the predictor is exactly the minigame knowledge
+RD-009 exists to keep out.
+
+**Still owed:** T8, on a phone. The number improving is not the claim — the risk this
+spec actually carries is that a mispredicted shove in `scramble` now reads as
+rubber-banding, and only a person holding the device can say whether it does.
+
+---
+
+## RD-075 — Three bugs behind a green suite, and what they had in common
+
+*2026-09-01, immediately after RD-074. Found by driving the real client and reasoning
+about rounds the tests never entered. 882 tests were passing throughout.*
+
+Prediction shipped with 19 tests asserting seven correctness properties, and all seven
+held. Three defects survived anyway, and none of them was a logic error — each was a
+case the tests **never entered**.
+
+**1. A falling player was drawn standing on nothing.** `stepMovement` clamps a body to
+the ground plane it is handed, and the client hands it a flat one. With a single
+unacknowledged input — the normal steady state, not an edge case — a player dropping
+through `falling-floor` was replayed back to `y = 0` every frame while everyone else
+watched them fall. Every existing test drove a player on flat ground, where the bug is
+invisible by construction. Height is now predicted **only where the round has a jump**,
+which is exactly the set of rounds whose floor is solid everywhere. The design document
+had said all along that falling is not predicted; the code predicted it *to zero*, which
+is not the same thing as not predicting it.
+
+**2. The body moved instantly and its orientation did not.** Position came from the
+predictor, `facing` and `speed` still came from the 70 ms interpolation buffer. So a
+change of direction turned the character late and it slid through the first frames of
+every movement. Before prediction these were at least *wrong together*; prediction made
+them disagree. Both are pure movement — every round derives facing as `atan2` of the
+player's own stick, identically — so both are predicted now.
+
+**3. Elimination snapped, which is the one correction R3 forbids.** Turning prediction
+off at death dropped the rendered position straight onto a snapshot 70 ms behind it — up
+to ~38 cm at full speed, unblended, at the instant the elimination animation plays. It
+now **freezes** instead: no further input is banked, the pending queue drains, and the
+existing correction blends the residue away. The machinery to do this properly was
+already there; the first implementation just reached past it.
+
+### The pattern
+
+All three live at a **boundary the properties did not cross**: a round type (falling),
+a channel (orientation rather than position), and a state transition (alive to out). A
+property test proves a thing over the inputs you give it, and every one of these was
+outside that set. The suite was not weak — it was *narrow*, and green is not evidence
+about a case that was never run.
+
+The cheapest guard against the next one is the same as this time: name the rounds and
+the transitions the feature touches, then check each explicitly. All three now have
+regression tests, and the suite is 895.
+
+**Still owed, and unchanged by any of this:** T8, on a phone. None of these three were
+found by feeling latency — they were found by asking which situations the tests had
+skipped. Whether a mispredicted shove reads as rubber-banding remains a question only a
+person holding the device can answer.
+
+---
+
+## RD-076 — A menu, and quitting as the disconnect path
+
+*2026-09-01. `specs/in-game-menu/`, from the first phone playtest: "a menu or settings
+in-game would be nice for volume and option to quit the room/session and also in the
+main menu."*
+
+Three choices worth recording.
+
+**Volume is four steps, not a slider.** A drag is the one control a thumb has to be
+precise with, and the Kit has no draggable widget outside the stick itself — adding one
+would mean new press/drag handling and its own reduced-motion story, for a setting
+nobody adjusts twice a session. Four segments are the same slab construction the rest
+of the interface already uses. The **index** is persisted, never the gain: a stored
+`0.7` would quietly become a different level the day the curve is retuned, and what the
+player chose was "mid".
+
+Volume and mute stay **independent**. Muting preserves the chosen level so unmuting
+returns to it, and step zero is silence by setting the gain to zero rather than by
+secretly flipping `muted` — one concept per control. A corrupt or out-of-range stored
+value falls back to FULL and never to silence: a game that starts mute because
+`localStorage` returned rubbish is indistinguishable, to the person holding it, from a
+game that is broken.
+
+The master gain needed no change to any voice. `Ctx` is an interface with a
+`destination`, so `Sound` hands the voices a proxy pointing at the master node. Written
+out rather than spread, because the methods live on `AudioContext.prototype` and
+`currentTime` is a live getter — a spread would have copied no methods and frozen the
+clock at the moment of unlocking, so every envelope after the first would have been
+scheduled in the past and never sounded.
+
+**Quitting IS the disconnect path.** No new message, no new server state, no server file
+touched. `net.close()` and the server's existing handler does the rest: inert capsule,
+scored out at round end, room retired when the last player leaves (I8, RD-024). Two code
+paths for one outcome is how the second one rots — and only the disconnect path is
+exercised by every dropped phone in every real game. A test asserts the protocol gains
+no `leave`/`quit` variant, so this cannot drift.
+
+The only subtlety: `ws.onclose` reports a transport failure, and a quit the player asked
+for is not one. It is detached before closing, or choosing "leave the room" would have
+shown them a connection error on the way out.
+
+**The menu does not pause.** The server never stops (I1), and a menu that looked like a
+pause it could not deliver would be a lie. The round runs behind it and a player who
+opens it mid-round will probably lose that round. That is the honest behaviour.
+
+### What the screenshot caught, again
+
+The opener was placed first in `#hud`, which centres its children — so a requirement
+that named the **top-left corner** produced a button in the middle of the screen. Two
+tests passed over it, because both asserted it was *in the HUD*, which it was. Pinning
+it absolute then put it under the gallery's own walker, which had owned the top-left
+since it was written; the walker moved to the top-right. A harness that photographs its
+own chrome sitting on a control is worse than no harness.
+
+It also drove a real design fix: the opener is now its own fixed element rather than
+part of the per-frame HUD, because R1 wants it in the lobby and on the round-over card
+too — and a button rebuilt every frame needs its listener rebound every frame, which is
+the RD-042 shape waiting to happen.
+
+---
+
+## RD-077 — Simulate at 30 Hz, draw between
+
+*2026-09-01, from the phone: "the bots seem fine but the player looks like it's
+stuttering when walking — this has something to do with the recent latency update."
+Correct on both counts, and a regression I introduced in RD-074.*
+
+Prediction stepped the local body once per `TICK_MS`, and the renderer drew whatever
+that body's position happened to be. So the character **moved at 30 Hz on a screen
+refreshing at 60 or 120** — hold, hold, jump. Measured before the fix: the drawn
+position changed on **24 of 61 frames** at 60 fps and **28 of 120** at 120 fps. Static
+on three frames out of four on a high-refresh phone.
+
+The bots were smooth throughout, which is the detail that makes the report so precise:
+they were never predicted. They still come from `SnapshotBuffer.sample()`, which
+interpolates continuously between snapshots. RD-074 replaced a smooth 30 Hz stream with
+a stair-stepped one and only for the person playing.
+
+**The simulation cannot simply run faster.** Replay lands where the server lands only
+if it uses the server's timestep; stepping prediction at frame rate would make every
+reconciliation disagree with the server by construction. The fixed step is not
+incidental, it is the thing that makes prediction correct.
+
+So the two are separated: **the simulation stays on `TICK_DT`, and the render
+interpolates between the last two simulated states** using how far the frame falls
+between ticks. Textbook fixed-timestep-plus-render-interpolation — and this is exactly
+why it is a *pairing* rather than two independent techniques. After: 57 of 61 frames at
+60 fps, 115 of 120 at 120 fps.
+
+**Interpolating, not extrapolating.** Guessing past the newest step would buy back the
+half-tick this costs, but it would slide the character through a wall it has already
+been stopped by, and keep it moving for a third of a second after the stick is
+released. Both artefacts are worse than the one being fixed, and both appear at exactly
+the moments a player is paying most attention. The cost is half a tick of render lag —
+about 17 ms, against the ~112 ms this spec started from.
+
+One thing that had to be handled deliberately: reconciliation rebuilds the drawn body
+from the acknowledged base, and if it flattened the previous position onto the new one
+the character would freeze for a frame on every snapshot — the same stutter at 30 Hz
+instead of a smooth line. The state one step short of the end is kept through replay.
+
+### Why no test caught it
+
+Every property in `predict.test.ts` asked *where is the character*, and every one of
+them was right. None asked *how often does the drawn position change*, because
+smoothness is not a property of a position — it is a property of a **sequence** of
+positions sampled at a rate the tests never modelled. The suite ran the predictor at
+one sample per step, which is precisely the case where the bug is invisible.
+
+That is the third time in two days that a defect has sat in a gap the properties did
+not cross (RD-075 names the other three). The pattern is now explicit enough to state:
+**a property test proves what you sampled, at the rate you sampled it.**
+
+---
+
+## RD-078 — The freeze was the round boundary, and prediction walked straight through it
+
+*2026-09-01, from the phone: "the bots are frozen/stuck then I can freely move smoothly
+then the position of my character resets to where I'm from... and I notice that freezing
+happens regularly like every minute or minute and a half."*
+
+Measured rather than guessed. A probe client joined a live room, timestamped every
+`snap`, and reported gaps over three minutes:
+
+```
+ 54.5s roundEnd → 65.6s intro → 69.6s roundStart → SNAP GAP 15160ms
+102.0s roundEnd → 106.0s intro → 110.0s roundStart → SNAP GAP  8073ms
+134.1s roundEnd → 138.1s intro → 142.1s roundStart → SNAP GAP  8047ms
+```
+
+**Snapshots stop for exactly eight seconds at every round boundary** — `RESULT_MS` +
+`INTRO_MS`, by design, because there is no simulation to snapshot between rounds. Mid
+round the stream is clean: not one gap over 200 ms in three minutes. The reported period
+is the round cycle, 50-90 s of play plus that 8 s gap.
+
+Two defects follow, and the second is the one that hurt.
+
+**`predictor.step()` sat outside the `playing` guard.** Every other per-round activity
+stops at `roundEnd`; prediction did not. On a held stick it walked the body for the full
+eight seconds, and the next round's first snapshot took all of it back at once — past
+`SNAP_DISTANCE`, so applied whole, as a teleport. That is the "position resets to where
+I'm from" exactly. It now freezes at `roundEnd` and `matchEnd`: the round is over, there
+is nothing left to steer.
+
+**Prediction never obeyed its own starvation rule.** I6 has always said the client
+**holds** the newest frame when the buffer starves and never extrapolates — and that is
+why the bots froze rather than sliding away. Prediction did the opposite: it ran on
+indefinitely. The rule was written for the interpolated players and is just as true for
+the predicted one, because the server keeps only the **latest** input and overwrites
+rather than queueing (R10). It never walks the path taken during a stall, so every metre
+predicted through one is a metre that must be taken back. `PREDICT_STARVE_MS` (300 ms,
+nine snapshots — well clear of ordinary jitter, which the 70 ms buffer already absorbs)
+now makes prediction hold with everyone else. Input is still *sent* while holding; what
+is withheld is the local guess about where it leads.
+
+Together these mean a stall of any cause — this boundary, a dropped phone, a bad
+network — now stops the local capsule instead of running it somewhere it will have to be
+dragged back from.
+
+### What is not yet explained
+
+`playing` is false for the whole boundary gap, so the arena should not be updating and
+the player should not *see* themselves walk. The frozen bots and the position reset are
+fully accounted for; **being able to move during the freeze is not**, and the difference
+matters because it would mean a path where `playing` is true without snapshots. Both
+fixes above are correct regardless, and both were verified by measurement rather than by
+reasoning about frames. If the walking survives them, that is a third defect and it is
+somewhere else.
+
+### The pattern, for the fourth time
+
+RD-075 named it and RD-077 named it again: each of these sat in a gap the properties did
+not cross. This one is the sharpest yet — every prediction test drove a *running round*.
+None drove the eight seconds between two of them, which is roughly a seventh of the time
+anyone actually spends in a match.
+
+---
+
+## RD-079 — Bound the divergence, not the clock; and let the phone say which stall it is
+
+*2026-09-01, from the phone: "the freezing every now and then still occurs but this time
+I'm included in the freezing, not just the bots. Some kind of laggy experience."*
+
+The player freezing is RD-078's hold doing exactly what it was built to do — so the
+report is about the hold's *policy*, and the policy was wrong twice over.
+
+**My measurement was wrong.** The probe in RD-078 ran on `localhost`. It measured what
+the server emitted, not what reached a phone over Tailscale and wifi. "Clean mid-round"
+was a true statement about the server and an empty one about the network, and I reported
+it as though it settled the question. It did not.
+
+**The threshold was the wrong quantity.** A time-based hold fires while standing still,
+where there is no divergence to bound and so nothing to fix — an ordinary hiccup froze a
+stationary player for no reason at all. Worse, it cannot be tuned out of that: with
+`SNAP_DISTANCE / MAX_SPEED` at 364 ms, any threshold generous enough to ride out mobile
+jitter is already long enough to guarantee the teleport the hold exists to prevent.
+
+The hold exists to keep the correction inside `SNAP_DISTANCE`, so the thing to bound is
+the **divergence**. `PREDICT_BUDGET_M` is 80% of the snap distance. A stall now costs
+nothing until it actually moves you, can never cost more than the blend can absorb, and
+scales correctly with speed on its own — a dash diverges twice as fast and so is held
+twice as soon, which is exactly right and needed no special case.
+
+For a player at a dead run the budget is spent in about 290 ms, so this is *not* a
+smoothness win for someone sprinting through a stall. It cannot be. If the server is
+silent for N ms and you keep moving, the correction on its return is speed × N; the only
+choices are to freeze, to rubber-band, or to teleport. **The freeze is a symptom of the
+stall, and the cure is the stall.**
+
+### Which is why the device now reports
+
+`?debug=1` gains two lines, and they are the point of this entry:
+
+```
+net    p50 …  p95 …  worst …  stalls>300 …
+frame  p50 …  p95 …  worst …  drops>50 …
+```
+
+"It freezes every now and then" has two causes that look identical from the outside and
+need opposite fixes: the **snapshot stream** stalling, or the **frame loop** stalling on
+the phone. One of those two lines moves and the other does not. Nothing already in the
+toolbox could tell them apart — `visuals.sh` and `shoot.sh` answer *does it look right*,
+the suite answers *where is the character*, and neither has ever answered *when did the
+packet arrive*. `bench.html`'s p95 is still owed on hardware (RD-028), and if it is the
+frame line that moves, that is the debt coming due.
+
+The lesson is the one RD-053 already wrote down and I did not apply: some questions can
+only be answered from the device, and the cheap move is to make the device answer rather
+than to reason harder on a desktop.
+
+---
+
+## RD-080 — The instrument was measuring itself
+
+*2026-09-01. Two readouts from the phone, and the second one exposed a bug in the
+readout rather than in the game.*
+
+RD-079 added `?debug=1` lines to separate "the snapshot stream stalled" from "this phone
+hitched". The device reported, mid-round:
+
+```
+net    p50 31ms    p95 38ms    worst 16454ms  stalls>300 0
+frame  p50 17ms    p95 17ms    worst 1984ms   drops>50 0
+```
+
+and at a round boundary:
+
+```
+net    p50 31ms    p95 42ms    worst 16454ms  stalls>300 1
+frame  p50 1850ms  p95 6351ms  worst 1984ms   drops>50 4
+```
+
+**`p95` above `worst` is impossible for real data**, and that is the tell. Two defects
+in the instrument:
+
+**`lastFrameAt` was assigned inside main.ts's `if (playing)` block.** Across the eight
+seconds between rounds `playing` is false, so the frame clock stopped advancing and
+every frame reported `now` minus the last *in-round* frame — a fabricated gap climbing
+from 0 to 8000 ms. The render loop was running at a steady 60 the whole time. It also
+fed the correction decay a dt of seconds on the first frame of each new round.
+
+**`worst` was capped by `dt < 2000`**, a guard meant to ignore a tab wake. It silently
+truncated the maximum, which is what let `worst` sit below `p95` instead of the
+inconsistency being loud. A cap on the very number that exists to surface an outlier.
+
+### What the honest half of the data says
+
+The `net` line was never affected, and it is unambiguous: **p50 31 ms, p95 38-42 ms**.
+That is a healthy 30 Hz stream with no mid-round stalls — `stalls>300` is 0 during play
+and 1 at a boundary, and the 16454 ms `worst` is the by-design match-boundary silence.
+Mid-round `frame` p50 17 ms is a steady 59 fps.
+
+So on this device: the network is fine, the render loop is fine, and the only real gap
+is `RESULT_MS + INTRO_MS`. Which means the freezing that started this thread is the
+round boundary being *felt* — RD-078 stopped the player walking through it, and stopping
+is what a stall honestly looks like.
+
+Whether a genuine hitch also exists at `roundStart`, where the client builds a new
+arena, is **not yet known**: the mid-round `worst 1984ms` was recorded by the same
+broken clock and truncated by the same cap, so it is not evidence either way. That needs
+one more reading.
+
+### The lesson
+
+An instrument gets the same scrutiny as the thing it measures, and it earns less trust,
+not more, for being new. This one was written to answer a question the existing tools
+could not — and then answered it wrongly for a full round-trip to the device, because
+nobody sanity-checked that its own numbers were internally consistent. `p95 <= worst` is
+an invariant of the summary, and it was there to be checked from the first reading.
+
+---
+
+## RD-081 — A stall is a state the game is in, not an absence of one
+
+*2026-09-01. The third reading from the phone, with the instrument finally honest.*
+
+```
+net    p50 31ms  p95 41ms  worst 2700ms  stalls>300 1
+frame  p50 17ms  p95 17ms  worst 59ms    drops>50 0
+```
+
+**The client is exonerated.** `frame worst 59ms` across round transitions — a single
+dropped frame. There is no hitch when a new arena is built, which was the open question
+RD-080 left. That is closed, and `bench.html`'s p95 is no longer a suspect for this.
+
+**The freezing is a real gap in the snapshot stream**, and not the round boundary: that
+is eight seconds by design and this was 2700 ms, mid-stream. The device was on **LTE**
+for this reading, which is the likeliest explanation — a cellular radio's DRX cycles and
+handovers produce exactly this shape, a clean p50/p95 with occasional multi-second
+blackouts.
+
+Nothing in the client can make a 2.7 s blackout pleasant. When the stream stops, the
+interpolation buffer holds (I6), prediction holds with it (RD-079), and the correction
+on return stays inside the blend. The game degrades correctly and there is no policy
+that beats it: freeze, rubber-band, or teleport are the only three options, and freezing
+is the honest one.
+
+What the client *can* do is **say so**. A game that freezes and explains nothing reads as
+broken; a game that says `reconnecting` reads as a network problem, which is the truth
+and is something the player can act on — move, switch to WiFi, wait. This is the exact
+argument `specs/spectating/` already makes about watching, applied to a second state that
+had been built as nothing happening.
+
+`STALL_NOTICE_MS` is 500 ms — twelve times the measured p95, so ordinary jitter never
+trips it and a genuine blackout always does. It is purely a label: prediction and
+interpolation each hold on their own and neither consults it, so a bug here can make the
+interface wrong but can never make the simulation wrong.
+
+### Still open
+
+Whether these stalls are the cellular link or something between the phone and the WSL
+host is not yet established. A probe from the server host, running while the phone plays,
+would settle it — if the host sees a clean stream while the phone sees 2.7 s gaps, the
+link is the answer. Two attempts at that measurement were killed by my own edits (see
+below), which is its own lesson.
+
+### The operational lesson, learned three times
+
+`node --watch` includes `@ruckus/shared` in its graph, so **any edit to a shared or
+server file restarts the server and drops every live room** (I7) — and `playtest.sh`
+then tears the whole stack down on two missed health checks. This killed a five-minute
+probe at the four-minute mark and handed the user two dead room codes across this
+session. Client-only edits are safe; vite hot-reloads them. Finish shared edits *before*
+starting a measurement or handing over a code.
+
+---
+
+## RD-082 — It is the wifi, and `scramble` was making it worse
+
+*2026-09-01. The WiFi reading came back and killed the cellular theory: p50 31 ms, p95
+35 ms, worst 2337 ms. The same shape as LTE, on a different physical link.*
+
+Two links, one signature, so the cause is common to both. And the signature itself is
+diagnostic: an excellent p50/p95 with rare multi-second outliers is not congestion —
+congestion raises p95 too. It is **TCP head-of-line blocking**. A WebSocket rides on
+TCP, so one lost packet stalls everything behind it until retransmission, and RTO
+backoff lands squarely in the 1-3 s range.
+
+### Where it is not
+
+Two probes ran side by side for five minutes, one on `localhost` and one on the
+Tailscale address, so the second crossed `tailscaled` and the WSL virtual NIC:
+
+```
+localhost            p50 34ms  p95 35ms  p99 36ms  max 15157ms
+tailscale interface  p50 34ms  p95 35ms  p99 36ms  max 15157ms
+```
+
+Identical, and the only large gap is the by-design round boundary. The server, the
+runtime, `tailscaled` and the WSL NIC are all exonerated. What is left is the segment
+only the phone crosses.
+
+**RD-078's probe was localhost-only, and I reported "the stream is clean" as though it
+settled the question.** It could only ever have exonerated the server. Running the same
+probe over a second path was the cheap move and it took three more round trips to the
+device before I made it.
+
+### What was ours to fix
+
+`tailscale0` has an **MTU of 1280**, so about 1240 bytes of TCP payload. Measured
+snapshot sizes over a full match:
+
+```
+game            snaps   mean   max   over-MTU
+falling-floor    1132    397   670   0/1132
+sweepers          598    707   895   0/598
+hot-potato       1054    649   684   0/1054
+scramble         1349   1123  1647   402/1349
+```
+
+**`scramble` put 30% of its snapshots into two TCP packets**, doubling the exposure to a
+loss that stalls the stream — and the reported freeze happened during scramble. Every
+other minigame already fitted in one.
+
+The cause was that the per-tick `prims` channel shipped raw doubles.
+`-4.123456789012345` is eighteen bytes; `-4.12` is five, for a difference invisible at
+any distance the fixed camera allows. **I5 already says snapshot numbers are quantized
+before they go on the wire** — `SnapPlayer` obeyed it and `prims` never had.
+
+Rounding happens in the shell, once, for the same reason the round timer and
+`resolvePlayerOverlaps` live there: four minigames each remembering is four chances to
+forget, and minigame five inherits the omission rather than the rule. Measured at 34%
+off the prim payload, which puts scramble inside one packet.
+
+**This is a mitigation, not a cure.** It removes the amplifier; it cannot stop a lossy
+link losing packets, and nothing at this layer can — only an unreliable transport
+(WebRTC DataChannel) escapes head-of-line blocking, and that is a transport rewrite
+with a signalling dependency, against this project's whole shape. The honest position
+is that a rare multi-second stall on a home wifi is survivable for a party game, the
+client already degrades correctly through it (hold, blend, and now a `reconnecting`
+chip), and the amplifier is gone.
+
+### Also fixed: a guard that cried wolf
+
+`states.test.ts`'s home-screen walk read every `.ts` under `src/client`, which includes
+a pnpm `node_modules` and vite's build and dep-optimisation output — files another
+process writes *while the suite runs*. It failed three times this session and passed
+every time it was re-run alone, which is the signature of a test racing a build. I
+diagnosed that in the first ten minutes of the session and then re-ran it twice more
+rather than fixing it. A guard that cries wolf gets deleted; it now reads only what this
+repo authors.
+
+---
+
+## RD-083 — Why the transport is a WebSocket, and what it costs
+
+*2026-09-01. Written because a playtester asked "shouldn't we use UDP for gaming?" and
+the honest answer was that nobody had ever written down why not. `CLAUDE.md` states
+"transport is raw WebSocket with a JSON envelope" as a fact; there was no entry weighing
+it. This is that entry, written after RD-082 made the cost concrete rather than
+theoretical.*
+
+### The instinct is correct
+
+TCP guarantees **ordered, reliable** delivery. This game wants neither.
+
+Snapshots here are **full state, not deltas** — every tick carries every player's
+complete position, and `sendSnapshot` rebuilds the whole roster each time. So a lost
+snapshot is worth nothing: the next one, 33 ms later, supersedes it completely. When TCP
+stalls the stream for 2.3 seconds retransmitting a lost packet, it is re-delivering data
+that was already obsolete before it arrived — *and* holding back the ~70 fresh snapshots
+queued behind it. That is the worst available trade, and it is exactly the freeze
+RD-082 traced to the wifi hop.
+
+A game that sends full state at a fixed rate is the textbook case for an unreliable
+transport. So the instinct is right, and the reason we are not on one is not that TCP
+suits us.
+
+### Browsers cannot open a UDP socket
+
+There is no UDP API in JavaScript, deliberately. Two routes reach unreliable delivery
+from a browser:
+
+**WebRTC DataChannel**, with `{ordered: false, maxRetransmits: 0}` — genuinely UDP
+underneath, and mature. The cost is not the data path, it is getting the connection up:
+a signalling exchange (which needs its own server-side channel — the WebSocket we
+already have could carry it), DTLS, and ICE candidate gathering. On a LAN that is
+usually direct; across the internet it can need STUN, and a minority of networks need a
+TURN relay, which is a service somebody has to run. It is a real dependency and a real
+body of connection-state code, in a project whose dependency list is `three` and `ws`.
+
+**WebTransport** (HTTP/3 over QUIC) has proper unreliable datagrams and a far cleaner
+API than DataChannel. It requires serving HTTP/3 with TLS, which the dev setup does not
+do today. **Its Safari support must be verified before anyone relies on it** — this is
+an iPhone-first game (RD-029), so a transport that is excellent everywhere except
+Safari is no transport at all here. I have not verified it and am not asserting it.
+
+### What we get for staying
+
+The WebSocket is what makes "tap a link, enter a room code, play" true. It works on
+every browser, needs no certificate dance, no ICE, no relay, and no second service. The
+vision doc's first line is that joining must never require an install; the transport
+that gets closest to that with the least machinery is the one we are on.
+
+And the cost is now bounded and measured rather than feared. RD-082 removed the
+amplifier: every snapshot of every minigame fits inside one packet of a 1280-MTU path,
+so a loss costs one packet rather than two. The client holds, blends and says
+`reconnecting`. The residue is a rare multi-second stall on a lossy link, which for a
+ten-minute party game is survivable.
+
+### What would change this
+
+Switch when the evidence says the stalls are frequent enough to spoil rounds rather than
+to annoy — which is a question about real play at eight players, not about theory. The
+order of work if it comes to that:
+
+1. **Shrink the envelope first.** It is JSON text, and the repetition is severe: a
+   `scramble` pickup is 66 bytes of which **40 are the constant `k`, `r` and `colour`
+   repeated for every sphere** — 600 of 1006 bytes for fifteen pickups. Hoisting those,
+   or moving to a binary encoding, cuts packets again with no transport change and no
+   new dependency. Smaller packets are fewer losses.
+2. **Then DataChannel**, keeping the WebSocket for signalling and for everything that
+   must be reliable (`roundStart`, `roundEnd`, the room view). Snapshots are the only
+   channel that wants unreliability; sending the rest over UDP would buy nothing and
+   cost correctness.
+
+That split matters and is the part most likely to be got wrong in a hurry: **UDP is
+right for snapshots and wrong for everything else in this protocol.**
+
+### Not this decision
+
+Making the snapshot a delta. It would cut bytes, and it would also make every packet
+depend on the one before — turning a harmless loss into a desync that needs recovery
+logic. Full state at 30 Hz is what makes loss cheap, and it is the property that would
+make an unreliable transport work at all.
+
+---
+
+## RD-084 — The HUD rebuilt itself sixty times a second, and that is why the dot never pulsed
+
+*2026-09-01, from a standing request to treat performance on existing features as
+first-class rather than as follow-up work.*
+
+`renderHud` is called once per rendered frame and assigned `innerHTML` unconditionally,
+so the browser reparsed the markup and rebuilt the subtree **60 to 120 times a second**.
+The content changes about once a second: the clock ticks, a count goes up. Counted in a
+mounted test over two seconds of frames, **one rebuild is needed and 120 were done.**
+
+The waste is the smaller half. **A recreated element restarts its CSS animation.** The
+pulsing dot on the spectator chip (RD-081) and the stalled chip has
+`animation: 1.6s infinite`, and it was destroyed and rebuilt before it could advance a
+single frame. It has never pulsed, on any device, since the day it was written — and it
+never would have, because the bug is in the render loop rather than in the CSS, which is
+the last place anyone would look for a dead animation.
+
+The fix is to remember the markup and skip the assignment when it is unchanged.
+`clearHud` invalidates the memo rather than only emptying the element, or the next
+render of identical markup would compare equal and skip an assignment the DOM needs.
+
+**The general shape, which is the part worth keeping:** the render loop is the one place
+in this client where an ordinary cost gets multiplied by sixty. Anything called from it
+should be assumed hot until measured otherwise. It is also why this bug was invisible —
+every test asserted what the HUD *contained*, which was correct on every frame, and none
+asserted how often it was rewritten.
+
+---
+
+## RD-085 — Hoist the constants: a prim's shape travels once, not once per copy
+
+*2026-09-01. RD-083 named shrinking the envelope as the first move if the stalls ever
+justify it, and the answer was to do it now rather than wait — smaller packets are fewer
+losses, and this needed no transport change and no new dependency.*
+
+A prim is mostly constant. `scramble` ships one sphere per pickup, and 40 of its 66
+bytes are `"k":"sphere"`, `"r":0.35` and `"colour":"#ffd23f"` — repeated in full for
+every pickup. At fifteen pickups that is **600 of 1006 bytes saying the same three
+things over and over.**
+
+Prims that differ only in position now travel as one group:
+
+```
+{"at":[[1.19,0.5,-6.68],[9.45,0.65,-9.01], …14 positions… ],
+ "k":"sphere","r":0.35,"colour":"#ffd23f"}
+```
+
+294 bytes on the wire where the loose form was about 924.
+
+### The tradeoff, stated
+
+**Cost:** a second wire shape, and a pack/unpack step. **Bought:** the numbers below.
+
+The cost is contained deliberately. The shell packs in `sendSnapshot` and the client
+unpacks the moment a `snap` arrives, so **a minigame still authors plain prims and the
+renderer still receives a plain list** — the compression is invisible on both sides of
+the wire, exactly as quantization (RD-082) and the round timer already are. That keeps
+the whole risk in one shared function with a round-trip property test, instead of
+spreading it across four minigames and a renderer.
+
+Order across groups is not preserved when kinds interleave. That is safe because
+`Renderer.setPrims` clears and rebuilds every prim independently, so nothing reads a
+prim's index — **checked before writing this, not after**, because it is the one
+assumption that would have made the compression silently wrong.
+
+### Measured, over a full match
+
+Bytes per snapshot at 5-6 players, against the 1240 B TCP payload of a 1280-MTU path:
+
+| game | original | + quantized (RD-082) | + grouped (RD-085) |
+|---|---|---|---|
+| `scramble` | 1123 / **1647** | 755 / 1070 | **682 / 704** |
+| `sweepers` | 707 / 895 | 593 / 690 | 559 / 682 |
+| `hot-potato` | 649 / 684 | 490 / 516 | 469 / 505 |
+| `falling-floor` | 397 / 670 | 315 / 565 | 313 / 569 |
+
+`scramble`'s worst case fell from **1647 to 704 bytes, 57% off**, and its mean by 39%.
+The worst case gained most, which is the right shape: the snapshot with the most pickups
+is both the one most likely to cross an MTU and the one with the most repetition to
+remove. Every minigame now sits at roughly half a packet, leaving headroom for eight
+players where the earlier margin was thin.
+
+### What is verified, and what is not
+
+Round-trip is a property test over mixed kinds and optional fields; the packed wire
+format was read off a live server; the client throws no exception on it; and a
+source-order guard asserts the unpack happens before `setPrims` and before any client
+minigame handler.
+
+**Not verified: a screenshot of a rendered `scramble` round.** `shoot.sh`'s virtual
+clock keeps landing the capture before the first snapshot arrives (RD-054), so the last
+attempt showed the arena's statics with no pickups *and no players* — and players do not
+travel through this path at all, which is what says the capture was early rather than
+the change broken. It remains the one link in the chain argued rather than seen.
+
+---
+
+## RD-086 — Never queue a snapshot onto a socket that has not drained
+
+*2026-09-01. The freeze survived RD-082 and RD-085, and the report that settled it was
+"it shows `reconnecting` across different rounds, not just scramble".*
+
+**That killed my leading theory and I should say so plainly.** RD-082 found `scramble`
+putting 30% of its snapshots across two packets and I treated it as the explanation. But
+every other minigame was already comfortably inside one packet — `hot-potato` maxed at
+684 bytes — so if the freeze happens in those too, **packet size was never the cause.**
+The MTU and grouping work is real (57% off the worst case, headroom for eight players)
+and it was not the answer to this.
+
+### What was actually wrong
+
+`GameServer.send` calls `ws.send()` unconditionally, thirty times a second, per
+connection. Nothing anywhere checks `bufferedAmount`.
+
+So when a link stalls, TCP cannot deliver and the socket quietly queues. Two seconds of
+stall is **~60 snapshots banked**, and every one of them must be transmitted, in order,
+before the first fresh frame arrives. The freeze a player sees is the network's stall
+*plus* the time spent draining a backlog of positions that were already wrong when they
+were queued.
+
+That is exactly backwards for a full-state protocol, and RD-083 had already written down
+why: a snapshot that has not left the server is worth nothing the moment the next tick
+runs. Queueing it buys a client the right to receive obsolete positions later, at the
+cost of delaying the current ones.
+
+The server now skips a connection whose `bufferedAmount` exceeds about three snapshots.
+On a healthy link `bufferedAmount` is zero and nothing changes.
+
+**Only snapshots may be skipped.** `roundStart`, `roundEnd`, `room` and `err` are not
+idempotent — missing one is a broken round, not a stale frame — so the guard lives in
+`sendSnapshot` alone and the generic `send` stays unconditional. A test asserts both:
+the guard appears exactly once, inside `sendSnapshot`, and never in `send`.
+
+### The tradeoff
+
+**Cost:** a client on a congested link receives fewer snapshots. **Bought:** the ones it
+does receive are current.
+
+That trade is only correct because snapshots are full state and the client already
+degrades honestly — the interpolation buffer holds (I6), prediction holds within its
+divergence budget (RD-079), and the interface says `reconnecting` (RD-081). A delta
+protocol could not make this trade at all, which is a second reason RD-083 keeps full
+state.
+
+Skips are **counted and exposed on `/health`**, because a dropped frame nobody can see
+is indistinguishable from a bug. A stalling client should leave a trace on the server,
+not only on the phone that suffered it.
+
+### Still not the whole story
+
+This shortens the recovery; it does not stop the stall. The tunnel to the phone is
+direct and 4 ms at rest, and the segment between the server host and the phone remains
+the only unexplained part — a measurement I had *thought* was covered and was not: the
+"Tailscale interface" probe in RD-082 connected to this host's own Tailscale address,
+which never traverses WireGuard to a peer. It exonerated nothing about the tunnel.
+
+---
+
+## RD-087 — Shutting down means telling the clients, not just stopping the clock
+
+*2026-09-01, from an operational failure that had already cost two live rooms.*
+
+`GameServer.stop()` cleared the tick interval and nothing else. A WebSocket is a
+connection that never ends on its own, so `http.close()` waited for a callback that
+would never come, and `node --watch` hung on **"Waiting for graceful termination"** with
+the port still held. Twice this session that needed a `kill -9`, and each time the room
+a playtester was holding died with it.
+
+The signal handler existed and looked correct — which is why it went unexamined for so
+long. It stopped the clock and asked the HTTP server to close; the thing it never did
+was let go of the sockets.
+
+`stop()` now closes every connection with 1001 ("going away") and closes the
+`WebSocketServer`. `main.ts` also gets an **unref'd 500 ms backstop**, because
+`http.close` only fires once every connection has ended and one rude socket should not
+be able to hold the port for ever. Unref'd so it can never keep an otherwise-finished
+process alive.
+
+This is a development-loop cost rather than a gameplay one, and it is recorded because
+of how it presented: as flaky infrastructure ("the room went dead again") rather than as
+a defect. It was mine, it was in the shutdown path, and it was reproducible from the
+first occurrence — I killed the process by hand twice before reading the code.
+
+---
+
+## RD-089 — The freeze is the network after all, and the frame numbers that said otherwise were screenshots
+
+*2026-09-02. A before/after pair from the phone, and it corrects RD-088 as well as me.*
+
+Before a freeze, on a settled client:
+
+```
+gpu    geo 6  tex 5  prog 7  calls 0
+scene  prims 0 dyn 0 static 0 mats 195
+frame  p50 17ms  p95 18ms  worst 69ms
+```
+
+During one:
+
+```
+gpu    geo 13 tex 8 prog 7 calls 64
+scene  prims 1 dyn 4 static 5 mats 216
+net    p50 31ms  p95 35ms  worst 16294ms  stalls>300 2
+frame  p50 17ms  p95 19ms  worst 69ms
+predict HOLDING (no snapshots)
+```
+
+**`frame worst` is 69 ms.** The main thread is healthy through the freeze. RD-088 read
+3686 ms and then 4195 ms and concluded the thread was blocking for seconds — and those
+figures were almost certainly **the player taking a screenshot**, which stalls
+`requestAnimationFrame` on iOS and is recorded for ever by an all-time maximum. The
+instrument I built to end the guessing produced a number that caused a new wrong guess.
+
+So: the freeze is a genuine stall in snapshot delivery, with a healthy client and a
+server that never backed up (`skippedSnapshots` 0). **Three wrong attributions in a
+row** — the MTU (RD-082), the send backlog (RD-086), the main thread (RD-088). Each was
+plausible, each produced a real improvement, and none was the cause.
+
+### What an all-time maximum is good for, and what it is not
+
+`worst` cannot distinguish a defect from the player pressing the side buttons. Every
+number beside it — p50, p95, the counts — is windowed and was honest throughout: frame
+p95 never left 18-22 ms. **The windowed numbers were right the whole time and I read the
+outlier instead**, because it was the biggest.
+
+### What the counters did catch
+
+`mats` grew 195 → 216 in three minutes. Unexplained: tile and arena colours are
+constants, and the caches are keyed by colour. It is real, it is unbounded so far as
+anyone can show, and **it is not the freeze** — the client is fast throughout. Left
+open deliberately rather than guessed at a fourth time.
+
+They did catch one certain bug. `Character.update` wrote
+`shadow.material.opacity` every frame, and `shadowMat` is a **shared cache**. All eight
+characters mutated the same object, so every shadow ended up at whatever opacity the
+last one drawn wanted — one player's jump faded everybody's shadow.
+
+The first fix cloned the material, and `cost.test.ts` immediately failed: it asserts
+nothing is per-instance, and eight shadows had just become eight materials. The guard
+was right and the fix was lazy. `shadowMat` is *keyed by opacity* precisely so a fade
+can share, so `update` now **asks for the right material instead of writing to the one
+it was handed**, quantized to a hundredth and bounded at ~35 entries however many
+players jump.
+
+That is the general lesson worth keeping: **ask the cache, never write to what it gave
+you.** A shared thing that is mutated is not shared, it is a race.
+
+### Where this leaves the freeze
+
+Client healthy, server clean, both local paths clean, tunnel pings clean, snapshots stop
+anyway. The one segment never tested in isolation is Tailscale carrying a *sustained
+stream* between the phone and this host — `tailscale ping` is a small packet and proves
+only that the path is up. The decisive next step is to remove Tailscale from the picture
+entirely and reach the dev server over the LAN, which needs the one-time
+`tools/lan-setup.ps1` from an Administrator PowerShell.
+
+---
+
+## RD-090 — The `reconnecting` chip was firing at every round boundary
+
+*2026-09-02. Two facts from a playtest killed four days of network theory in one
+sentence: "on my pc i can connect without problem and it still has that brief
+(reconnecting) problem even with port forwarding."*
+
+**On the PC. Over the LAN. With no Tailscale, no WiFi, and no phone.** Whatever the chip
+was reporting, it was not the tunnel, not the radio and not the device.
+
+It was us. `setStalled` asks one question — *how long since the last snapshot?* — and
+compares it to `STALL_NOTICE_MS`. But the server deliberately sends **no snapshot for
+the whole `RESULT_MS + INTRO_MS` between rounds**: eight seconds, measured at 8064-8158
+ms in RD-078, by design, because there is no simulation to snapshot. So at the instant a
+new round starts, the last snapshot is eight seconds old and the chip fires.
+
+A guaranteed false positive at **every round transition, on every device, on any
+network**. The chip added in RD-081 to make a stall legible was announcing the one gap
+that was never a stall.
+
+The same stale timestamp fed `net worst`, which is why that figure kept reading 8000 ms
+or 16294 ms: it was reporting the boundary, every time. `health.lastSnapAt` is now zeroed
+at `roundStart`, and both readers already skip a zero, so the next snapshot starts a
+fresh measurement rather than closing a gap that was never a fault.
+
+### The instrument has now been wrong three times
+
+RD-080: the frame clock stopped between rounds and invented 6351 ms frames. RD-089: an
+all-time `worst` recorded the player taking a screenshot. And now this. Every one of
+them sent me somewhere real-looking and wrong — the MTU, the send backlog, the main
+thread — and each time the *windowed* numbers beside them were honest and I read the
+outlier instead.
+
+The rule this earns: **an instrument reporting on a system with known, deliberate
+pauses must be told about them.** Not one of these three was a subtle measurement
+problem; all three were the instrument not knowing something the code already knew.
+
+Also fixed here: the readout still said `HOLDING (no snapshots)` long after RD-079
+changed that condition to a **divergence budget**. It now reports how far prediction
+actually ran ahead. A label that describes a rule the code no longer follows is worse
+than no label, because it is read as evidence.
+
+### What is still open
+
+Whether any genuine mid-round stall exists at all. Every multi-second number produced so
+far is now explained by a deliberate gap or a broken clock, and the honest position is
+that **there may never have been a network problem** — that the freezing is the
+eight-second round boundary being felt, with the chip confirming a fault that was not
+there. RD-078 already stopped prediction walking through it; nothing yet makes the
+boundary itself pleasant, and that is a design question rather than a netcode one.
+
+---
+
+## RD-091 — Eight seconds between rounds, and only one of them was the duration
+
+*2026-09-02. "8 seconds between rounds is too long, shorten it or what's the best
+possible solution like the industry standard solution."*
+
+The gap is `RESULT_MS + INTRO_MS`. Shortening it is half an answer, and the smaller half.
+
+### The world was frozen, not merely waiting
+
+`renderer.syncPlayers` sat inside `if (playing)`. `playing` means *a round is running*,
+and it also gated every character update — so for the whole gap **the scene was still
+drawn and nothing in it moved.** Eight identical paper figures, stopped mid-stride,
+under a scoreboard.
+
+That is why the boundary was reported as a *freeze* rather than as pacing, and it is
+almost certainly the same thing that made RD-090's false `reconnecting` chip so
+convincing: the interface said the connection had died and the picture agreed.
+
+Character animation is procedural and time-driven, so the fix is to keep calling
+`syncPlayers` over the frame already in the buffer. Everyone idles in place instead of
+turning to stone. It costs nothing on the wire and nothing on the server; the HUD,
+prediction and each minigame's per-frame flourish stay gated on `playing`, because those
+do belong to a live round.
+
+**This is the industry-standard answer, and it is not about duration.** A commercial
+party game never shows a static frame between rounds: results animate in over a living
+scene, characters idle, a camera drifts. The eye reads *stillness* as failure long
+before it reads *length* as slow.
+
+### Then the duration, where it can be afforded
+
+| | was | now | why |
+|---|---|---|---|
+| `RESULT_MS` | 4000 | **2500** | three to six rows of score are read in ~2 s |
+| `INTRO_MS` | 4000 | **4000** | unchanged, deliberately |
+| `MATCH_RESULT_MS` | — | **4000** | new; the end of a match is not the end of a round |
+
+`INTRO_MS` is **not padding** and was left alone: round-brief R1 spends the first second
+on a plain card so the rule can be read before the numbers pull the eye, then R4's
+3-2-1. Cutting it clips the first number or takes away the read, and vision pillar 1
+already gives a rule five seconds to land — four is under budget, not over it.
+
+The match result got its own constant rather than inheriting the shorter one. It is the
+end of ten minutes rather than of fifty seconds, there is a winner to look at, and
+nothing is waiting behind it.
+
+Eight seconds becomes 6.5, and the 6.5 is animated.
+
+### A test that looked like a determinism bug and was not
+
+Shortening `RESULT_MS` broke the golden match transcript with *lower pickup counts at
+identical round timestamps* — which reads exactly like a UI constant changing gameplay,
+and would be serious if it were. It is not. The round RNG is `seedFrom(code, round)` and
+never sees elapsed time; the transcript's `scriptedInput(slot, tick)` keys off the
+**global** tick, so moving a phase boundary shifts which scripted inputs land inside
+which round. The harness is sensitive to phase duration by construction.
+
+Regenerated, and checked rather than trusted: same five rounds, same games, same order,
+same lobby ending — `diff` over every structural line is empty. Only the sampled
+snapshots moved.
+
+### What was NOT done, and why
+
+Overlapping the result with the next round's intro — the other standard trick — buys
+little here. It exists to hide loading, and this game has nothing to load: geometry is
+code and an arena is built in a frame. Adding a concurrent phase to the match state
+machine to save a second, in a shell whose simplicity is the point, is the wrong trade.
+
+---
+
+## RD-092 — The prediction clock ran 27% slow, and that is what the stutter was
+
+*2026-09-02. "the freezing is still there... more like stuttering", and then the detail
+that mattered: "it still freezes/stutters when reconnecting".*
+
+The scheduler was `if (now - lastSent >= TICK_MS) { lastSent = now; step(); }`.
+
+Assigning `now` resets the schedule to **whenever a frame happened to land**, not to the
+tick grid. At 60 fps against a 33.33 ms tick that means the next step comes either two
+frames later (33.3 ms) or three (50 ms), decided by nothing but jitter — while every
+step advances the simulation by a **fixed** 33.33 ms.
+
+Simulated at constant speed over 900 frames, the drawn capsule advanced **67.09 mm per
+frame against the 91.7 mm real time asks for — 27% slow.** Prediction therefore fell
+behind the server continuously, and the server pulled it forward with a correction on
+every snapshot. A steady stream of corrections is precisely what stutter looks like,
+and it is worst exactly when snapshots are late and arrive in clumps: which is why it
+tracked the `reconnecting` chip.
+
+The old `alpha` made it visible rather than merely wrong. `(now - lastSent) / TICK_MS`
+clamps at 1, so between a late step and the next the character reached its target and
+then **held frozen for a whole frame**.
+
+An accumulator fixes both: spend real time in whole ticks, keep the remainder as
+`alpha`. Measured after: **91.57 mm per frame, and not one frame that failed to move.**
+Catch-up is capped exactly as the server caps it (P8).
+
+### The part that should have been caught years earlier
+
+**The server has had this right since it was written.** `FixedLoop` accumulates and caps
+catch-up, with a comment explaining the spiral of death. The client rolled its own
+scheduler, in one line, and got it wrong — in the same repository, against the same
+constant, for the same reason.
+
+RD-077 then built render interpolation *on top of* the broken clock and measured a real
+improvement (24 of 61 frames moving, up to 57), which made the remaining stutter look
+like a residue rather than a second defect. A fix that improves a number can hide the
+bug underneath it.
+
+### What this does not explain
+
+The `reconnecting` chip still appearing mid-round. RD-090 stopped it firing across the
+deliberate round boundary; if it still shows during play, snapshots genuinely stopped
+for over 500 ms, and that remains unexplained — the server's own stream measures p50 34
+ms, p95 37 ms, from two different paths.
+
+---
+
+## RD-093 — Stamp the build, because four playtests could not tell a stale bundle from a failed fix
+
+*2026-09-02. After "still freezing when reconnecting", on a PC, over a forwarded port.*
+
+### What the PC result actually rules out
+
+The forwarded-port test on a PC removes Tailscale, the phone, and the radio. It does
+**not** remove WSL2: that path is `browser -> Windows netsh portproxy -> WSL2 virtual
+NIC`, and the phone's was `Tailscale userspace -> WSL2`. **Every path that has ever
+stalled crosses the WSL2 boundary, and the only path measured clean — repeatedly — is
+`localhost` inside WSL.** That is a real pattern and it is the strongest remaining lead.
+
+It could not be tested from here: WSL cannot hairpin to the Windows LAN address
+(`192.168.254.100` is unreachable from inside), so the portproxy path cannot be probed
+from the machine hosting it.
+
+### What has been eliminated, with evidence
+
+- **Snapshot size / MTU** (RD-082, RD-085) — every minigame now fits one packet; the
+  freeze predates and outlives it, and happens in minigames that always fitted.
+- **Send backlog** (RD-086) — `skippedSnapshots` is **0** after 25 minutes of play. The
+  guard never fires, so the server never queues behind a slow client.
+- **The main thread** (RD-088, RD-089) — `frame worst` 69 ms through a freeze.
+- **The round boundary** (RD-090) — the chip no longer counts the deliberate gap.
+- **The prediction clock** (RD-092) — real, 27% slow, and fixed; the stutter it caused
+  is not the same thing as the chip firing.
+
+### What has never once been reproduced
+
+**A mid-round snapshot gap, from any client I control.** Two paths and three probes all
+measure p50 34 ms, p95 37 ms, no gap over 200 ms outside the by-design boundary.
+
+### And a hole in the method that has to close first
+
+Chrome headless does not forward page `console` to stderr in this setup — 313 lines of
+output, zero CONSOLE lines. So the earlier "no client exceptions" check (RD-085) proved
+**nothing**; it was an empty grep read as a clean result. Recorded because it is the
+second time an instrument's silence has been mistaken for evidence.
+
+Worse, there has been no way to tell **which build a playtester is running.** A browser
+caches, a home-screen app caches harder, and every conclusion drawn from a stale bundle
+is worthless — including, possibly, several drawn over the last four playtests. The
+client now bakes `git rev-parse --short HEAD` in at config time and `?debug=1` shows it,
+with `+dirty` when the tree is not clean.
+
+That is not a fix for the freeze. It is the precondition for trusting the next report
+about it, and it should have existed before the second round trip, let alone the sixth.
+
+---
+
+## RD-094 — A suspended tab is not a network fault
+
+*2026-09-02. From a PC readout: `frame worst 14538ms` with `frame p50 13ms`, taken
+straight after a window switch.*
+
+Nothing in this codebase can produce a fourteen-second frame on a desktop whose median
+is thirteen milliseconds. A browser **suspends `requestAnimationFrame` in a hidden tab**
+and throttles message handling with it. Switch windows, take a screenshot, let a phone
+dim, glance at a notification — the page stops, and every clock this client keeps goes
+stale together. On return, `now - lastSnapAt` is enormous, so the `reconnecting` chip
+fires and the frame log records the whole suspension.
+
+The client now listens for `visibilitychange` and, on becoming visible, forgets the gap
+rather than measuring it: `lastFrameAt`, the prediction accumulator and `lastSnapAt` are
+all reset together, and the predictor drops its pending queue. A half-reset would be
+worse than none — one clock honest and the other reporting the whole suspension reads as
+a genuine fault. `?debug=1` counts the suspensions so they stay visible rather than
+merely excluded.
+
+Dropping the pending inputs matters for correctness, not just tidiness: a hidden tab
+keeps its socket but stops running, so inputs banked before the pause describe a stick
+position from before it. Replaying them walks the capsule somewhere the server never
+went.
+
+**This is not the freeze the playtester is reporting, and it was wrong of me to present
+it as one.** They answered immediately: "i experience the reconnecting before taking
+screenshot." The suspension explains the 14538 ms artefact and nothing else. It is
+fixed because it is a real false-positive source that would keep contaminating every
+future reading — the third instrument defect in this hunt, after RD-080 and RD-090.
+
+## RD-095 — Measure the client's upstream, because every probe so far ran on the wrong side
+
+*2026-09-02, continued.*
+
+The same readout, with the artefact set aside, still shows a real stall:
+`net worst 2332ms`, `stalls>300 1`, on a PC, mid-round, with `frame p50 13ms`.
+
+Every probe written so far ran on `localhost` inside WSL and measured p50 34 ms, p95 37
+ms — clean, repeatedly, from two directions. But the clients that actually stall reach
+the server through a **Windows netsh portproxy** or a **Tailscale userspace relay**, and
+neither path can be probed from the machine hosting it: WSL cannot hairpin to its own
+Windows LAN address.
+
+So measure from the only vantage point that sees a real client: **the server**. A
+browser sends `input` at 30 Hz unconditionally, so a gap in arrivals measures that
+client's upstream path. `worstInputGapMs` is now on `/health`.
+
+That splits the remaining possibilities cleanly:
+
+- a two-second input gap at the same moment as the client's snapshot gap → **the path
+  stalled in both directions**, and the fault is the transport or the infrastructure
+  between them;
+- inputs still arriving every 33 ms while the client sees nothing → **downstream only**,
+  which is a different bug entirely and one that lives in this codebase.
+
+It only counts gaps during `ROUND_PLAY`, because no input flows between rounds and
+measuring that quiet would report the round boundary all over again — RD-090's mistake,
+one layer down.
+
+### Also fixed: a test that cried determinism
+
+`hot-potato`'s determinism property takes 3.9 s alone and over 5 s under the parallel
+load of the full suite, so it was timing out on the default budget and reporting a
+**determinism failure** — the most alarming possible label for "the machine was busy".
+The 200 seeds are the point of the property and were not reduced; the budget was told
+the truth about the work.
+
+---
+
+## RD-096 — Measuring the freeze was causing the freeze
+
+*2026-09-02. The playtester worked it out: "i think the hidden triggered because i hit
+screenshot so the focus lifted off the tab for a moment."*
+
+They are right, and it reframes the entire hunt. Pressing screenshot lifts focus, the
+tab goes hidden, `requestAnimationFrame` stops — and because **input is sent from inside
+the rAF loop**, the client stops sending too. So one screenshot manufactures, all at
+once:
+
+- a multi-second `frame worst` (RD-089 saw 3686 ms and I called it a blocked main thread)
+- a multi-second `net worst` on the next message
+- and a matching gap in the server's `worstInputGapMs` — 7111 ms, which I had just built
+  RD-095 to catch and would have read as proof of a bidirectional network stall
+
+**The act of capturing the evidence produces the artefact.** Every screenshot in this
+investigation carries it, and I have repeatedly treated the artefact as the finding.
+
+RD-094's fix was not enough, either: it reset the clocks on becoming *visible*, but a
+hidden tab still **receives** WebSocket messages, so the snap handler had already
+recorded the whole suspension as a network gap before the frame loop resumed. Resetting
+a clock the other reader has already read is not a reset. The page is now marked hidden
+on the way **out**.
+
+### The number that should have existed first
+
+`?debug=1` now reports `REAL n` beside the stall count: gaps over the notice threshold
+with **no suspension anywhere near them**. A stall that coincides with a hidden tab says
+nothing, because the page was not running. A stall while the page was awake throughout is
+a real fault — and across this entire investigation, not one has ever been demonstrated.
+
+That is the honest state: every multi-second number produced so far is now attributable
+to a deliberate pause (the round boundary, RD-090), a broken clock (RD-080), or the
+observer (RD-089, and this). What remains unexplained is a *felt* stutter, and RD-092
+found a genuine cause for that — a prediction clock running 27% slow — which is a
+different phenomenon from the chip firing.
+
+One bug caught while writing this: skipping the measurement across a suspension was
+first written as an early `break`, which would have dropped the whole snapshot — no
+prims, no reconciliation — costing a real frame to avoid mis-recording a fake gap.
+
+### And a suite that had started crying wolf
+
+Two property tests failed on separate runs — "determinism" and "keeps exactly one living
+holder" — both by **timeout**, not by assertion. They run hundreds of seeded rounds, take
+2-4 s alone, and cross the default 5 s under the parallel load of the full suite. The
+seed counts are the point of those properties and were not reduced; `testTimeout` was
+raised to 30 s for the whole suite instead. A suite that fails at random teaches people
+to re-run it rather than read it — and "determinism failure" is the most alarming
+possible label for "the machine was busy".
+
+---
+
+## RD-097 — It was never Ruckus: the WSL2 VM freezes for five seconds at a time
+
+*2026-09-03. The end of the freeze hunt, and the answer was outside the codebase
+entirely.*
+
+Two probes were run against the same server, in the same room, over the same two
+minutes: one on `localhost` inside WSL, one from **Windows node** across the WSL2
+virtual NIC. Both stalled, **at the same instants** — 61.1 s / 61.0 s, and 91.2 s /
+91.1 s — and both stalls were **mid-round**, not at a boundary.
+
+Simultaneous gaps on two independent clients cannot be a network fault on either path.
+So the next test removed the game altogether: a `setInterval(50 ms)` in a Node process
+doing **nothing** — no socket, no server, no rendering:
+
+```
+28.1s   TIMER STALLED 5036ms
+118.3s  TIMER STALLED 5026ms
+```
+
+**The whole WSL2 VM freezes for about five seconds, periodically.** Every process inside
+it stops together. A client sees the snapshot stream stop for exactly that long, whether
+it arrives over Tailscale, through a Windows portproxy, or straight to the WSL address —
+which is why removing each of those in turn changed nothing.
+
+### Why, as far as the evidence goes
+
+```
+/proc/pressure/io   full avg10=6.33   total=123942105
+/proc/pressure/memory  full avg10=0.00
+```
+
+**I/O, not memory.** `full` pressure means *every* task is blocked on disk, and 124
+seconds of it had accumulated. Memory pressure is flat zero with 6.5 GB free, so
+ballooning is not the cause. `.wslconfig` exists and is **empty**, so every WSL2 default
+is in force.
+
+That points at host disk contention on the ext4 vhdx — Defender scanning it is the usual
+culprit — rather than anything the VM's guest is doing.
+
+### What this cost, and the lesson
+
+Seven wrong attributions, each plausible, each measured on the wrong side: the snapshot
+MTU (RD-082), the send backlog (RD-086), the client main thread (RD-088), the round
+boundary (RD-090), the prediction clock (RD-092 — a real bug, but not this one), the
+Tailscale tunnel, and the Windows portproxy.
+
+Every one of those was reached by measuring *the thing I was already thinking about*. The
+test that settled it in ninety seconds measured **nothing at all** — and could have been
+written on day one. The rule earned here is blunt:
+
+**Before blaming a system, prove the machine under it is running.** An idle timer is the
+cheapest possible control, and it exonerates or convicts an entire environment in one
+run. `tools/vmstall.mjs` now exists so nobody repeats this.
+
+The corollary, learned three times over in RD-080, RD-089, RD-090 and RD-096: an
+instrument is only as trustworthy as its knowledge of what is *supposed* to pause. Every
+one of those was the instrument not knowing something the code already knew.
+
+### What was actually fixed along the way
+
+The hunt was not wasted, and this entry is not an argument that it was: the prediction
+clock ran 27% slow (RD-092), prims were unquantized and `scramble` crossed an MTU 30% of
+the time (RD-082, RD-085), the HUD rebuilt itself sixty times a second and its animations
+never ran (RD-084), a shared shadow material was being mutated (RD-089), the round
+boundary was eight seconds of a frozen world (RD-091). All real, all worth having.
+
+None of them was the freeze.
+
+---
+
+## RD-098 — The freeze was ours after all: a game loop driven by a clock that jumps
+
+*2026-09-03. This supersedes RD-097's conclusion, which was wrong, and it was my own
+instrument that made it wrong.*
+
+RD-097 concluded the WSL2 VM was freezing for five seconds. It measured with
+`Date.now()`. Measured against **both** clocks at once:
+
+```
+63.9s   wall 5142ms   monotonic 1ms
+129.0s  wall 5140ms   monotonic 4ms
+```
+
+**The machine never stopped.** The WSL2 guest's wall clock is resynchronised with its
+host, jumping ~5.14 s roughly every 65 s. A monotonic clock sees 1 ms.
+
+### Why that froze the game
+
+`GameServer.pump` read `Date.now()` and handed the delta to `FixedLoop.advance`, whose
+accumulator had no guard against a negative:
+
+```
+normal 33ms tick        -> 0 steps
+clock jumps BACK 5000ms -> 0 steps  (acc now -4967ms)
+server then runs NO simulation for 4983ms of real time
+```
+
+A backward correction drives the accumulator negative, and **no tick runs until real
+time has repaid the debt.** For those seconds the server simulates nothing and sends
+nothing, so every client stalls **simultaneously** — with no packet lost and nothing on
+the wire for any network probe to find.
+
+That is every stubborn fact at once: both probes stalling in lockstep, `skippedSnapshots`
+at 0 (the server was not *sending*, so there was nothing to buffer), and no transport
+path ever mattering — Tailscale, the portproxy and the direct WSL address were all
+innocent because the freeze was upstream of all of them.
+
+The existing guard, `if (this.acc > TICK_MS * MAX_CATCHUP_STEPS) this.acc = 0`, clamps a
+large *positive* accumulator and says nothing about a negative one. Forward jumps were
+handled from the first day; backward jumps were never considered.
+
+**The fix is two lines and a principle.** `pump` uses `performance.now()`, which cannot
+jump — a game loop may not read a wall clock. And `advance` rejects any delta that is
+not positive, because "should be unreachable" is exactly what the wall-clock version
+assumed.
+
+### How the instrument hid it for days
+
+`tools/vmstall.mjs` reported drift over +200 ms. A backward jump is a large **negative**
+drift, so the one event that mattered was filtered out by the tool built to find it —
+while the *forward* half of the same resync was reported loudly and sent me chasing a VM
+freeze that never happened. It now reports both directions.
+
+That is the fourth instrument defect in this hunt (RD-080, RD-089, RD-090, RD-096) and
+the most expensive: the others produced false positives, this one produced a false
+*negative* on the actual cause.
+
+### The tally
+
+Eight wrong attributions before this: the snapshot MTU, the send backlog, the client
+main thread, the round boundary, the prediction clock, the Tailscale tunnel, the Windows
+portproxy, and a VM freeze that was a clock artefact. Every one measured the thing I was
+already thinking about; not one measured the clock the loop was reading.
+
+The lesson RD-097 drew — "prove the machine under it is running" — was right, and I then
+proved it with a tool that could not tell a stopped machine from a moved clock. **Ask
+what your instrument cannot see, before trusting what it shows you.**
+
+---
+
+## RD-099 — CI was red because it could not see the history the report is made of
+
+*2026-09-03, found while trying to merge PR #1.*
+
+`pnpm check` was green on every developer machine and failed in CI with:
+
+```
+STALE: docs/technical/spec-status.md does not match the tree
+```
+
+Not a stale report. `actions/checkout@v4` defaults to a **shallow clone**, and
+`spec_status.py` embeds each spec's git *last touched* date — so the report it generates
+is a function of the history available to it. At depth 1 there is no history, every date
+comes out wrong, the regenerated report never matches the committed one, and the guard
+fires on a tree that is perfectly in sync.
+
+No amount of regenerating could have fixed it, which is the trap: the obvious response to
+"STALE" is to run the generator again, and that would have produced an identical file and
+an identical failure, over and over.
+
+`fetch-depth: 0` on the checkout step.
+
+**A derived artefact is only reproducible where its inputs are.** `spec_status.py` takes
+git history as an input as surely as it takes the spec files, and CI was handed one and
+not the other. Worth stating because the same shape catches anything deriving from
+`git log`, `git describe`, or a commit count — and this repo now has two such tools, the
+registry and the `?debug=1` build stamp (RD-093).

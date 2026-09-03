@@ -18,6 +18,7 @@ describe("parseClientMsg (T6, R10, I2)", () => {
       ax: 0.5,
       ay: -0.2,
       btn: true,
+      seq: 0,
     });
     expect(parseClientMsg({ t: "pong", id: 3 })).toEqual({ t: "pong", id: 3 });
   });
@@ -52,6 +53,7 @@ describe("parseClientMsg (T6, R10, I2)", () => {
       ax: 999,
       ay: -999,
       btn: false,
+      seq: 0,
     });
   });
 
@@ -61,6 +63,7 @@ describe("parseClientMsg (T6, R10, I2)", () => {
       ax: 0,
       ay: 0,
       btn: false,
+      seq: 0,
     });
   });
 });
@@ -142,6 +145,7 @@ describe("roundStart carries what the controls need (touch-controls T2, R3)", ()
       roster: [0, 1],
       input: "stick+button",
       buttonLabel: "PASS",
+      jumpSpeed: 0,
     };
     const back = JSON.parse(JSON.stringify(msg)) as typeof msg & { input: string; buttonLabel?: string };
     expect(back.input).toBe("stick+button");
@@ -155,6 +159,7 @@ describe("roundStart carries what the controls need (touch-controls T2, R3)", ()
       arena: { camera: { eye: [0, 1, 1], look: [0, 0, 0], fov: 45 }, solids: [], statics: [], sky: "#fff" },
       roster: [0],
       input: "stick",
+      jumpSpeed: 0,
     };
     expect(JSON.parse(JSON.stringify(msg)).buttonLabel).toBeUndefined();
   });
@@ -192,5 +197,39 @@ describe("a player's action travels as numbers, not words (action-button T3, I5)
   it("keeps the cooldown to one decimal, which is all the display shows", () => {
     const a: WireAction = { v: 0, r: Math.round(1.2666 * 10) / 10 };
     expect(String(a.r)).toBe("1.3");
+  });
+});
+
+describe("input carries a sequence, coerced never rejected (input-prediction T1, R2, I2)", () => {
+  it("keeps a well-formed seq", () => {
+    expect(parseClientMsg({ t: "input", ax: 0, ay: 0, btn: false, seq: 42 })).toEqual({
+      t: "input", ax: 0, ay: 0, btn: false, seq: 42,
+    });
+  });
+
+  it("accepts an old client that sends no seq at all", () => {
+    // Dropping this message would stall a round waiting on movement (I2). A client
+    // that never predicts simply never gets a useful ack back.
+    expect(parseClientMsg({ t: "input", ax: 1, ay: 0, btn: false })).toEqual({
+      t: "input", ax: 1, ay: 0, btn: false, seq: 0,
+    });
+  });
+
+  it("coerces a malformed seq rather than failing the message", () => {
+    // Every one of these is a message a hostile or broken client can send, and not one
+    // of them may be able to stop the round.
+    for (const bad of [-5, Number.NaN, Number.POSITIVE_INFINITY, "7", null, {}, []]) {
+      const out = parseClientMsg({ t: "input", ax: 0, ay: 0, btn: false, seq: bad });
+      expect(out).not.toBeNull();
+      expect(out).toMatchObject({ t: "input" });
+      const seq = (out as { seq: number }).seq;
+      expect(Number.isInteger(seq)).toBe(true);
+      expect(seq).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("floors a fractional seq to an integer", () => {
+    const out = parseClientMsg({ t: "input", ax: 0, ay: 0, btn: false, seq: 9.9 });
+    expect((out as { seq: number }).seq).toBe(9);
   });
 });

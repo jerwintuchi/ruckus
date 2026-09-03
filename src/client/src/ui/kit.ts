@@ -284,6 +284,53 @@ input::placeholder{color:var(--text-dim)}
 .gauge .bar > i{display:block;height:100%;background:var(--highlight);
   width:var(--pct,100%);transition:width .12s linear}
 .gauge.urgent .bar > i{background:#e6484d}
+/* The connection stopped answering (RD-081). Same slab as the spectator chip; the
+   hazard colour is what separates "you are waiting" from "something is wrong". */
+.stalled{gap:7px;color:var(--ink);background:var(--card)}
+/* .gauge.stalled, not .stalled: the shared dot rule below is also two classes, so at
+   equal specificity source order would decide it — and it comes later, which is how
+   this drew the waiting chip's yellow instead of the hazard red. */
+.gauge.stalled .eye{background:#e6484d}
+
+/* Watching, not playing (spectating R2). A slab, so it keeps the shadow every other
+   card has — it is paper on the table, not a control printed on it (kit-rules). */
+.spectate{gap:7px;color:var(--ink)}
+
+/* Settings (in-game-menu R5). The panel is a .card and so is a slab with the shadow;
+   everything inside it is ink on the surface and has none (RD-069). */
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.setlabel{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;font-size:17px}
+.steps{display:flex;gap:6px}
+/* Segments, not a slider: a drag is the one control a thumb must be precise with, and
+   the Kit has no draggable widget outside the stick itself. */
+.steps .step{min-height:${UI.minTarget}px;min-width:34px;padding:0;
+  border:var(--outline) solid var(--ink);border-radius:11px;
+  background:var(--card-dim);box-shadow:none;cursor:pointer;
+  transition:transform .07s ease-out,background .07s ease-out}
+.steps .step.on{background:var(--mine-tint)}
+.steps .step:active{transform:scale(${UI.pressScale})}
+/* Leaving is the one destructive action here, so it does not look like the others. */
+button.danger{background:var(--card);color:var(--ink)}
+button.danger:active:not(:disabled){background:color-mix(in srgb, var(--card) 84%, var(--ink))}
+/*
+ * The opener is pinned top-left (R1), not carried along by the HUD's centred row.
+ *
+ * #hud centres its children, so simply being first in it put the gear beside the round
+ * label in the middle of the screen. Absolute, against the same padding #hud spends, so
+ * the notch and the URL bar are handled by the rule that already handles them — and the
+ * gauges stay centred rather than being shoved off-centre by a sibling.
+ */
+.iconbtn.gear{pointer-events:auto;position:absolute;
+  left:calc(14px + var(--safe-left));top:calc(10px + var(--safe-top))}
+/* The dot both status chips share. Defined once on .gauge .eye rather than under one
+   chip's selector: it lived under .spectate .eye and the stalled chip then set only its
+   COLOUR, so it inherited no size and drew nothing at all. A shared element needs a
+   shared rule. NB no backticks in here - this whole stylesheet is a template literal. */
+.gauge .eye{width:9px;height:9px;border-radius:50%;background:var(--highlight);
+  border:2px solid var(--ink);animation:spectate-pulse 1.6s ease-in-out infinite}
+/* No reduced-motion rule of its own: the global animation:none!important below
+   already stops this, and a second media block splits the one the guards read. */
+@keyframes spectate-pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
 /* Entrances overshoot and settle — nothing simply fades (R10). */
 @keyframes deal{

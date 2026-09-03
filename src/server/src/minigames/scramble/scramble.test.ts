@@ -37,6 +37,8 @@ const mkPlayers = (n: number): PlayerRuntime[] =>
     alive: true,
     connected: true,
     facing: 0,
+    lastAppliedSeq: 0,
+    speedMul: 1,
   }));
 
 /** One rng for init AND every tick, exactly as the shell does since RD-013. */

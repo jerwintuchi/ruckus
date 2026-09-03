@@ -269,6 +269,9 @@ export const hotPotato: Minigame<HotPotatoState> = {
       if (!s.alive.has(p.slot)) continue;
       const input = ctx.input(p.slot);
       const tumbling = s.elapsed < (s.tumbleUntil.get(p.slot) ?? 0);
+      // Declared so the shell can echo it to the owning client, which predicts the
+      // dash without ever learning what a tumble is (input-prediction R5).
+      p.speedMul = tumbling ? TUMBLE_SPEED_MUL : 1;
       stepMovement(
         p.body,
         { axis: input.axis, jump: false },

@@ -76,7 +76,10 @@ describe("it is a page a person opens on the phone, not only a shooter target", 
     // The stick owns bottom-left, the button bottom-right, the gauge top-centre.
     const walker = src.slice(src.indexOf("function walker()"));
     expect(walker).toContain("top:calc(6px + var(--safe-top))");
-    expect(walker).toContain("left:calc(6px + var(--safe-left))");
+    // Top-RIGHT: the settings opener took the top-left (in-game-menu R1), and the
+    // gallery's chrome must never sit on a control or the harness photographs itself.
+    expect(walker).toContain("right:calc(6px + var(--safe-right))");
+    expect(walker).not.toContain("left:calc(6px + var(--safe-left))");
   });
 });
 
@@ -88,8 +91,15 @@ describe("nothing branches on being installed to the home screen (RD-063)", () =
     // whether it is installed, that stops being true and every screenshot taken in a
     // headless desktop Chrome is quietly answering the wrong question.
     const dir = join(here, "..");
+    // `node_modules` and `dist` are excluded, and not for speed. This walk read every
+    // .ts under src/client, which includes a pnpm `node_modules` and vite's build and
+    // dep-optimisation output — files another process writes WHILE the suite runs. It
+    // failed three times in one session and passed every time it was re-run alone,
+    // which is the signature of a test racing a build rather than of a real defect.
+    // A guard that cries wolf gets deleted, so it now reads only what this repo authors.
+    const skip = /^(node_modules|dist)[/\\]/;
     const files = readdirSync(dir, { recursive: true, encoding: "utf8" })
-      .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"));
+      .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !skip.test(f));
     expect(files.length).toBeGreaterThan(5); // the walk found something
     for (const f of files) {
       const body = readFileSync(join(dir, f), "utf8")
