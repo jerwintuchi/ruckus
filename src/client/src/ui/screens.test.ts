@@ -46,7 +46,7 @@ const at = (root: HTMLElement, sel: string): Probe => {
 
 const players = (n: number, connected = true): PlayerView[] =>
   Array.from({ length: n }, (_, slot) => ({
-    slot, name: `p${slot}`, colour: "#1ab0ff", score: 0, connected,
+    slot, name: `p${slot}`, colour: "#1ab0ff", score: 0, connected, ready: false,
   }));
 
 const noop = {
@@ -259,7 +259,7 @@ describe("the round card and results (shell T18)", () => {
     const { root } = stubDom();
     const ui = new Ui(root, noop);
     ui.showRoundEnd({ 0: 3 }, [
-      { slot: 0, name: "<img src=x>", colour: "#1ab0ff", score: 3, connected: true },
+      { slot: 0, name: "<img src=x>", colour: "#1ab0ff", score: 3, connected: true, ready: false },
     ]);
     expect(at(root, "#banner").innerHTML).not.toContain("<img");
   });
@@ -434,7 +434,7 @@ describe("the match result says the room stays open (lobby-flow T16, R12)", () =
   it("names the winner and says another match can start", () => {
     const { root } = stubDom();
     const ui = new Ui(root, noop);
-    ui.showMatchEnd({ slot: 0, name: "jerwin", colour: "#1ab0ff", score: 9, connected: true });
+    ui.showMatchEnd({ slot: 0, name: "jerwin", colour: "#1ab0ff", score: 9, connected: true, ready: false });
     const html = at(root, "#banner").innerHTML;
     expect(html).toContain("jerwin");
     expect(html).toContain("start again");
@@ -513,9 +513,9 @@ describe("a deep link can actually be joined (RD-042)", () => {
 
 describe("the results cards name everyone, including you (lobby-flow T17, R13)", () => {
   const roster: PlayerView[] = [
-    { slot: 0, name: "bot-1", colour: "#1ab0ff", score: 5, connected: true },
-    { slot: 1, name: "bot-2", colour: "#ff3f18", score: 3, connected: true },
-    { slot: 4, name: "jerwin", colour: "#ffef14", score: 0, connected: true },
+    { slot: 0, name: "bot-1", colour: "#1ab0ff", score: 5, connected: true, ready: false },
+    { slot: 1, name: "bot-2", colour: "#ff3f18", score: 3, connected: true, ready: false },
+    { slot: 4, name: "jerwin", colour: "#ffef14", score: 0, connected: true, ready: false },
   ];
 
   it("lists a player who scored nothing this round", () => {
@@ -585,7 +585,7 @@ describe("the slot strip agrees with the rows (ui-identity T4, R3, P4)", () => {
     const ui = new Ui(root, noop);
     const players = Array.from({ length: n }, (_, i) => i)
       .filter((i) => !gaps.includes(i))
-      .map((slot) => ({ slot, name: `p${slot}`, colour: "", score: 0, connected: true }));
+      .map((slot) => ({ slot, name: `p${slot}`, colour: "", score: 0, connected: true, ready: false }));
     ui.render({ ...baseState(), screen: "LOBBY", players, code: "AAAA" } as never);
     return { root, players };
   };

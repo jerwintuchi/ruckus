@@ -41,7 +41,7 @@ const hold = (apply: () => void): void => { apply(); setInterval(apply, 250); };
 /** A full lobby, so every row-count bug has somewhere to show itself. */
 const EIGHT: PlayerView[] = [
   "bot-1", "bot-2", "bot-3", "bot-4", "bot-5", "bot-6", "a-long-ish-name", "jerwin",
-].map((name, slot) => ({ slot, name, colour: "", score: 0, connected: slot !== 6 }));
+].map((name, slot) => ({ slot, name, colour: "", score: 0, connected: slot !== 6, ready: false }));
 
 const verb = (v: string, readyIn?: number): WireAction =>
   ({ v: ACTION_VERBS.indexOf(v as never), ...(readyIn === undefined ? {} : { r: readyIn }) });

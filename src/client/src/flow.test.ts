@@ -11,7 +11,7 @@ const run = (events: FlowEvent[], from = initialState()): FlowState =>
 
 const players = (n: number, connected = true): PlayerView[] =>
   Array.from({ length: n }, (_, slot) => ({
-    slot, name: `p${slot}`, colour: "#1ab0ff", score: 0, connected,
+    slot, name: `p${slot}`, colour: "#1ab0ff", score: 0, connected, ready: false,
   }));
 
 describe("creating a room (lobby-flow T5, R1)", () => {
@@ -291,7 +291,7 @@ describe("a player needs a name, and is told so (lobby-flow T13, R9)", () => {
 
 describe("the lobby notices who came and went (lobby-flow T15, R11)", () => {
   const p = (slot: number, name: string): PlayerView =>
-    ({ slot, name, colour: "#1ab0ff", score: 0, connected: true });
+    ({ slot, name, colour: "#1ab0ff", score: 0, connected: true, ready: false });
 
   it("names an arrival and a departure", () => {
     expect(rosterChange([p(0, "a")], [p(0, "a"), p(1, "b")])).toEqual({ joined: ["b"], left: [] });
@@ -321,7 +321,7 @@ describe("the lobby notices who came and went (lobby-flow T15, R11)", () => {
 
 describe("everyone is on the board (lobby-flow T17, R13)", () => {
   const p = (slot: number, name: string, connected = true): PlayerView =>
-    ({ slot, name, colour: "#1ab0ff", score: 0, connected });
+    ({ slot, name, colour: "#1ab0ff", score: 0, connected, ready: false });
   const roster = [p(0, "a"), p(1, "b"), p(2, "c")];
 
   it("ranks players who scored nothing rather than dropping them", () => {

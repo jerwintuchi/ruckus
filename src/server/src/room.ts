@@ -25,6 +25,13 @@ export interface Player {
   colour: string;
   score: number;
   connected: boolean;
+  /**
+   * Ready to start (lobby-social R1).
+   *
+   * The HOST is always ready: pressing START is their readiness, so they never tap twice
+   * for one intent, and their row still reads as ready so the roster is consistent.
+   */
+  ready: boolean;
   /** Latest input this tick. Overwritten, never queued — R10 rate-limits by design. */
   input: { ax: number; ay: number; btn: boolean; seq: number };
   runtime: PlayerRuntime;
@@ -77,12 +84,14 @@ export class Room {
       colour: PLAYER_COLOURS[slot % PLAYER_COLOURS.length]!,
       score: 0,
       connected: true,
+      ready: false,
       input: { ax: 0, ay: 0, btn: false, seq: 0 },
       runtime: { slot, body: makeBody(vec()), alive: true, connected: true, facing: 0,
         lastAppliedSeq: 0, speedMul: 1 },
     };
     this.players.set(slot, player);
     if (this.connected.length === 1) this.host = slot;
+    this.syncHostReady();
     return { ok: true, player, rejoined: false };
   }
 
@@ -104,6 +113,8 @@ export class Room {
     if (!p) return;
     p.connected = false;
     p.runtime.connected = false;
+    // A player who is gone must not hold the gate open (lobby-social R1, R6).
+    p.ready = false;
     if (this.state === "LOBBY") this.players.delete(slot);
     if (this.host === slot) this.reassignHost();
   }
@@ -112,6 +123,76 @@ export class Room {
   private reassignHost(): void {
     const next = this.connected.sort((a, b) => a.slot - b.slot)[0];
     if (next) this.host = next.slot;
+    this.syncHostReady();
+  }
+
+  /** The host is ready by definition (lobby-social R1); everyone else opts in. */
+  private syncHostReady(): void {
+    const h = this.players.get(this.host);
+    if (h?.connected) h.ready = true;
+  }
+
+  /** A player says whether they are ready (lobby-social R1). */
+  setReady(slot: number, on: boolean): void {
+    const p = this.players.get(slot);
+    if (!p || !p.connected) return;
+    if (slot === this.host) return;   // the host's readiness is START
+    p.ready = on;
+  }
+
+  /**
+   * Forget everyone's readiness.
+   *
+   * Called when a round starts AND when a match ends: a rematch is a deliberate act, not
+   * something a room falls into while half of it is looking away (lobby-social R2).
+   */
+  clearReady(): void {
+    for (const p of this.players.values()) p.ready = false;
+    this.syncHostReady();
+  }
+
+  /** Is the gate open? Every connected player ready, host included by definition. */
+  allReady(): boolean {
+    const live = this.connected;
+    return live.length > 0 && live.every((p) => p.ready);
+  }
+
+  /**
+   * Take a colour, if nobody holds it (lobby-social R3).
+   *
+   * Changing vacates the old one in the SAME operation, so it is available to everyone
+   * else immediately and there is no instant where a player holds two or none. At a full
+   * lobby nothing is vacant and this always refuses, which is the known cost of the
+   * design and is asserted as such.
+   */
+  claimColour(slot: number, colour: string): boolean {
+    const p = this.players.get(slot);
+    if (!p || !p.connected) return false;
+    // Widened deliberately: PLAYER_COLOURS is a tuple of literal types, so a plain
+    // `includes` refuses an arbitrary string at compile time — which is exactly the
+    // untrusted input this has to test at RUNTIME (I2).
+    if (!(PLAYER_COLOURS as readonly string[]).includes(colour)) return false;
+    if (p.colour === colour) return false;                   // nothing to do
+    for (const q of this.players.values()) {
+      if (q.connected && q.slot !== slot && q.colour === colour) return false;
+    }
+    p.colour = colour;
+    return true;
+  }
+
+  /**
+   * The host removes somebody (lobby-social R5).
+   *
+   * Deliberately the SAME path as a disconnect, so I8's guarantees need no new reasoning
+   * and no new server state exists. The removed player may rejoin with the code — this is
+   * a party game among friends, not a ban (RD-108).
+   */
+  kick(by: number, slot: number): boolean {
+    if (this.state !== "LOBBY") return false;
+    if (by !== this.host || slot === this.host) return false;
+    if (!this.players.get(slot)?.connected) return false;
+    this.leave(slot);
+    return true;
   }
 
   private freeSlot(): number {
@@ -133,12 +214,13 @@ export class Room {
   view(): PlayerView[] {
     return [...this.players.values()]
       .sort((a, b) => a.slot - b.slot)
-      .map(({ slot, name, colour, score, connected }) => ({
+      .map(({ slot, name, colour, score, connected, ready }) => ({
         slot,
         name,
         colour,
         score,
         connected,
+        ready,
       }));
   }
 

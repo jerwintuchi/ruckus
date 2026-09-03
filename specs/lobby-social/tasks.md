@@ -1,15 +1,17 @@
 # Lobby Social — Tasks
 
-- [ ] T1 [R1, P5] — `ready` on the server, in `src/server/src/room.ts`
+- [x] T1 [R1, P5] — `ready` on the server, in `src/server/src/room.ts`
   Test: `room.test.ts` — readying sets it; un-readying clears it; a disconnect clears it;
   `ROUND_START` clears everyone's; a roster change clears the gate (R2)
 
-- [ ] T2 [R2, P2] — The start gate, as a pure function in `src/client/src/flow.ts`
-  Test: `flow.test.ts` — enabled only when every connected player is ready AND the count
-  clears `MIN_PLAYERS_TO_START`; a late joiner closes it; a disconnected unready player
-  does not hold it open; the disabled reason names who is being waited for
+- [x] T2 [R2, P2] — The start gate, on the server as `Room.allReady()`
+  *(moved from `flow.ts`: the gate is a fact about the roster, and the roster is the
+  server's. The client renders `allReady`, it does not recompute it — I1.)*
+  Test: `lobby-social.test.ts` — open only when every connected player is ready; a late
+  joiner closes it; a disconnected unready player does not hold it open; the host is
+  ready by definition and cannot be un-readied
 
-- [ ] T3 [R3, P1] — Colour claiming, in `src/server/src/room.ts`
+- [x] T3 [R3, P1] — Colour claiming, in `src/server/src/room.ts`
   Test: `room.test.ts` — property: over random interleavings of claims from 8 players, no
   two connected players ever hold the same colour; a colour outside the palette is
   refused; leaving releases it; the refusal replies to one socket and broadcasts nothing
@@ -23,7 +25,7 @@
   Test: `protocol.test.ts` — each is parsed and validated; each is refused outside `LOBBY`;
   malformed payloads are dropped rather than throwing (R10's clamp-never-reject rule)
 
-- [ ] T6 [R6, P3] — No lobby message can stall the room
+- [x] T6 [R6, P3] — No lobby message can stall the room
   Test: `room.test.ts` — property: 1000 random ready/colour/kick messages, valid and
   malformed, in random order, leave the room startable and the roster consistent
 

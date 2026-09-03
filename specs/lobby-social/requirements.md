@@ -10,6 +10,8 @@ below is new except the join/leave notice, which exists and is being reworked.*
 
 **R1**: A player readies up, and everyone can see who has.
 - AC: a large READY control, the only prominent thing on a player's own lobby screen
+- AC: **the host does not tap READY** — pressing START is their readiness. Their row
+      reads as ready so the roster is consistent, and they never tap twice for one intent
 - AC: readiness is per-player state on the server, never inferred by the client
 - AC: every player's row shows their state, and it updates for everyone within one message
 - AC: readying is reversible before the match starts — a player may un-ready
@@ -23,16 +25,28 @@ below is new except the join/leave notice, which exists and is being reworked.*
 - AC: a player who joins after everyone else readied resets the gate — they are not ready,
       so START closes again
 - AC: `MIN_PLAYERS_TO_START` still applies; ready does not bypass it
+- AC: readiness clears when a match ENDS as well as when a round starts, so a rematch is
+      a deliberate act rather than something a room falls into while looking away
 
-**R3**: A player chooses their colour in the lobby.
+**R3**: A player chooses their colour in the lobby, from the ones nobody holds.
 - AC: the eight palette colours are shown as one row of tappable swatches
-- AC: a colour already claimed by another player is visibly unavailable and cannot be taken
+- AC: a player keeps the distinct colour their slot was assigned on join (RD-007), so a
+      player who never chooses is never colourless and never a duplicate
+- AC: **only vacant colours are selectable.** A colour another connected player holds is
+      visibly unavailable and inert — tapping it does nothing and sends nothing
+- AC: **changing vacates the old colour in the same operation**, so it becomes available
+      to everyone else immediately. There is no moment where a player holds two, or none
 - AC: the claim is **server-authoritative** (I1): the client asks, the server decides
-- AC: two players tapping the same colour in the same tick — one wins, the other is told,
-      and no two players ever hold the same colour
-- AC: a player who never chooses keeps the colour their slot was assigned, which is
-      already distinct (RD-007) — choosing is an option, never a chore
+- AC: two players tapping the same vacant colour in the same tick — one wins, the other is
+      told, and no two players ever hold the same colour
 - AC: a colour is released the moment its owner leaves the room
+
+> **At a full lobby the row is inert, by design.** With eight players every colour is
+> held, so nothing is free and nobody can change until someone leaves. This was chosen
+> knowingly over a swap: swapping means having your colour taken from you by someone
+> else's tap, and the eight assigned colours are already distinct and colour-blind-safe,
+> so the feature is a preference rather than a need. Below eight it works normally, and a
+> player leaving frees theirs for whoever wants it.
 
 **R4**: The room says who arrived, who left, and who was removed.
 - AC: a toast, not a permanent line: "sam joined", "sam left", "sam was removed"
@@ -42,6 +56,8 @@ below is new except the join/leave notice, which exists and is being reworked.*
 
 **R5**: The host can remove a player, and that player can come back.
 - AC: a remove control appears on every row except the host's own, host-only
+- AC: **it confirms before it acts** — small rows and thumbs mis-tap, and removing a
+      friend by accident is exactly the annoyance that ends a session
 - AC: the removed player lands on the main menu with a plain reason — "the host removed
       you from the room"
 - AC: they may rejoin with the code; this is not a ban (RD-108)

@@ -35,6 +35,8 @@ export interface PlayerView {
   colour: string;
   score: number;
   connected: boolean;
+  /** Ready to start (lobby-social R1). The host is always ready; START is their ready. */
+  ready: boolean;
 }
 
 /** Quantized per-tick player state (P3). This is the hot path; keep it small. */

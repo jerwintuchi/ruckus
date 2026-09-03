@@ -159,7 +159,11 @@ describe("Room view (T7, I5)", () => {
     const view = room.view();
     expect(view.map((v) => v.slot)).toEqual([0, 1, 2]);
     for (const v of view) {
-      expect(Object.keys(v).sort()).toEqual(["colour", "connected", "name", "score", "slot"]);
+      // The exact wire shape, pinned. `ready` was added deliberately for lobby-social
+      // R1; `input` and `runtime` must never appear here (I5 — no internals on the wire).
+      expect(Object.keys(v).sort()).toEqual(
+        ["colour", "connected", "name", "ready", "score", "slot"],
+      );
     }
   });
 });
