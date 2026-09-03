@@ -95,6 +95,9 @@ function record(): string[] {
     onLobby: () => lines.push("lobby"),
   }, 20260901);
 
+  // Starting requires a ready room now (lobby-social R2); the transcript is about
+  // what the SIMULATION does afterwards.
+  for (const p of room.connected) room.setReady(p.slot, true);
   expect(match.requestStart(0)).toBe("ok");
   // A whole match, driven to its end. The cap is a backstop, not the exit condition:
   // if it is ever reached the transcript will simply stop mid-round and the diff says so.

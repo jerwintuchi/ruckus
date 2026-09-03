@@ -244,7 +244,7 @@ describe("reduce is total (lobby-flow P3, R7)", () => {
     for (const [code, text] of Object.entries(ERROR_TEXT)) {
       expect(text.length, code).toBeGreaterThan(10);
       // Not merely a diagnosis: each one points somewhere.
-      expect(/check|create|limit|host|least two|try again/i.test(text), code).toBe(true);
+      expect(/check|create|limit|host|least two|try again|rejoin|wait for/i.test(text), code).toBe(true);
     }
   });
 });
@@ -408,5 +408,41 @@ describe("a spectator is not handed controls that do nothing (spectating R4)", (
     // Every `controls.show(msg.buttonLabel)` must be inside that branch, never at the
     // statement level of the case.
     expect(src).not.toMatch(/^\s{6}controls\.show\(msg\.buttonLabel\);/m);
+  });
+});
+
+describe("being removed lands you on the menu, not in a broken lobby (lobby-social T10, R5)", () => {
+  const inLobby = (): FlowState => ({
+    ...initialState(), screen: "LOBBY", code: "ABCD", mySlot: 1, host: 0,
+    players: [
+      { slot: 0, name: "host", colour: "#1ab0ff", score: 0, connected: true, ready: true },
+      { slot: 1, name: "me", colour: "#ff3f18", score: 0, connected: true, ready: false },
+    ],
+  });
+
+  it("puts the removed player back on the MENU", () => {
+    // Not the lobby they were just thrown out of: the room is gone for them, and a
+    // lobby with a stale roster and a dead socket is a screen with nothing to do on it.
+    const after = reduce(inLobby(), { t: "err", code: "KICKED" });
+    expect(after.screen).toBe("MENU");
+  });
+
+  it("says who did it and that they can come back", () => {
+    const after = reduce(inLobby(), { t: "err", code: "KICKED" });
+    expect(after.error).toContain("removed");
+    expect((after.error ?? "").toLowerCase()).toContain("rejoin");
+  });
+
+  it("forgets the room, so the menu is not still holding a code they were ejected from", () => {
+    const after = reduce(inLobby(), { t: "err", code: "KICKED" });
+    expect(after.players).toEqual([]);
+    expect(after.mySlot).toBe(-1);
+  });
+
+  it("leaves every OTHER error exactly where it was", () => {
+    // Only KICKED sends you home. NO_ROOM on the join screen must stay on the join
+    // screen, which is the whole point of screenForError.
+    const joining: FlowState = { ...initialState(), screen: "JOINING", code: "ZZZZ" };
+    expect(reduce(joining, { t: "err", code: "NO_ROOM" }).screen).toBe("JOINING");
   });
 });

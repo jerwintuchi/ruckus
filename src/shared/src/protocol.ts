@@ -13,7 +13,9 @@ export type MatchState = "LOBBY" | "ROUND_INTRO" | "ROUND_PLAY" | "ROUND_RESULT"
 export type ErrCode =
   | "NO_ROOM" | "ROOM_FULL" | "NOT_HOST" | "TOO_FEW" | "BAD_MSG" | "BAD_CODE"
   /** The host removed you. Not a fault, and you may rejoin with the code (RD-108). */
-  | "KICKED";
+  | "KICKED"
+  /** Someone in the lobby has not readied (lobby-social R2). */
+  | "NOT_READY";
 
 /* Client to server. */
 

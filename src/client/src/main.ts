@@ -149,26 +149,37 @@ const ui = new Ui(overlay, {
    */
   onQuit: () => {
     net.close();
-    predictor.stop();
-    worldLive = false;
-    renderer.clearWorld();
-    renderer.setPrims([]);
-    lastExtra = undefined;
-    aliveLast.clear();
-    handler = undefined;
-    playing = false;
-    roundSeen = false;
-    roundLabelInfo = null;
-    introEndsAt = 0;
-    controls.hide();
-    ui.clearHud();
-    ui.setSpectating(false);
-    ui.hideBanner();
+    leaveRoom();
     flow = initialState();
     ui.setInRoom(false);
     ui.render(flow);
   },
 });
+
+/**
+ * Tear down everything that belongs to a round and a room.
+ *
+ * Shared by quitting and by being removed, so the two cannot drift: a ghost left behind
+ * by one path but not the other is exactly the class of bug RD-050 documents.
+ */
+function leaveRoom(): void {
+  predictor.stop();
+  worldLive = false;
+  renderer.clearWorld();
+  renderer.setPrims([]);
+  lastExtra = undefined;
+  aliveLast.clear();
+  handler = undefined;
+  playing = false;
+  roundSeen = false;
+  roundLabelInfo = null;
+  introEndsAt = 0;
+  controls.hide();
+  ui.clearHud();
+  ui.setSpectating(false);
+  ui.hideBanner();
+  ui.setInRoom(false);
+}
 // The HUD's opener needs the level, which main.ts owns because it owns the sound.
 ui.onOpenSettings = () => ui.openSettings(sound.volumeStep);
 ui.render(flow);
@@ -382,6 +393,10 @@ function onMessage(msg: ServerMsg): void {
       break;
 
     case "err":
+      // Being removed tears down everything per-round, for the same reason quitting
+      // does (RD-050): a body, a buffer and a predictor are all per-round state, and one
+      // left behind is a ghost in the next room this client joins.
+      if (msg.code === "KICKED") leaveRoom();
       dispatch({ t: "err", code: msg.code });
       break;
 

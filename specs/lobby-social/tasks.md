@@ -16,10 +16,12 @@
   two connected players ever hold the same colour; a colour outside the palette is
   refused; leaving releases it; the refusal replies to one socket and broadcasts nothing
 
-- [ ] T4 [R5, P4] — Kick, in `src/server/src/net.ts`
-  Test: `net.test.ts` — a host kick puts the room in exactly the state a disconnect would;
-  a non-host kick is ignored with a reply and no broadcast; the host cannot kick
-  themselves; host handover on the host leaving is unchanged
+- [x] T4 [R5, P4] — Kick, in `src/server/src/net.ts`
+  Test: `net.test.ts` — the removed player is told KICKED and their socket closed; the
+  slot is freed so they can rejoin; a non-host kick is refused with a reply and removes
+  nobody; self-kick and unheld slots are refused; 500 junk lobby messages cannot stall
+  the room. **Also** `requestStart` refuses an unready room — the client disabling START
+  is not enforcement (I1)
 
 - [x] T5 [R1, R3, R5] — The three messages, in `src/shared/src/protocol.ts`
   Test: `protocol.test.ts` — each is parsed and validated; each is refused outside `LOBBY`;
@@ -44,7 +46,7 @@
   in their own colour; a player's own arrival produces none; four arrivals at once produce
   one combined toast rather than four; a name with markup in it is escaped
 
-- [ ] T10 [R5] — The removed player's landing, in `src/client/src/main.ts`
+- [x] T10 [R5] — The removed player's landing, in `src/client/src/main.ts`
   Test: `lobby.dom.test.ts` — mounted: a kicked client lands on the main menu with the
   reason shown, per-round state torn down (RD-050), and the code still joinable
 

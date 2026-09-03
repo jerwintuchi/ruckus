@@ -279,3 +279,120 @@ describe("the server measures each client's upstream gap (RD-095)", () => {
     expect(handler).toContain("conn.lastInputAt > 0");
   });
 });
+
+describe("kick over the wire (lobby-social T4, R5, I2)", () => {
+  /** Two connected clients in one room, the first of them host. */
+  const pair = (g: GameServer) => {
+    const mkConn = () => {
+      const sent: unknown[] = [];
+      let closed: string | null = null;
+      const ws = {
+        readyState: 1, OPEN: 1,
+        send: (s: string) => sent.push(JSON.parse(s)),
+        close: (_c: number, why: string) => { closed = why; },
+      };
+      const c = { ws, room: null, slot: -1 };
+      // Register it the way the socket layer does, so the server can find this
+      // connection to tell it why it was removed. Without this the map is empty and
+      // the handler silently has nobody to notify.
+      (g as unknown as { conns: Map<unknown, unknown> }).conns.set(ws, c);
+      const handle = (msg: unknown) =>
+        (g as unknown as { handle(c: unknown, m: unknown): void }).handle(c, msg);
+      return { sent, c, handle, closedAs: () => closed };
+    };
+    const host = mkConn();
+    host.handle({ t: "create", name: "host" });
+    const welcome = host.sent.find((m) => (m as { t: string }).t === "welcome") as { code: string };
+    const guest = mkConn();
+    guest.handle({ t: "join", code: welcome.code, name: "guest" });
+    return { host, guest, code: welcome.code };
+  };
+
+  it("tells the removed player why, and closes their socket", () => {
+    const g = mk();
+    const { host, guest } = pair(g);
+    guest.sent.length = 0;
+
+    host.handle({ t: "kick", slot: 1 });
+
+    expect(guest.sent.some((m) => (m as { t: string; code?: string }).code === "KICKED")).toBe(true);
+    expect(guest.closedAs()).toContain("removed");
+  });
+
+  it("frees the slot, so the removed player can come back (RD-108)", () => {
+    const g = mk();
+    const { host, code } = pair(g);
+    host.handle({ t: "kick", slot: 1 });
+
+    const returning = (() => {
+      const sent: unknown[] = [];
+      const ws = { readyState: 1, OPEN: 1, send: (s: string) => sent.push(JSON.parse(s)), close: () => {} };
+      const c = { ws, room: null, slot: -1 };
+      (g as unknown as { handle(c: unknown, m: unknown): void }).handle(c, { t: "join", code, name: "guest" });
+      return sent;
+    })();
+    expect(returning.some((m) => (m as { t: string }).t === "welcome"), "rejoin is allowed").toBe(true);
+  });
+
+  it("refuses a kick from anyone but the host, and removes nobody", () => {
+    const g = mk();
+    const { host, guest } = pair(g);
+    host.sent.length = 0;
+    guest.handle({ t: "kick", slot: 0 });
+
+    expect(guest.sent.some((m) => (m as { code?: string }).code === "NOT_HOST")).toBe(true);
+    // The room is untouched, and nothing was broadcast about it (I2).
+    expect(host.closedAs()).toBeNull();
+  });
+
+  it("cannot be used to remove yourself, or a slot nobody holds", () => {
+    const g = mk();
+    const { host } = pair(g);
+    for (const slot of [0, 5, 99]) {
+      host.sent.length = 0;
+      host.handle({ t: "kick", slot });
+      expect(host.sent.some((m) => (m as { code?: string }).code === "NOT_HOST"), `slot ${slot}`).toBe(true);
+    }
+  });
+
+  it("cannot stall the room, however much junk is thrown at it", () => {
+    const g = mk();
+    const { host, guest } = pair(g);
+    for (let i = 0; i < 500; i++) {
+      host.handle({ t: "kick", slot: i % 12 });
+      guest.handle({ t: "kick", slot: 0 });
+      host.handle({ t: "ready", on: i % 2 === 0 });
+      host.handle({ t: "colour", c: i % 3 === 0 ? "nope" : "#1ab0ff" });
+    }
+    expect(rooms(g).size).toBe(1);
+  });
+});
+
+describe("the server enforces the ready gate, not just the button (lobby-social R2, I1)", () => {
+  it("refuses a start while somebody is not ready", () => {
+    // The client disables START, but a client is untrusted (I2). Without this the gate
+    // is a suggestion: any patched or buggy client can start over the top of it.
+    const g = mk();
+    const sent: unknown[] = [];
+    const ws = { readyState: 1, OPEN: 1, send: (s: string) => sent.push(JSON.parse(s)), close: () => {} };
+    const host = { ws, room: null, slot: -1 };
+    const handle = (c: unknown, msg: unknown) =>
+      (g as unknown as { handle(c: unknown, m: unknown): void }).handle(c, msg);
+
+    handle(host, { t: "create", name: "host" });
+    const code = (sent.find((m) => (m as { t: string }).t === "welcome") as { code: string }).code;
+    const gsent: unknown[] = [];
+    const gws = { readyState: 1, OPEN: 1, send: (s: string) => gsent.push(JSON.parse(s)), close: () => {} };
+    const guest = { ws: gws, room: null, slot: -1 };
+    handle(guest, { t: "join", code, name: "guest" });
+
+    sent.length = 0;
+    handle(host, { t: "start" });
+    expect(sent.some((m) => (m as { code?: string }).code === "NOT_READY"), "guest has not readied").toBe(true);
+
+    handle(guest, { t: "ready", on: true });
+    sent.length = 0;
+    handle(host, { t: "start" });
+    expect(sent.some((m) => (m as { code?: string }).code === "NOT_READY")).toBe(false);
+  });
+});

@@ -56,7 +56,8 @@ export const ERROR_TEXT: Record<ErrCode, string> = {
   ROOM_FULL: "That room is full — 8 players is the limit.",
   NOT_HOST: "Only the host can start the match.",
   // Not a fault, and it says so: removal is rejoinable by design (RD-108).
-  KICKED: "The host removed you from the room. You can rejoin with the code.",
+  KICKED: "The host removed you from the room. You can rejoin with the code, or create your own.",
+  NOT_READY: "Not everyone is ready yet — wait for the last few to tap ready.",
   TOO_FEW: "You need at least two players to start.",
   BAD_CODE: "A room code is four characters. Check it and try again.",
   BAD_MSG: "Something went wrong. Try again.",
@@ -140,6 +141,17 @@ export function reduce(state: FlowState, event: FlowEvent): FlowState {
       };
 
     case "err":
+      // Being removed is the one error that MOVES you (lobby-social R5). The room is
+      // gone for this client, and a lobby holding a stale roster over a dead socket is
+      // a screen with nothing to do on it. Everything else stays where the player is,
+      // so they can act on it — which is what `screenForError` exists for.
+      if (event.code === "KICKED") {
+        return {
+          ...initialState(),
+          name: state.name,          // keep what they typed; they may well rejoin
+          error: ERROR_TEXT.KICKED,
+        };
+      }
       return {
         ...state,
         screen: screenForError(state),

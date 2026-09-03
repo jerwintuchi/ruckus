@@ -57,6 +57,10 @@ const events = (): MatchEvents & { log: string[] } => {
 const setup = (games: Minigame<never>[], players = 2) => {
   const room = new Room("ABCD");
   for (let i = 0; i < players; i++) room.join(`p${i}`);
+  // Everyone ready, because starting now requires it (lobby-social R2). These cases are
+  // about what a MATCH does once it is running; the gate itself is tested where it
+  // lives, in lobby-social.test.ts and net.test.ts.
+  for (const p of room.connected) room.setReady(p.slot, true);
   const ev = events();
   const match = new Match(room, games, ev, 1);
   return { room, ev, match };
@@ -217,6 +221,7 @@ describe("Match round selection (T8, T9, R4)", () => {
       onLobby: () => {},
     };
     const match = new Match(room, games, ev, 7);
+    for (const p of room.connected) room.setReady(p.slot, true);
     match.requestStart(0);
     for (let i = 0; i < TICK_HZ * 300 && played.length < ROUNDS_PER_MATCH; i++) match.update();
     expect(played).toHaveLength(ROUNDS_PER_MATCH);

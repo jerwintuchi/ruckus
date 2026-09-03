@@ -99,9 +99,13 @@ export class Match {
   }
 
   /** P1: a client message can only ever set this flag. */
-  requestStart(slot: number): "ok" | "NOT_HOST" | "TOO_FEW" {
+  requestStart(slot: number): "ok" | "NOT_HOST" | "TOO_FEW" | "NOT_READY" {
     if (slot !== this.room.host) return "NOT_HOST";
     if (this.room.connected.length < MIN_PLAYERS_TO_START) return "TOO_FEW";
+    // The gate is enforced HERE, not by the disabled button (lobby-social R2, I1). A
+    // client is untrusted: without this the gate is a suggestion any patched or buggy
+    // client can start over the top of.
+    if (this.room.state === "LOBBY" && !this.room.allReady()) return "NOT_READY";
     if (this.room.state !== "LOBBY") return "ok";
     this.startRequested = true;
     return "ok";
