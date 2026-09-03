@@ -1,31 +1,31 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `fc2eebb`, work has happened since this was written: distrust it and read
+> `9b28cde`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-09-03 09:28 · branch `playtest-feedback` ·
-HEAD `fc2eebb` — fix(tools): time the wire with a clock that cannot move — RD-098 · 0 uncommitted file(s)*
+*Written 2026-09-03 14:52 · branch `main` ·
+HEAD `9b28cde` — docs: point Active Work at the bots, not the phone — RD-101, RD-102 · 1 uncommitted file(s)*
 
 ## What I was doing
 
-Closed out the freeze hunt. Root cause: the WSL2 guest wall clock resyncs with its host and jumps BOTH ways (+5160ms and -5156ms within 200ms, every ~32s). GameServer.pump read Date.now() and fed the delta to FixedLoop, whose accumulator had no guard against a negative — so a backward jump ran NO simulation for ~5s. Server-side, so every client stalled simultaneously with no packet lost. Fixed: pump uses performance.now(), advance rejects non-positive deltas (RD-098).
+input-prediction T8 on a phone — the last box that can invalidate RD-074. Instrumented it first: ?debug=1's predict line now reports corr / worst / snaps, so 'does a mispredicted shove read as rubber-banding' has a number behind it (snaps counts corrections too big to blend; it must stay 0). T8 was never reached, because the bots would not play properly.
 
 ## What is half-finished
 
-Nothing. 998 tests, four guards green, all committed on branch playtest-feedback (unpushed). Verified after the fix: 4172 snapshots over 180s, p99 35.7ms, and every gap over 200ms is the deliberate round boundary — zero mid-round stalls, where the same probe previously found 2.3-5.2s ones.
+NOTHING is half-written: the tree is clean and 1011 tests pass. What is unfinished is a DIAGNOSIS — the bots still play badly and the cause is not yet known. Two real bugs were found and fixed on the way (RD-101, RD-102) and neither cured it. Everything proven so far is about whether a strategy can READ the wire; nothing measures whether its play is any GOOD.
 
 ## The very next action
 
-input-prediction T8 on a phone: does a mispredicted shove in scramble read as rubber-banding? It is the one open box that can still invalidate RD-074, and it was never answerable while the freeze was in the way. Then the remaining 15 manual playtest boxes, which batch — one Hot Potato round at eight players answers find-yourself T4, spectating T3, flat-controls T4 and action-button T7 together.
+Find out why the bots play badly, then hand a room to the phone and do input-prediction T8. Watch one bot's decisions rather than re-reading its code: log what a strategy returns each think, next to where that bot is, for one round of hot-potato. Round scores (logged at roundEnd) do differentiate, so they are not idle — they are either choosing badly or their choices are not reaching the server.
 
 ## Gotchas
 
-NEVER time anything in this VM with Date.now(). The guest wall clock jumps both directions every ~32s; use performance.now(). That single mistake produced four wrong diagnoses (a VM freeze that never happened, fabricated multi-second network gaps, and a timeline printing 50.5s before 46.8s). tools/vmstall.mjs reports both clocks and both directions — run it FIRST when anything looks like a stall. Also: node --watch has @ruckus/shared in its graph, so any src/shared or src/server edit restarts the server and drops every live room; finish those edits before handing over a room code. And the Defender exclusion for Packages\CanonicalGroupLimited... points at a path that does not exist here — the WSL disk is under AppData\Local\wsl.
+Three traps, each already paid for. (1) A join-probe RUINS the room it verifies: mid-match a disconnect reserves the slot (I8) and leaves an inert capsule that looks exactly like a dumb bot — verify from the bots' own join lines, never by joining. (2) Editing anything under src/server or src/shared trips node --watch and drops every live room; re-mint the code after any such edit. (3) ps -eo args | grep '[b]ots.mjs' matches the Bash tool's OWN command line and kills the shell — filter on comm=MainThread or use explicit PIDs.
 
 ## Uncommitted when this was written
 
-- (clean tree)
+- `ocs/HANDOFF.md`
 
 ---
 
