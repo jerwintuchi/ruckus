@@ -3755,3 +3755,73 @@ seed counts are the point of those properties and were not reduced; `testTimeout
 raised to 30 s for the whole suite instead. A suite that fails at random teaches people
 to re-run it rather than read it — and "determinism failure" is the most alarming
 possible label for "the machine was busy".
+
+---
+
+## RD-097 — It was never Ruckus: the WSL2 VM freezes for five seconds at a time
+
+*2026-09-03. The end of the freeze hunt, and the answer was outside the codebase
+entirely.*
+
+Two probes were run against the same server, in the same room, over the same two
+minutes: one on `localhost` inside WSL, one from **Windows node** across the WSL2
+virtual NIC. Both stalled, **at the same instants** — 61.1 s / 61.0 s, and 91.2 s /
+91.1 s — and both stalls were **mid-round**, not at a boundary.
+
+Simultaneous gaps on two independent clients cannot be a network fault on either path.
+So the next test removed the game altogether: a `setInterval(50 ms)` in a Node process
+doing **nothing** — no socket, no server, no rendering:
+
+```
+28.1s   TIMER STALLED 5036ms
+118.3s  TIMER STALLED 5026ms
+```
+
+**The whole WSL2 VM freezes for about five seconds, periodically.** Every process inside
+it stops together. A client sees the snapshot stream stop for exactly that long, whether
+it arrives over Tailscale, through a Windows portproxy, or straight to the WSL address —
+which is why removing each of those in turn changed nothing.
+
+### Why, as far as the evidence goes
+
+```
+/proc/pressure/io   full avg10=6.33   total=123942105
+/proc/pressure/memory  full avg10=0.00
+```
+
+**I/O, not memory.** `full` pressure means *every* task is blocked on disk, and 124
+seconds of it had accumulated. Memory pressure is flat zero with 6.5 GB free, so
+ballooning is not the cause. `.wslconfig` exists and is **empty**, so every WSL2 default
+is in force.
+
+That points at host disk contention on the ext4 vhdx — Defender scanning it is the usual
+culprit — rather than anything the VM's guest is doing.
+
+### What this cost, and the lesson
+
+Seven wrong attributions, each plausible, each measured on the wrong side: the snapshot
+MTU (RD-082), the send backlog (RD-086), the client main thread (RD-088), the round
+boundary (RD-090), the prediction clock (RD-092 — a real bug, but not this one), the
+Tailscale tunnel, and the Windows portproxy.
+
+Every one of those was reached by measuring *the thing I was already thinking about*. The
+test that settled it in ninety seconds measured **nothing at all** — and could have been
+written on day one. The rule earned here is blunt:
+
+**Before blaming a system, prove the machine under it is running.** An idle timer is the
+cheapest possible control, and it exonerates or convicts an entire environment in one
+run. `tools/vmstall.mjs` now exists so nobody repeats this.
+
+The corollary, learned three times over in RD-080, RD-089, RD-090 and RD-096: an
+instrument is only as trustworthy as its knowledge of what is *supposed* to pause. Every
+one of those was the instrument not knowing something the code already knew.
+
+### What was actually fixed along the way
+
+The hunt was not wasted, and this entry is not an argument that it was: the prediction
+clock ran 27% slow (RD-092), prims were unquantized and `scramble` crossed an MTU 30% of
+the time (RD-082, RD-085), the HUD rebuilt itself sixty times a second and its animations
+never ran (RD-084), a shared shadow material was being mutated (RD-089), the round
+boundary was eight seconds of a frozen world (RD-091). All real, all worth having.
+
+None of them was the freeze.
