@@ -30,18 +30,22 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 <!-- Max 20 lines. Pointer + next actions only. No history. -->
 
-Phase: **The phone, and nothing else.**
+Phase: **The phone — once the bots are worth playing against.**
 
-`specs/in-game-menu/` and `specs/input-prediction/` are built, each with one open box
-and each of those a playtest (RD-074, RD-076). **There is no keyboard work left in
-Ruckus**: every open box in every spec is now a manual task needing a device.
+**Blocker: the bots still play badly.** RD-101 fixed a strategy that threw every tick;
+RD-102 made all four read the real wire. A playtester reports they are *still* not
+playing their objectives. What is proven is that they read the wire and score at all —
+the **quality** of their play has never been measured. Start here: most boxes below
+need opponents.
+
+Every remaining box in all 22 specs is a **manual phone task** — 16 of them, listed in
+`docs/technical/spec-status.md`. There is no keyboard work left in Ruckus.
 
 They batch. One Hot Potato round at eight players answers `find-yourself` T4,
-`spectating` T3, `flat-controls` T4 and `action-button` T7 together. `input-prediction`
-T8 and `responsiveness` T5 are the same question asked twice.
+`spectating` T3, `flat-controls` T4 and `action-button` T7 together.
 
-The one that can invalidate work is **`input-prediction` T8** — if a mispredicted shove
-reads as rubber-banding, the correction needs retuning and RD-074 was the wrong call.
+The one that can invalidate work is **`input-prediction` T8**. `?debug=1` now reports
+`corr`/`worst`/`snaps` on the predict line; `snaps` must stay 0.
 
 Also owed on hardware: `bench.html` p95 (RD-028) and `specs/audio/` T4-T5.
 
