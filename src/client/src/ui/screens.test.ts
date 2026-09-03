@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, expect, it, vi } from "vitest";
-import { ERROR_TEXT, initialState, type FlowState } from "../flow.ts";
+import { ERROR_TEXT, initialState, reduce, type FlowState } from "../flow.ts";
 import { PLAYER_COLOURS, type PlayerView } from "@ruckus/shared";
 import { Ui, wordmark } from "./screens.ts";
 
@@ -13,63 +14,35 @@ import { Ui, wordmark } from "./screens.ts";
  */
 const baseState = (): FlowState => initialState();
 
-function stubDom() {
-  class El {
-    tagName: string;
-    children: El[] = [];
-    style: Record<string, string> = {};
-    textContent = "";
-    value = "";
-    disabled = false;
-    id = "";
-    className = "";
-    /** Enough of a classList for code that toggles a class; the set is inspectable. */
-    classes = new Set<string>();
-    classList = {
-      add: (c: string) => this.classes.add(c),
-      remove: (c: string) => this.classes.delete(c),
-      contains: (c: string) => this.classes.has(c),
-    };
-    listeners: Record<string, (() => void)[]> = {};
-    private html = "";
-
-    constructor(tag: string) { this.tagName = tag; }
-    set innerHTML(v: string) { this.html = v; this.parse(v); }
-    get innerHTML(): string { return this.html; }
-    addEventListener(ev: string, fn: () => void) { (this.listeners[ev] ??= []).push(fn); }
-    click() { for (const fn of this.listeners.click ?? []) fn(); }
-    select() {}
-    querySelector(sel: string): El | null {
-      const id = sel.replace("#", "");
-      const walk = (n: El): El | null => {
-        if (n.id === id) return n;
-        for (const c of n.children) { const hit = walk(c); if (hit) return hit; }
-        return null;
-      };
-      for (const c of this.children) { const hit = walk(c); if (hit) return hit; }
-      return null;
-    }
-    /** Build a flat element per id in the template — enough for lookups by id. */
-    private parse(html: string) {
-      this.children = [];
-      for (const m of html.matchAll(/<(\w+)[^>]*id="([^"]+)"/g)) {
-        const el = new El(m[1]!);
-        el.id = m[2]!;
-        this.children.push(el);
-      }
-    }
-  }
-  const root = new El("div");
-  return { root: root as unknown as HTMLElement, El };
+/**
+ * A real DOM root (RD-107).
+ *
+ * This was a hand-written stub: fifty lines with a regex "parser" that built a FLAT list
+ * of elements, one per `id=` in the template, and a `querySelector` that understood only
+ * `#id`. It is the same shape of mistake as RD-101's hand-written wire fixture — a second
+ * implementation of something real, which passes because it agrees with itself.
+ *
+ * What it could not see: nesting, attributes, `hidden`, any selector that is not an id,
+ * and every consequence of one element being inside another. `menu.dom.test.ts` already
+ * mounted this same `Ui` in jsdom, so the whole file now does.
+ */
+function stubDom(): { root: HTMLElement } {
+  document.body.innerHTML = "";
+  const root = document.createElement("div");
+  document.body.append(root);
+  return { root };
 }
 
-/** The stub's elements, typed for the assertions below. */
-type Probe = { style: Record<string, string>; textContent: string; innerHTML: string;
-  value: string; disabled: boolean; readOnly: boolean; classes: Set<string>; click(): void };
-const SRC_DIR = dirname(new URL(import.meta.url).pathname);
+/** The mounted elements, typed for the assertions below. */
+type Probe = HTMLElement & HTMLInputElement;
 
-const at = (root: HTMLElement, sel: string): Probe =>
-  root.querySelector(sel) as unknown as Probe;
+const at = (root: HTMLElement, sel: string): Probe => {
+  const el = root.querySelector(sel);
+  // Throws rather than returning null: the old stub returned null for any selector it
+  // did not understand, so a typo read as "the element has no text" and passed.
+  if (!el) throw new Error(`no element for ${sel}`);
+  return el as Probe;
+};
 
 const players = (n: number, connected = true): PlayerView[] =>
   Array.from({ length: n }, (_, slot) => ({
@@ -148,13 +121,37 @@ describe("the menu offers create and join (lobby-flow T7, R1)", () => {
   });
 
   it("create asks for a name and nothing else — no code to invent", () => {
+    // Driven the way a player drives it, which the old stub could not distinguish from
+    // any other order (RD-107). `#createBtn` is DISABLED until a name is valid, and a
+    // real DOM drops clicks on a disabled button — so setting `.value` and clicking, as
+    // this test used to, asserts an interaction that cannot happen in a browser.
     const { root } = stubDom();
     let created: string | null = null;
-    const ui = new Ui(root, { ...noop, onCreate: (n: string) => { created = n; } });
-    ui.render(initialState());
-    at(root, "#name").value = "jerwin";
+    let state = initialState();
+    const ui = new Ui(root, {
+      ...noop,
+      onCreate: (n: string) => { created = n; },
+      onEvent: (e) => { state = reduce(state, e); ui.render(state); },
+    });
+    ui.render(state);
+    expect(at(root, "#createBtn").disabled, "no name yet").toBe(true);
+
+    const name = at(root, "#name");
+    name.value = "jerwin";
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(at(root, "#createBtn").disabled, "named, so it opens").toBe(false);
     at(root, "#createBtn").click();
     expect(created).toBe("jerwin");
+  });
+
+  it("keeps create shut until a name is typed", () => {
+    // The note says why rather than leaving a dead button unexplained (R9).
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render(initialState());
+    expect(at(root, "#createBtn").disabled).toBe(true);
+    expect(at(root, "#nameNote").textContent!.length).toBeGreaterThan(0);
   });
 
   it("swaps to the join screen when asked", () => {
@@ -364,47 +361,72 @@ describe("the count on the intro card (round-brief T2, T3, R1, R3)", () => {
 });
 
 describe("copying the invite is one tap (lobby-flow T14, R10)", () => {
-  const src = readFileSync(join(SRC_DIR, "screens.ts"), "utf8");
-
   it("is an icon button carrying an accessible label", () => {
     // An icon with no name is a mystery to a screen reader and to anyone who has not
-    // seen a clipboard glyph before.
+    // seen a clipboard glyph before. Asserted on the MOUNTED button (RD-107): the old
+    // form mounted the Ui and then made its claim against the source text, which cannot
+    // tell an attribute that is rendered from one that is only written down.
     const { root } = stubDom();
     new Ui(root, noop);
-    expect(src).toContain('id="shareBtn"');
-    expect(src).toContain('aria-label="copy invite link"');
-    expect(src).toContain("<svg");
+    const share = at(root, "#shareBtn");
+    expect(share.getAttribute("aria-label")).toBe("copy invite link");
+    expect(share.querySelector("svg")).toBeTruthy();
   });
 
-  it("tries the clipboard, then execCommand, then selectable text — in that order", () => {
-    // The order is the whole point and cannot be exercised in a unit test, because a
-    // secure context cannot be faked. navigator.clipboard needs one and a phone on a
-    // LAN over plain http does not have one, so execCommand is the path that actually
-    // runs on the device this game is played on. If it were removed, or moved after
-    // the link box, one-tap copy would silently stop existing.
-    const share = src.slice(src.indexOf("private async share()"), src.indexOf("private copyByExecCommand"));
-    const clipboard = share.indexOf("navigator.clipboard");
-    const legacy = share.indexOf("copyByExecCommand");
-    const box = share.indexOf("#linkBox");
-    expect(clipboard).toBeGreaterThan(-1);
-    expect(legacy).toBeGreaterThan(clipboard);
-    expect(box).toBeGreaterThan(legacy);
+  it("falls through to execCommand when the clipboard is refused", async () => {
+    // The order is the whole point. `navigator.clipboard` needs a secure context, and a
+    // phone on a LAN over plain http does not have one — so execCommand is the path that
+    // actually runs on the device this game is played on. If it were removed, or moved
+    // after the link box, one-tap copy would silently stop existing on every real phone.
+    //
+    // Previously asserted by comparing indexOf() positions inside the source of
+    // `share()`. That passes if the three names merely APPEAR in that order, anywhere,
+    // including in comments. This runs the rungs (RD-107).
+    const { root } = stubDom();
+    const ui = new Ui(root, noop);
+    ui.render(lobby({ code: "PLAY" }));
+
+    vi.stubGlobal("navigator", { clipboard: { writeText: () => Promise.reject(new Error("insecure")) } });
+    // `copyByExecCommand` builds its OWN off-screen textarea and selects that — it does
+    // not touch #linkBox, which is the last rung. Capture it while it is still mounted:
+    // the method removes it as soon as the copy returns.
+    let copied: string | null = null;
+    let offScreen: Record<string, string> | null = null;
+    const exec = vi.fn(() => {
+      const ta = document.querySelector("textarea[readonly]") as HTMLTextAreaElement | null;
+      copied = ta?.value ?? null;
+      // display:none cannot be selected and iOS will not copy from it; off-screen can.
+      if (ta) offScreen = { left: ta.style.left, display: ta.style.display };
+      return true;
+    });
+    (document as Document & { execCommand: unknown }).execCommand = exec;
+
+    at(root, "#shareBtn").click();
+    await Promise.resolve(); await Promise.resolve();
+
+    expect(exec, "execCommand is the second rung").toHaveBeenCalled();
+    expect(copied).toContain("?room=PLAY");
+    // Off-screen, never hidden: display:none cannot be selected and iOS will not copy
+    // from it. This replaces a grep of `copyByExecCommand` for the string "-9999px".
+    expect(offScreen!.left).toBe("-9999px");
+    expect(offScreen!.display).not.toBe("none");
+    // And the last rung is not reached while the second one worked.
+    expect(at(root, "#linkBox").style.display).not.toBe("block");
+    // It cleans up after itself rather than leaving a textarea in the document.
+    expect(document.querySelector("textarea[readonly]")).toBeNull();
+    vi.unstubAllGlobals();
   });
 
-  it("copies from an off-screen element, not a hidden one", () => {
-    // display:none cannot be selected and iOS will not copy from it. Off-screen can.
-    const legacy = src.slice(src.indexOf("private copyByExecCommand"));
-    expect(legacy).toContain("-9999px");
-    expect(legacy).not.toContain("display: none");
-    expect(legacy).toContain("setSelectionRange"); // iOS needs the explicit range
-  });
+  // "copies from an off-screen element, not a hidden one" was a grep of
+  // `copyByExecCommand` for "-9999px" and "setSelectionRange". Both are now observed on
+  // the real textarea in the rung test above (RD-107).
 
   it("confirms with a banner that never has to be dismissed", () => {
     const { root } = stubDom();
     const ui = new Ui(root, noop);
     ui.toast("invite link copied");
     expect(at(root, "#toast").textContent).toBe("invite link copied");
-    expect(at(root, "#toast").classes.has("show")).toBe(true);
+    expect(at(root, "#toast").classList.contains("show")).toBe(true);
   });
 });
 

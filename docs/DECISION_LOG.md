@@ -4334,3 +4334,68 @@ Five files left. They will be judged one at a time on which side they fall, not 
 assertion count.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-107 — screens: the stub DOM was a second implementation, and it was lying
+
+*2026-09-03. Third of the client-UI conversions, and the one that found real bugs.*
+
+`screens.test.ts` already mounted the real `Ui`. It mounted it into a **hand-written DOM**:
+fifty lines with a regex "parser" that built a FLAT list of elements, one per `id=` in the
+template, and a `querySelector` that understood only `#id`.
+
+That is RD-101's mistake in a different costume — a second implementation of something
+real, which passes because it agrees with itself. It could not see nesting, attributes,
+`hidden`, any selector that is not an id, or any consequence of one element being inside
+another. `menu.dom.test.ts` had been mounting this same `Ui` in jsdom all along.
+
+Switching the file to jsdom: **51 of 53 passed immediately, and the two that failed were
+both the stub covering for something.**
+
+### A test that asserted an impossible interaction
+
+```js
+at(root, "#name").value = "jerwin";
+at(root, "#createBtn").click();
+expect(created).toBe("jerwin");
+```
+
+`#createBtn` is `disabled` until a name is valid, and **a real DOM drops clicks on a
+disabled button**. The stub's `click()` called its listeners regardless. So this passed
+while describing a sequence that cannot happen in a browser: no `input` event was ever
+dispatched, so no `setName` reached the reducer, so the button was still disabled.
+
+It now drives what a player drives — type, dispatch `input`, let the reducer re-render,
+then click — and asserts the button is shut before and open after. A second case pins the
+disabled state and its explanatory note (R9), which nothing covered.
+
+### A lookup that returned null for anything it did not understand
+
+The stub's `querySelector` stripped `#` and matched by id, so **any other selector
+silently returned null** — and `null.textContent` read as "the element has no text" in
+several assertions rather than as a broken test. `at()` now throws on a miss.
+
+### Three source greps became observations
+
+- The share button's `aria-label` was asserted against the source of `screens.ts` **while
+  the Ui was mounted two lines above**. Now read off the rendered button.
+- The clipboard fallback order was asserted by comparing `indexOf()` positions inside the
+  source of `share()` — which passes if the three names merely appear in that order
+  anywhere, comments included. Now the rungs are RUN: `navigator.clipboard` is stubbed to
+  reject, and the test observes `execCommand` being reached, what it copied, and that the
+  last rung is not taken.
+- "copies from an off-screen element, not a hidden one" grepped `copyByExecCommand` for
+  `-9999px`. Now the real textarea is inspected while mounted, and its removal afterwards
+  is asserted too — which the grep could not have expressed at all.
+
+**`screens.test.ts` now reads no source at all.** Every claim in it is made against a
+real DOM.
+
+| | before | after |
+|---|---:|---:|
+| assertions | 37 | 33 |
+| disk reads | 1 file, 3 tests | 0 |
+| DOM | 50-line hand-written stub | jsdom |
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
