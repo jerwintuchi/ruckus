@@ -7,7 +7,7 @@ import {
   MAX_CATCHUP_STEPS, STALL_NOTICE_MS, TICK_MS, dequantPos, unpackPrims, type PrimGroup, type PlayerView, type Prim, type ServerMsg, type WireAction,
 } from "@ruckus/shared";
 import {
-  amOnRoster, initialState, reduce, rosterChange, shouldShowWaiting, type FlowEvent,
+  amOnRoster, initialState, reduce, shouldShowWaiting, type FlowEvent,
 } from "./flow.ts";
 import { Health, STALL_MS, pct } from "./health.ts";
 import { InputController } from "./input.ts";
@@ -104,6 +104,14 @@ const net = new Net(serverUrl(), onMessage);
 // flow.ts owns which screen is showing; the Ui only draws whatever it is handed.
 let flow = initialState();
 const dispatch = (event: FlowEvent): void => {
+  // The lobby intents are asks, not state: the reducer ignores them, this puts them on
+  // the wire, and the server's answer comes back as a `room` (lobby-social R1, R3, R5).
+  switch (event.t) {
+    case "wantReady": net.send({ t: "ready", on: event.on }); break;
+    case "wantColour": net.send({ t: "colour", c: event.c }); break;
+    case "wantKick": net.send({ t: "kick", slot: event.slot }); break;
+    default: break;
+  }
   flow = reduce(flow, event);
   ui.render(flow);
 };
@@ -193,10 +201,9 @@ function onMessage(msg: ServerMsg): void {
       break;
 
     case "room": {
-      // Who arrived and who left, worked out from whole rosters (R11).
-      const { joined, left } = rosterChange(players, msg.players);
-      for (const name of joined) ui.toast(`${name} joined`);
-      for (const name of left) ui.toast(`${name} left`);
+      // Who arrived and who left is worked out in `Ui.render` now (lobby-social R4):
+      // it is testable there, and coalescing four arrivals into one toast is only
+      // expressible where the whole diff is in hand.
       players = msg.players;
       host = msg.host;
       colours = new Map(players.map((p) => [p.slot, p.colour]));

@@ -5,9 +5,9 @@
  * one construction: flat fill, ink outline, hard offset shadow. `flow.ts` owns which
  * screen is showing; this only draws what it is handed.
  */
-import { MAX_PLAYERS, type PlayerView } from "@ruckus/shared";
+import { MAX_PLAYERS, PLAYER_COLOURS, type PlayerView } from "@ruckus/shared";
 import type { FlowEvent, FlowState } from "../flow.ts";
-import { createState, joinState, standings, startState, type Standing } from "../flow.ts";
+import { createState, joinState, rosterChange, standings, startState, type Standing } from "../flow.ts";
 import { colourFor, escapeHtml } from "./kit.ts";
 import { VOLUME_STEPS } from "../kit/sound.ts";
 import { renderHud, rollTo, roundLabel, type HudData } from "./hud.ts";
@@ -64,6 +64,14 @@ export class Ui {
   private toastTimer = 0;
   /** Whose row to mark as "you" on a results card. */
   private mySlot = -1;
+  /** Whether the SERVER says I am ready, so the button asks for the opposite. */
+  private iAmReady = false;
+  /** The slot the confirm dialog is currently about, or -1. */
+  private kickSlot = -1;
+  /** The roster the last render drew, so arrivals can be worked out here (R4). */
+  private lastRoster: PlayerView[] = [];
+  /** The first roster is the room as found, not a wave of arrivals. */
+  private lastRosterSeen = false;
   /** Who went out during the round now ending, for the card (R4). */
   private outThisRound = new Set<number>();
   /** Kept so the share button can build a link without being handed state again. */
@@ -96,6 +104,29 @@ export class Ui {
         this.handlers.onEvent({ t: "setName", name: (e.target as HTMLInputElement).value }));
     }
     this.q("#startBtn").addEventListener("click", () => this.handlers.onStart());
+    this.q("#readyBtn").addEventListener("click", () => {
+      // The button reflects the SERVER's answer, so it asks for the opposite of what the
+      // roster currently says rather than toggling a local flag (I1).
+      this.handlers.onEvent({ t: "wantReady", on: !this.iAmReady });
+    });
+    this.q("#colourRow").addEventListener("click", (e) => {
+      const sw = (e.target as HTMLElement).closest?.(".swatch") as HTMLElement | null;
+      // A taken swatch is inert: no request leaves the client for a colour the server
+      // would refuse anyway (lobby-social R3).
+      if (!sw || sw.hasAttribute("disabled") || sw.classList.contains("mine")) return;
+      this.handlers.onEvent({ t: "wantColour", c: sw.dataset.colour ?? "" });
+    });
+    this.q("#scoreboard").addEventListener("click", (e) => {
+      const k = (e.target as HTMLElement).closest?.(".kick") as HTMLElement | null;
+      if (!k) return;
+      this.askKick(Number(k.dataset.slot), k.dataset.name ?? "");
+    });
+    this.q("#kickCancel").addEventListener("click", () => this.closeKick());
+    this.q("#kickOk").addEventListener("click", () => {
+      const slot = this.kickSlot;
+      this.closeKick();
+      if (slot >= 0) this.handlers.onEvent({ t: "wantKick", slot });
+    });
     this.q("#shareBtn").addEventListener("click", () => void this.share());
     this.q("#muteBtn").addEventListener("click", () => this.setMuted(this.handlers.onToggleMute()));
     this.q("#gearBtn").addEventListener("click", () => this.onOpenSettings?.());
@@ -206,12 +237,24 @@ export class Ui {
     if (state.screen === "LOBBY") {
       this.code = state.code;
       this.q("#roomCode").textContent = state.code;
-      this.renderScores(state.players);
+      this.renderScores(state.players, state.host, state.mySlot);
       this.renderSlots(state.players);
+
+      this.announceRoster(state.players, state.mySlot);
+      const isHost = state.mySlot === state.host;
+      this.iAmReady = state.players.find((p) => p.slot === state.mySlot)?.ready ?? false;
+      this.renderColours(state.players, state.mySlot);
+
+      // READY belongs to everyone EXCEPT the host, whose START is their readiness
+      // (lobby-social R1) — so the two controls are never both on screen.
+      const ready = this.q("#readyBtn") as HTMLButtonElement;
+      ready.style.display = isHost ? "none" : "block";
+      ready.classList.toggle("on", this.iAmReady);
+      ready.textContent = this.iAmReady ? "ready" : "tap when ready";
 
       const s = startState(state);
       const btn = this.q("#startBtn") as HTMLButtonElement;
-      btn.style.display = state.mySlot === state.host ? "block" : "none";
+      btn.style.display = isHost ? "block" : "none";
       btn.disabled = !s.canStart;
       btn.textContent = s.label;
       this.q("#waitNote").textContent = s.note;
@@ -362,17 +405,88 @@ export class Ui {
    * One row per player. A disconnected player is dimmed rather than removed — a room
    * that silently reshuffles underneath everyone is worse than one showing a gap.
    */
-  private renderScores(players: PlayerView[]): void {
+  private renderScores(players: PlayerView[], host = -1, mySlot = -1): void {
+    // `p.colour`, NOT `colourFor(p.slot)`. Once a colour can be claimed those two
+    // disagree, and the dot beside a name would stop matching the capsule on screen
+    // (lobby-social R3).
+    const canKick = host >= 0 && host === mySlot;
     this.scoreboard.innerHTML = [...players]
       .sort((a, b) => b.score - a.score || a.slot - b.slot)
       .map(
         (p) => `<div class="row${p.connected ? "" : " gone"}">
-            <span class="dot" style="background:${colourFor(p.slot)}"></span>
+            <span class="dot" style="background:${p.colour || colourFor(p.slot)}"></span>
             <span class="nm">${escapeHtml(p.name)}</span>
+            ${p.ready ? '<span class="rdy">ready</span>' : ""}
             <span class="sc">${p.score}</span>
+            ${canKick && p.slot !== host
+              ? `<button class="kick iconbtn" data-slot="${p.slot}" data-name="${escapeHtml(p.name)}" aria-label="remove ${escapeHtml(p.name)}">&times;</button>`
+              : ""}
           </div>`,
       )
       .join("");
+  }
+
+  /**
+   * Say who arrived and who left (lobby-social R4).
+   *
+   * Derived here rather than in `main.ts`, for two reasons. It is testable here — the
+   * whole of RD-104 — and the version in `main.ts` emitted ONE TOAST PER PLAYER, so four
+   * people arriving at once produced four toasts, each cancelling the last. Coalescing
+   * is only expressible where the whole diff is in hand.
+   *
+   * Names are rendered in the player's own colour so the name and the capsule agree, and
+   * escaped because a name is player-typed.
+   */
+  private announceRoster(players: PlayerView[], mySlot: number): void {
+    const { joined, left } = rosterChange(this.lastRoster, players);
+    this.lastRoster = players;
+    if (this.lastRosterSeen === false) { this.lastRosterSeen = true; return; }
+
+    const mine = players.find((p) => p.slot === mySlot)?.name;
+    const arrived = joined.filter((n) => n !== mine);   // never announce myself
+    const swatch = (name: string): string => {
+      const p = players.find((q) => q.name === name);
+      const c = p?.colour ?? "";
+      return `<b style="color:${c}">${escapeHtml(name)}</b>`;
+    };
+
+    const parts: string[] = [];
+    if (arrived.length === 1) parts.push(`${swatch(arrived[0]!)} joined`);
+    else if (arrived.length > 1) parts.push(`${arrived.length} players joined`);
+    if (left.length === 1) parts.push(`${escapeHtml(left[0]!)} left`);
+    else if (left.length > 1) parts.push(`${left.length} players left`);
+    if (parts.length) this.toastHtml(parts.join(" · "));
+  }
+
+  /**
+   * The colour row (lobby-social R3).
+   *
+   * Only VACANT colours are selectable; one another connected player holds is inert.
+   * At a full lobby every swatch is either mine or taken, so the row is entirely inert —
+   * the known cost of choosing "claim what is free" over swapping.
+   */
+  private renderColours(players: PlayerView[], mySlot: number): void {
+    const mine = players.find((p) => p.slot === mySlot)?.colour;
+    const held = new Set(
+      players.filter((p) => p.connected && p.slot !== mySlot).map((p) => p.colour),
+    );
+    this.q("#colourRow").innerHTML = PLAYER_COLOURS.map((c) => {
+      const taken = held.has(c);
+      return `<button class="swatch${c === mine ? " mine" : ""}" data-colour="${c}"
+        style="background:${c}" ${taken ? "disabled" : ""}
+        aria-label="${taken ? "taken" : "choose"} colour"></button>`;
+    }).join("");
+  }
+
+  private askKick(slot: number, name: string): void {
+    this.kickSlot = slot;
+    this.q("#kickConfirm").textContent = `Remove ${name}? They can rejoin with the code.`;
+    (this.q("#kickAsk") as HTMLElement).style.display = "block";
+  }
+
+  private closeKick(): void {
+    this.kickSlot = -1;
+    (this.q("#kickAsk") as HTMLElement).style.display = "none";
   }
 
   /**
@@ -432,6 +546,15 @@ export class Ui {
   }
 
   /** A transient banner. Never blocks, never needs dismissing (R10, R11). */
+  /** A toast carrying markup we built ourselves — every player name already escaped. */
+  private toastHtml(html: string): void {
+    const el = this.toastEl;
+    el.innerHTML = html;
+    el.classList.add("show");
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => el.classList.remove("show"), 2200) as unknown as number;
+  }
+
   toast(message: string): void {
     const el = this.toastEl;
     el.textContent = message;
@@ -655,8 +778,28 @@ const TEMPLATE = `
       <div id="slots" class="slots"></div>
     </div>
     <div id="scoreboard"></div>
+
+    <!--
+      The colour row sits BELOW the roster and above the actions (lobby-social R3): it
+      is a decision made once, and it must not compete with READY, which is the action
+      taken every match. Populated by renderColours; empty markup here so the row has
+      a home even before a roster arrives.
+    -->
+    <div class="colourlabel dim">your colour</div>
+    <div id="colourRow" class="colourrow"></div>
+
+    <button id="readyBtn">ready</button>
     <button id="startBtn">start</button>
     <div id="waitNote" class="dim"></div>
+
+    <!-- Removing someone asks first: small rows and thumbs mis-tap (RD-108). -->
+    <div id="kickAsk" class="ask" style="display:none">
+      <div id="kickConfirm"></div>
+      <div class="askrow">
+        <button id="kickCancel">cancel</button>
+        <button id="kickOk">remove</button>
+      </div>
+    </div>
     <div id="lobbyError" class="err"></div>
   </div>
 </div>`;

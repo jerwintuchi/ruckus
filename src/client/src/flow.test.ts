@@ -122,8 +122,29 @@ describe("the start control explains itself (lobby-flow T8, R5)", () => {
     ...initialState(), screen: "LOBBY", players: players(n), mySlot, host,
   });
 
-  it("offers Start to the host once there are two", () => {
-    expect(startState(lobby(2, 0))).toEqual({ canStart: true, label: "Start", note: "" });
+  it("offers Start to the host once there are two AND everyone is ready", () => {
+    // Ready gates the start (lobby-social R2). The host is ready by definition, so a
+    // two-player lobby turns on the moment the other player readies.
+    // The host is ready by definition — the SERVER guarantees that, and the client does
+    // not re-derive it (I1: one source of truth). So a realistic roster has the host
+    // ready and everyone else opting in.
+    const base = lobby(2, 0);
+    const notReady = {
+      ...base,
+      players: base.players.map((p) => ({ ...p, ready: p.slot === base.host })),
+    };
+    expect(startState(notReady).canStart, "p1 has not readied").toBe(false);
+    expect(startState(notReady).note).toContain(notReady.players[1]!.name);
+
+    const ready = { ...notReady, players: notReady.players.map((p) => ({ ...p, ready: true })) };
+    expect(startState(ready)).toEqual({ canStart: true, label: "Start", note: "" });
+  });
+
+  it("counts the stragglers rather than listing them all", () => {
+    const many = lobby(5, 0);
+    const one = { ...many, players: many.players.map((p, i) => ({ ...p, ready: i < 3 })) };
+    // three ready (host among them), two not
+    expect(startState(one).note).toContain("2 players");
   });
 
   it("says why it is unavailable rather than being silently dead", () => {

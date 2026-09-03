@@ -12,7 +12,7 @@ These are disagreements between what a spec says and what the tree contains.
 ### `specs/lobby-social/` — 🟡 dormant
 
 - **MISSING** — open tasks name 1 file(s) not in the tree: lobby.dom.test.ts
-- **LIKELY-SHIPPED** — 2 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T4, T5
+- **LIKELY-SHIPPED** — 1 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T4
 
 ### `specs/main-menu/` — 🟡 dormant
 
@@ -37,7 +37,7 @@ These are disagreements between what a spec says and what the tree contains.
 
 | spec | status | done | open | superseded | last touched | flags |
 |---|---|---:|---:|---:|---|---|
-| `lobby-social` | 🟡 dormant | 4 | 7 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
+| `lobby-social` | 🟡 dormant | 8 | 3 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
 | `main-menu` | 🟡 dormant | 0 | 5 | 0 | 2026-09-03 | LIKELY-SHIPPED |
 | `mutators` | 🟡 dormant | 0 | 12 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
 | `round-open` | 🟡 dormant | 0 | 9 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |

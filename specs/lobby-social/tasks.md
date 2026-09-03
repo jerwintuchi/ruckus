@@ -21,7 +21,7 @@
   a non-host kick is ignored with a reply and no broadcast; the host cannot kick
   themselves; host handover on the host leaving is unchanged
 
-- [ ] T5 [R1, R3, R5] — The three messages, in `src/shared/src/protocol.ts`
+- [x] T5 [R1, R3, R5] — The three messages, in `src/shared/src/protocol.ts`
   Test: `protocol.test.ts` — each is parsed and validated; each is refused outside `LOBBY`;
   malformed payloads are dropped rather than throwing (R10's clamp-never-reject rule)
 
@@ -29,17 +29,17 @@
   Test: `room.test.ts` — property: 1000 random ready/colour/kick messages, valid and
   malformed, in random order, leave the room startable and the roster consistent
 
-- [ ] T7 [R1, R2] — The READY and START controls, in `src/client/src/ui/screens.ts`
+- [x] T7 [R1, R2] — The READY and START controls, in `src/client/src/ui/screens.ts`
   Test: `lobby.dom.test.ts` — mounted: READY toggles and shows its state; START is absent
   for a non-host, present and disabled for the host until all are ready, and carries its
   reason as text; both clear the 44px tap floor as COMPUTED
 
-- [ ] T8 [R3] — The colour row, in `src/client/src/ui/screens.ts`
+- [x] T8 [R3] — The colour row, in `src/client/src/ui/screens.ts`
   Test: `lobby.dom.test.ts` — mounted: eight swatches; a taken one is inert and visibly
   unavailable; tapping a free one sends exactly one `colour`; tapping a taken one sends
   nothing; the row sits below the roster and above the actions
 
-- [ ] T9 [R4] — Join / leave / removed toasts, in `src/client/src/ui/screens.ts`
+- [x] T9 [R4] — Join / leave / removed toasts, in `src/client/src/ui/screens.ts`
   Test: `lobby.dom.test.ts` — mounted: a roster diff produces one toast naming the player
   in their own colour; a player's own arrival produces none; four arrivals at once produce
   one combined toast rather than four; a name with markup in it is escaped

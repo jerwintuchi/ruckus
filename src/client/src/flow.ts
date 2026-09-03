@@ -39,6 +39,12 @@ export type FlowEvent =
   | { t: "welcome"; slot: number; code: string; host: number }
   | { t: "room"; players: PlayerView[]; host: number; state: MatchState }
   | { t: "err"; code: ErrCode }
+  /* Lobby intents. The reducer does not act on these — they are the Ui asking main.ts
+     to put something on the wire, and the server's answer arrives as a `room`. Keeping
+     them in this union means every lobby action goes through one channel (R6). */
+  | { t: "wantReady"; on: boolean }
+  | { t: "wantColour"; c: string }
+  | { t: "wantKick"; slot: number }
   | { t: "disconnected" };
 
 /**
@@ -49,6 +55,8 @@ export const ERROR_TEXT: Record<ErrCode, string> = {
   NO_ROOM: "No room with that code. Check it, or create your own.",
   ROOM_FULL: "That room is full — 8 players is the limit.",
   NOT_HOST: "Only the host can start the match.",
+  // Not a fault, and it says so: removal is rejoinable by design (RD-108).
+  KICKED: "The host removed you from the room. You can rejoin with the code.",
   TOO_FEW: "You need at least two players to start.",
   BAD_CODE: "A room code is four characters. Check it and try again.",
   BAD_MSG: "Something went wrong. Try again.",
@@ -139,6 +147,10 @@ export function reduce(state: FlowState, event: FlowEvent): FlowState {
         connecting: false,
       };
 
+    case "wantReady":
+    case "wantColour":
+    case "wantKick":
+      return state;   // intent only; the server's answer arrives as `room`
     case "disconnected":
       // Never a frozen lobby: say what happened and offer the way back.
       return {
@@ -244,6 +256,15 @@ export function startState(state: FlowState): { canStart: boolean; label: string
   const hostName = state.players.find((p) => p.slot === state.host)?.name ?? "the host";
   if (!isHost) return { canStart: false, label: "", note: `Waiting for ${hostName} to start` };
   if (connected.length < 2) return { canStart: false, label: "Waiting for one more", note: "" };
+  // The gate (lobby-social R2): everyone ready, and the note NAMES who is being waited
+  // for rather than leaving a dead button unexplained (lobby-flow R9).
+  const waiting = connected.filter((p) => !p.ready);
+  if (waiting.length > 0) {
+    const who = waiting.length === 1
+      ? waiting[0]!.name
+      : `${waiting.length} players`;
+    return { canStart: false, label: "Start", note: `Waiting for ${who}` };
+  }
   return { canStart: true, label: "Start", note: "" };
 }
 

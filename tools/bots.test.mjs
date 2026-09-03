@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { packPrims, quantPrim } from "../src/shared/src/quant.ts";
 import { STRATEGIES, toward, wander } from "./bots.mjs";
@@ -187,5 +188,19 @@ describe("falling-floor — stand on something solid", () => {
   it("wanders rather than throwing when it has no grid yet", () => {
     const o = STRATEGIES["falling-floor"](mkBot({ game: "falling-floor" }));
     expect(Number.isFinite(o.ax)).toBe(true);
+  });
+});
+
+describe("bots ready up, or no room with a bot in it can start (lobby-social R1)", () => {
+  it("sends ready exactly once per lobby visit, and only when not host", () => {
+    // A bot that never readies makes the room unstartable, because the host's START is
+    // gated on every CONNECTED player being ready and a bot is a connected player.
+    const src = readFileSync(new URL("./bots.mjs", import.meta.url), "utf8");
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(code).toContain('this.send({ t: "ready", on: true })');
+    expect(code).toContain("this.saidReady = true");
+    // Reset on leaving the lobby, so a rematch readies again (readiness is cleared at a
+    // match end by design — lobby-social R2).
+    expect(code).toContain('if (this.state !== "LOBBY") this.saidReady = false;');
   });
 });

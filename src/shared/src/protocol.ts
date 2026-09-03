@@ -11,7 +11,9 @@ import type { ArenaDescriptor, InputScheme, MinigameSnapshot } from "./minigame.
 export type MatchState = "LOBBY" | "ROUND_INTRO" | "ROUND_PLAY" | "ROUND_RESULT" | "MATCH_RESULT";
 
 export type ErrCode =
-  | "NO_ROOM" | "ROOM_FULL" | "NOT_HOST" | "TOO_FEW" | "BAD_MSG" | "BAD_CODE";
+  | "NO_ROOM" | "ROOM_FULL" | "NOT_HOST" | "TOO_FEW" | "BAD_MSG" | "BAD_CODE"
+  /** The host removed you. Not a fault, and you may rejoin with the code (RD-108). */
+  | "KICKED";
 
 /* Client to server. */
 
@@ -25,6 +27,10 @@ export type ClientMsg =
    * the same client's previous value and never against another player's.
    */
   | { t: "input"; ax: number; ay: number; btn: boolean; seq: number }
+  /* Lobby only. Each is validated for SHAPE here and for LEGALITY by the room (I2). */
+  | { t: "ready"; on: boolean }
+  | { t: "colour"; c: string }
+  | { t: "kick"; slot: number }
   | { t: "pong"; id: number };
 
 /* Server to client. */
@@ -162,6 +168,18 @@ export function parseClientMsg(raw: unknown): ClientMsg | null {
       const seq = isNum(raw.seq) && raw.seq >= 0 ? Math.floor(raw.seq) : 0;
       return { t: "input", ax: raw.ax, ay: raw.ay, btn: raw.btn === true, seq };
     }
+    case "ready":
+      // Coerced, never rejected — the same rule `input` follows. A malformed field must
+      // not be able to stall a lobby, and "not true" is an unambiguous `false`.
+      return { t: "ready", on: raw.on === true };
+    case "colour":
+      // Shape only. Whether this colour is in the palette, and whether anyone holds it,
+      // are facts about live state and belong to the room (I2 step 2).
+      if (!isStr(raw.c)) return null;
+      return { t: "colour", c: raw.c };
+    case "kick":
+      if (!isNum(raw.slot) || raw.slot < 0) return null;
+      return { t: "kick", slot: Math.floor(raw.slot) };
     case "pong":
       if (!isNum(raw.id)) return null;
       return { t: "pong", id: raw.id };

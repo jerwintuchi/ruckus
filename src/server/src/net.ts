@@ -389,6 +389,38 @@ export class GameServer {
         return;
       }
 
+      case "ready": {
+        if (!conn.room) return;   // before joining: not an error, just nothing to do
+        conn.room.setReady(conn.slot, msg.on);
+        this.broadcastRoom(conn.room);
+        return;
+      }
+
+      case "colour": {
+        if (!conn.room) return;
+        // A refusal is a reply to THIS socket and nothing else: the loser of a race is
+        // told, the room is not (I2 — never broadcast on failure).
+        if (!conn.room.claimColour(conn.slot, msg.c)) return this.err(conn.ws, "BAD_MSG");
+        this.broadcastRoom(conn.room);
+        return;
+      }
+
+      case "kick": {
+        if (!conn.room) return this.err(conn.ws, "NO_ROOM");
+        if (!conn.room.kick(conn.slot, msg.slot)) return this.err(conn.ws, "NOT_HOST");
+        // Tell them why before the socket goes, then close it: removal IS the disconnect
+        // path (lobby-social R5), so everything downstream is I8's existing story.
+        const victim = [...this.conns.values()].find(
+          (c) => c.room === conn.room && c.slot === msg.slot,
+        );
+        if (victim) {
+          this.send(victim.ws, { t: "err", code: "KICKED" });
+          try { victim.ws.close(1000, "removed by host"); } catch { /* already gone */ }
+        }
+        this.broadcastRoom(conn.room);
+        return;
+      }
+
       case "input": {
         if (!conn.room) return; // silently ignored: input before joining is not an error
         // Only while a round is actually running: between rounds there is no input to

@@ -233,3 +233,40 @@ describe("input carries a sequence, coerced never rejected (input-prediction T1,
     expect((out as { seq: number }).seq).toBe(9);
   });
 });
+
+describe("the lobby messages (lobby-social T5, I2)", () => {
+  it("parses ready both ways", () => {
+    expect(parseClientMsg({ t: "ready", on: true })).toEqual({ t: "ready", on: true });
+    expect(parseClientMsg({ t: "ready", on: false })).toEqual({ t: "ready", on: false });
+  });
+
+  it("coerces a missing or junk `on` rather than dropping the message", () => {
+    // Same rule as `input`: a malformed field must never be able to stall a lobby, so
+    // the value is coerced and the message still lands (I2, clamp-never-reject).
+    expect(parseClientMsg({ t: "ready" })).toEqual({ t: "ready", on: false });
+    expect(parseClientMsg({ t: "ready", on: "yes" })).toEqual({ t: "ready", on: false });
+  });
+
+  it("parses a colour claim and keeps the string it was given", () => {
+    // The PALETTE check is the room's job, not the parser's: this layer validates shape,
+    // the room validates legality against live state (I2's two steps, in order).
+    expect(parseClientMsg({ t: "colour", c: "#1ab0ff" })).toEqual({ t: "colour", c: "#1ab0ff" });
+  });
+
+  it("drops a colour with no string to claim", () => {
+    for (const bad of [{ t: "colour" }, { t: "colour", c: 5 }, { t: "colour", c: null }]) {
+      expect(parseClientMsg(bad), JSON.stringify(bad)).toBeNull();
+    }
+  });
+
+  it("parses a kick and floors its slot", () => {
+    expect(parseClientMsg({ t: "kick", slot: 3 })).toEqual({ t: "kick", slot: 3 });
+    expect(parseClientMsg({ t: "kick", slot: 3.7 })).toEqual({ t: "kick", slot: 3 });
+  });
+
+  it("drops a kick with no usable slot", () => {
+    for (const bad of [{ t: "kick" }, { t: "kick", slot: -1 }, { t: "kick", slot: "0" }]) {
+      expect(parseClientMsg(bad), JSON.stringify(bad)).toBeNull();
+    }
+  });
+});

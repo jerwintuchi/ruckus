@@ -195,6 +195,8 @@ class Bot {
     this.floor = { tiles: [], grid: 0, tile: 0 };
     this.lobbySince = mono();
     this.lastHumans = 0;
+    /** Whether we have told the server we are ready for THIS lobby visit. */
+    this.saidReady = false;
     this.state = "LOBBY";
     /** Held input, refreshed on a human-ish reaction delay rather than every tick. */
     this.input = { ax: 0, ay: 0, btn: false };
@@ -284,6 +286,18 @@ class Bot {
 
   tick() {
     if (this.ws.readyState !== WebSocket.OPEN) return;
+
+    // Ready up (lobby-social R1).
+    //
+    // A bot that never readies makes the room unstartable: the host's START is gated on
+    // every connected player being ready, and a bot is a connected player. Sent once per
+    // lobby visit rather than every tick — `ready` is idempotent on the server, but a
+    // bot spamming it is a bot filling the log.
+    if (this.state === "LOBBY" && this.slot !== this.host && !this.saidReady) {
+      this.saidReady = true;
+      this.send({ t: "ready", on: true });
+    }
+    if (this.state !== "LOBBY") this.saidReady = false;
 
     // Starting the match.
     //
