@@ -266,6 +266,30 @@ export function forcedSurface(search: string): Surface | null {
   return v === "touch" || v === "keyboard" ? v : null;
 }
 
+/**
+ * Should a surface event actually change the controls? (touch-controls T8, RD-052)
+ *
+ * A named function rather than three clauses inside a closure, because each clause is a
+ * separate hard-won rule and they deserve to be tested rather than described:
+ *
+ * - **`forced` wins and keeps winning.** The screenshot harness asks for a surface, and
+ *   the first synthetic keydown would otherwise undo it before the shutter opened.
+ * - **`isTrusted` matters.** A synthetic event — a test, an extension, our own dispatch —
+ *   must never flip the controls out from under a player mid-round.
+ * - **Idempotent.** Repeated input on the surface already in use must not repaint, or
+ *   every keystroke thrashes the DOM.
+ *
+ * It is exported because `isTrusted` cannot be forged in jsdom: a mounted test can prove
+ * an UNTRUSTED event is ignored, but the trusted path is only reachable here. Extracting
+ * the decision is the difference between testing it and asserting that the source text
+ * of a closure contains the word "isTrusted", which is what this used to do (RD-104).
+ */
+export function shouldSettle(
+  forced: Surface | null, isTrusted: boolean, current: Surface, next: Surface,
+): boolean {
+  return !forced && isTrusted && current !== next;
+}
+
 export class Controls {
   private readonly root: HTMLElement;
   private readonly base: HTMLElement;
@@ -309,11 +333,9 @@ export class Controls {
     this.surface = forced ?? guessSurface((q) =>
       typeof window.matchMedia === "function" && window.matchMedia(q).matches);
 
-    // Whatever the device claims, the first REAL input decides. `isTrusted` matters:
-    // a synthetic event — a test, an extension, our own dispatch — must not flip the
-    // controls out from under a player.
+    // Whatever the device claims, the first REAL input decides — see `shouldSettle`.
     const settle = (next: Surface) => (e: Event): void => {
-      if (forced || !e.isTrusted || this.surface === next) return;
+      if (!shouldSettle(forced, e.isTrusted, this.surface, next)) return;
       this.surface = next;
       this.paint();
     };

@@ -1,5 +1,12 @@
 /**
- * The stick and the button (touch-controls T3, T4, T6, R1–R5).
+ * The stick and the button — CONSTANTS, PURE FUNCTIONS and POLICY (touch-controls T3,
+ * T4, T6, R1-R5).
+ *
+ * Everything about the mounted DOM moved to `controls.dom.test.ts`, where it is rendered
+ * and read back rather than string-matched (RD-104). What stays here earns its place:
+ * assertions about exported numbers, about pure functions, and about the STYLESHEET AS AN
+ * ARTEFACT — `CONTROLS_CSS` is an exported string, so "no hex literals in it" is a real
+ * claim about a real value, not a grep of a source file.
  *
  * The thing being pinned is that these are *drawn at all*. `stickView` computed exactly
  * where to put the stick from the day it was written and nothing ever read it, so the
@@ -32,22 +39,7 @@ const rule = (selector: string): string => {
   return CONTROLS_CSS.slice(i, CONTROLS_CSS.indexOf("}", i));
 };
 
-describe("the stick is visible before it is touched (T3, R1)", () => {
-  it("draws a resting base and knob, not just a live one", () => {
-    // A first-time player at a party has no idea the left half is a stick unless
-    // something is there to see. This is the whole point of the task.
-    expect(CONTROLS_HTML).toContain('id="stickBase"');
-    expect(CONTROLS_HTML).toContain('id="stickKnob"');
-    expect(rule("#stickBase")).toContain(`opacity:${STICK_REST_OPACITY}`);
-  });
-
-  it("is translucent at rest and solid once held", () => {
-    expect(STICK_REST_OPACITY).toBeGreaterThan(0.2); // findable
-    expect(STICK_REST_OPACITY).toBeLessThan(0.6); // not fighting the arena
-    expect(CONTROLS_CSS).toContain("#controls.live #stickBase");
-    expect(rule("#controls.live #stickBase,#controls.live #stickKnob")).toContain("opacity:1");
-  });
-
+describe("the stick's proportions and vocabulary (T3, R1, R2)", () => {
   it("is big enough for the throw the input actually uses", () => {
     // The base has to contain STICK_RADIUS of travel or the picture lies about the
     // range: the knob would leave its own base before the axis reached full tilt.
@@ -66,30 +58,6 @@ describe("the stick is visible before it is touched (T3, R1)", () => {
   });
 });
 
-describe("the button says what it does, and only exists when there is one (T4, R3, R4)", () => {
-  it("renders a button element, hidden until a round asks for it", () => {
-    expect(CONTROLS_HTML).toContain('id="actionBtn"');
-    expect(CONTROLS_HTML).toContain("hidden");
-    expect(rule("#actionBtn[hidden]")).toContain("display:none");
-  });
-
-  it("is comfortably over the tap floor — it is pressed under pressure (R5)", () => {
-    expect(BUTTON_MIN_PX).toBeGreaterThanOrEqual(UI.minTarget);
-    expect(BUTTON_MIN_PX).toBeGreaterThanOrEqual(64);
-    const btn = rule("#actionBtn");
-    // A real size, not a minimum: min-width leaves the used width to content, which is
-    // what let the icon's percentage go circular (RD-044).
-    expect(btn).toContain(`width:${BUTTON_MIN_PX}px`);
-    expect(btn).toContain(`height:${BUTTON_MIN_PX}px`);
-  });
-
-  it("takes its own touches, so drawn region and hit region are one region (P2)", () => {
-    // The controls layer is inert; only the button itself accepts input. That is what
-    // makes the honest hit area possible — see input.ts's attachButton.
-    expect(rule("#controls")).toContain("pointer-events:none");
-    expect(rule("#actionBtn")).toContain("pointer-events:auto");
-  });
-});
 
 describe("controls sit inside the safe area (T6, R5)", () => {
   it("keeps the button clear of the home indicator and the notch", () => {
@@ -97,96 +65,14 @@ describe("controls sit inside the safe area (T6, R5)", () => {
     expect(btn).toContain("var(--safe-right)");
     expect(btn).toContain("var(--safe-bottom)");
   });
-
-  it("homes the resting stick inside the safe area too", () => {
-    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
-    const home = src.slice(src.indexOf("private home()"), src.indexOf("\n  }", src.indexOf("private home()")));
-    // Spent by name now, so the harness can replay a real phone's values (RD-055).
-    expect(home).toContain("var(--safe-left)");
-    expect(home).toContain("var(--safe-bottom)");
-  });
 });
 
-describe("the drawn stick is stickView, verbatim (P1)", () => {
-  const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
 
-  it("positions from the input's own view, with no second opinion", () => {
-    // A control that lies about where it is, is worse than no control. The update path
-    // reads stickView and writes those numbers; it computes no geometry of its own.
-    const update = src.slice(src.indexOf("update(): void {"), src.indexOf("\n  }", src.indexOf("update(): void {")));
-    expect(update).toContain("this.input.stickView");
-    expect(update).toContain("view.ox");
-    expect(update).toContain("view.kx");
-    // No trigonometry, no radius maths — that all lives in stickVector.
-    expect(update).not.toMatch(/Math\.(cos|sin|hypot|atan2)/);
-  });
-
-  it("returns the stick home when nothing is touching it", () => {
-    const update = src.slice(src.indexOf("update(): void {"), src.indexOf("\n  }", src.indexOf("update(): void {")));
-    expect(update).toContain("this.home()");
-  });
-});
-
-describe("the resting stick is one stick, not two (RD-035)", () => {
-  const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
-  const home = src.slice(src.indexOf("private home()"), src.indexOf("\n  }", src.indexOf("private home()")));
-
-  it("positions base and knob by the same anchor, so their centres coincide", () => {
-    // Both carry translate(-50%,-50%). Under a `bottom` anchor that puts an element's
-    // centre at `bottom + its own height`, so the 132px base and the 61px knob rested
-    // at different points and the stick looked broken in two.
-    expect(home).toContain("top =");
-    expect(home).not.toMatch(/bottom = `/);
-    // Cleared explicitly, so a live frame's positioning cannot leak into rest.
-    expect(home).toContain('bottom = ""');
-  });
-
-  it("uses the same coordinate system as the live update", () => {
-    const update = src.slice(src.indexOf("update(): void {"), src.indexOf("\n  }", src.indexOf("update(): void {")));
-    for (const prop of ["left", "top"]) {
-      expect(home, prop).toContain(`${prop} =`);
-      expect(update, prop).toContain(`style.${prop}`);
-    }
-  });
-});
 
 describe("the controls suit the device being held (T8, T9, R6)", () => {
   it("guesses touch from a coarse pointer, keyboard otherwise", () => {
     expect(guessSurface((q) => q === "(pointer: coarse)")).toBe("touch");
     expect(guessSurface(() => false)).toBe("keyboard");
-  });
-
-  it("names the keys that already work, and the round's own word", () => {
-    // The guide is a reminder of bindings that have existed since input.ts was
-    // written; it introduces no new input. The action word comes from the round.
-    expect(CONTROLS_HTML).toContain('id="keyGuide"');
-    expect(rule("#keyGuide")).toContain("pointer-events:none");
-  });
-
-  it("draws the guide quietly enough to ignore", () => {
-    expect(GUIDE_OPACITY).toBeGreaterThan(0.2);
-    expect(GUIDE_OPACITY).toBeLessThan(0.6);
-    expect(rule("#keyGuide")).toContain(`opacity:${GUIDE_OPACITY}`);
-  });
-
-  it("keeps the guide inside the safe area, like every other control (R5)", () => {
-    const guide = rule("#keyGuide");
-    expect(guide).toContain("var(--safe-left)");
-    expect(guide).toContain("var(--safe-bottom)");
-  });
-
-  it("only lets a real event switch surfaces", () => {
-    // A synthetic event — a test, an extension, our own dispatch — must not flip the
-    // controls out from under a player mid-round.
-    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
-    const settle = src.slice(src.indexOf("const settle ="), src.indexOf("window.addEventListener"));
-    expect(settle).toContain("e.isTrusted");
-  });
-
-  it("switches idempotently, so repeated input does not thrash the DOM", () => {
-    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
-    const settle = src.slice(src.indexOf("const settle ="), src.indexOf("window.addEventListener"));
-    expect(settle).toContain("this.surface === next");
   });
 
   it("lets the screenshot harness force a surface (RD-052)", () => {
@@ -202,14 +88,6 @@ describe("the controls suit the device being held (T8, T9, R6)", () => {
     expect(forcedSurface("?surface=")).toBeNull();
     expect(forcedSurface("?surface=phone")).toBeNull();
     expect(forcedSurface("?auto=Bo&code=7Z7Z")).toBeNull();
-  });
-
-  it("stops settling once a surface is forced", () => {
-    // Otherwise the first synthetic keydown in the harness would undo the override
-    // before the shutter opened.
-    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
-    const settle = src.slice(src.indexOf("const settle ="), src.indexOf("window.addEventListener"));
-    expect(settle).toContain("forced");
   });
 
   it("mentions no minigame by name anywhere in the controls source (RD-009)", () => {
@@ -261,35 +139,15 @@ describe("the button says what it does, per player (action-button T3, T5, T6)", 
     const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
     const setAction = src.slice(src.indexOf("setAction("), src.indexOf("private paintCooldown"));
     const paint = src.slice(src.indexOf("private paintCooldown"), src.indexOf("/** Show the controls"));
-    // The value still comes from the server, and only from the server.
-    expect(setAction).toContain("action.r");
-    expect(paint).toContain("toFixed(1)"); // one decimal, as asked
-    // And nothing schedules itself: no interval, no timeout, no wall clock.
+    // That it counts down from the server's number, to one decimal, is asserted by
+    // MOUNTING it in controls.dom.test.ts. What stays here is the part no runtime test
+    // can see: that nothing schedules itself — no interval, no timeout, no wall clock.
     for (const timer of ["setInterval", "setTimeout", "Date.now("]) {
       expect(setAction + paint, timer).not.toContain(timer);
     }
   });
-
-  it("shows nothing at all when the action is ready", () => {
-    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
-    const paint = src.slice(src.indexOf("private paintCooldown"), src.indexOf("/** Show the controls"));
-    // A ready button is uncluttered: full ring, empty number.
-    expect(paint).toContain('cooling ? left.toFixed(1) : ""');
-    expect(paint).toContain('"0"');
-  });
 });
 
-describe("the button keeps its icon (RD-042)", () => {
-  it("never assigns textContent, which would destroy its children", () => {
-    // The button's children ARE the icon, the cooldown ring and the number. Assigning
-    // text wiped all three, so the icon never appeared and setAction was writing to a
-    // detached node. The accessible name goes on the attribute instead.
-    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
-    const paint = src.slice(src.indexOf("private paint()"), src.indexOf("\n  }", src.indexOf("private paint()")));
-    expect(paint).not.toContain("button.textContent");
-    expect(paint).toContain("aria-label");
-  });
-});
 
 describe("the first icon of a round is actually drawn (RD-054)", () => {
   it("starts drawing no verb at all, so the first snapshot cannot be memoised away", () => {
@@ -306,14 +164,8 @@ describe("the first icon of a round is actually drawn (RD-054)", () => {
     // the field. If either drifts the button goes blank again, silently.
     expect(NO_ICON_PATH).toBe("");
     expect(CONTROLS_HTML).toContain(`<path id="actionIcon" d="${NO_ICON_PATH}">`);
-    const src = readFileSync(join(dirname(new URL(import.meta.url).pathname), "controls.ts"), "utf8");
-    expect(src).toContain("private verb: ActionVerb | null = INITIAL_VERB;");
-  });
-
-  it("has a shape for every verb, so drawing one can never fall back to blank", () => {
-    for (const verb of ACTION_VERBS) {
-      expect(iconPath(verb), verb).not.toBe(NO_ICON_PATH);
-    }
+    // That the FIELD matches is now proved by mounting: controls.dom.test.ts asserts
+    // the button opens a round with an empty `d` and fills it on the first setAction.
   });
 });
 

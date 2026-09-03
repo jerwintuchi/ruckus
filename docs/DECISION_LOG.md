@@ -4199,3 +4199,74 @@ with real judgement per case, and doing it unasked in a health pass would be a l
 untested diff. Named here so it is a decision rather than an oversight.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-105 — The client UI, file by file: controls
+
+*2026-09-03. The first of the conversions RD-104 named and deliberately deferred.*
+
+`controls.test.ts` carried 87 string assertions, seven of which sliced a method body out
+of `controls.ts` as text:
+
+```js
+const update = src.slice(src.indexOf("update(): void {"), ...);
+expect(update).toContain("this.input.stickView");
+```
+
+That cannot fail when the method is wired up wrongly, cannot tell `top` in a comment from
+`top` in an assignment, and DOES fail when a local is renamed — a toll on every refactor,
+paid for none of the bugs it was written for.
+
+### jsdom resolves the real cascade, which makes the claims provable
+
+Spiked before committing to the approach, because the whole plan rested on it:
+
+```
+btn width: 72px   ·   btn display: none (via #actionBtn[hidden])
+controls pointer-events: none   ·   btn pointer-events: auto
+stickBase opacity: 0.35
+```
+
+So `controls.dom.test.ts` mounts the real `Controls` against the real `CONTROLS_CSS` and
+reads the computed result. This is strictly stronger than matching the rule text: a rule
+that is present but LOSES to a later one passes a string match and fails a computed one.
+
+26 mounted cases replace the seven source greps and most of the CSS matching. The stick's
+position is now asserted as the pixel it actually moved to, `[hidden]` as the display it
+actually computes, the cooldown as the number actually painted.
+
+### What could not be mounted, and what that changed in the code
+
+`isTrusted` is a non-configurable own property in jsdom, so a test cannot forge a trusted
+event. Rather than contort the test, the decision came out of the closure:
+
+```ts
+export function shouldSettle(forced, isTrusted, current, next): boolean
+```
+
+Three hard-won rules — a forced surface wins and keeps winning (RD-052), a synthetic
+event must never flip the controls mid-round, and repeated input must not repaint — are
+now three assertions instead of three greps for the words `forced`, `isTrusted` and
+`this.surface === next`. The mounted file still proves end to end that an untrusted event
+is ignored, which is the direction that matters.
+
+### What stays, and why it is not the same thing
+
+Three source reads remain and should: "mentions no minigame by name" (RD-009) and "the
+icons carry their licence" (RD-047) assert a **policy about the source** that no runtime
+test can see, as does "nothing in the cooldown schedules itself — no interval, no timeout,
+no wall clock". Matching `CONTROLS_CSS` for hex literals also stays: that is an exported
+string, so it is a claim about a real value, not a grep of a file.
+
+The distinction worth keeping: **asserting a policy about code is legitimate; asserting
+behaviour by describing code is not.**
+
+| | before | after |
+|---|---|---|
+| `controls.test.ts` | 87 assertions, 6 method-body greps | 48 assertions, 0 |
+| `controls.dom.test.ts` | — | 26 mounted cases |
+
+Seven files remain, largest first: `kit.test.ts` (80), `screens.test.ts` (37).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
