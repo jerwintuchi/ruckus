@@ -3964,3 +3964,56 @@ They passed for the wrong reason, and that conflation is the bug itself. They no
 name to a five-player room leave five players, where three used to fill it.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-101 — The bots went dumb when prims were packed, and their own test hid it
+
+*2026-09-03. Four playtests were spent believing the bots had a netcode problem.*
+
+RD-085 grouped prims on the wire: constants hoisted out, positions gathered into `at`.
+The client unpacks with `unpackPrims` and never notices. **`tools/bots.mjs` was not
+updated**, and its scramble strategy still read `p.pos[0]` — undefined on a `PrimGroup`.
+
+So the strategy threw on **every tick of every scramble round**, and this swallowed it:
+
+```js
+try { out = strategy(this); } catch { out = wander(this); }
+```
+
+A thrown strategy degrades to aimless wandering, which terminates a round perfectly
+happily and looks exactly like a bot playing badly. The playtester reported "the bots
+are dumb"; nothing anywhere reported an exception.
+
+### Why the test did not catch it
+
+`tools/bots.test.mjs` covered this exact strategy, and passed, because it built its
+fixture **by hand** in the pre-RD-085 shape:
+
+```js
+extra: { prims: [{ pos: [10, 0.5, 0] }, ...] }
+```
+
+It was asserting the bot's behaviour against a wire format the server had stopped
+sending. A hand-written fixture is a second, silent copy of the protocol, and it drifts.
+The fixture now runs the server's own `packPrims`/`quantPrim`, so changing the encoding
+fails this test instead of quietly retiring it, and a case asserts the group really is
+packed — otherwise the test proves nothing.
+
+### The instrument, again
+
+This is the fifth silent instrument in one session (RD-080, RD-089, RD-090, RD-096, and
+`vmstall`'s filter in RD-098). The pattern is identical: a fallback that makes a failure
+look like ordinary operation. The catch now names the game and the error once per bot.
+
+Two other things were added because "are the bots playing?" had no answer short of
+watching: `roundEnd` scores are logged, and they are how the fix was confirmed —
+`scramble s0:1 s1:1 s2:2 s3:3` where wandering bots score nothing much and score alike.
+
+**Only scramble was broken.** `hot-potato` reads `extra.holder`, `sweepers` reads
+`extra.bars`, `falling-floor` reads the tile channel; all three were verified against the
+current wire and all four now produce differentiated scores. The reports of hot-potato
+and sweepers misbehaving were the same rounds seen through a polluted arena — see RD-100
+for the inert capsules my own room probes were leaving in it.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

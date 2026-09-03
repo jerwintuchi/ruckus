@@ -32,6 +32,7 @@ const flag = (name) => argv.includes(`--${name}`);
 const ROOM = (arg("room", "") || "").toUpperCase();
 const COUNT = Math.max(1, Math.min(7, Number(arg("count", "3"))));
 const SERVER = arg("server", "ws://localhost:3001");
+const WARNED = new Set();
 const SKILL = Math.max(0, Math.min(1, Number(arg("skill", "0.85"))));
 const AUTOSTART = !flag("no-autostart");
 
@@ -137,15 +138,22 @@ export const STRATEGIES = {
     const me = bot.me();
     if (!me) return wander(bot);
     // Pickups ride the generic prims channel, so the bot reads them the same way the
-    // renderer does.
-    const prims = bot.extra.prims ?? [];
-    if (!prims.length) return wander(bot);
+    // renderer does — which since RD-085 means UNPACKING them first. Prims travel
+    // grouped: the constants that every copy shares are hoisted out, and the positions
+    // ride together in `at`. There is no `pos` on the wire any more, and reading one
+    // threw on every tick of every scramble round until the fallback was made to talk.
+    // Positions are already metres (`cm` rounds to centimetre precision, it does not
+    // change the unit), so there is nothing to convert here.
+    const groups = bot.extra.prims ?? [];
     let best = null, bd = Infinity;
-    for (const p of prims) {
-      const pos = { x: p.pos[0], z: p.pos[2] };
-      const d = dist(me, pos);
-      if (d < bd) { bd = d; best = pos; }
+    for (const g of groups) {
+      for (const at of g.at ?? []) {
+        const pos = { x: at[0], z: at[2] };
+        const d = dist(me, pos);
+        if (d < bd) { bd = d; best = pos; }
+      }
     }
+    if (!best) return wander(bot);
     return { ...toward(me, best), btn: bd > 6 };
   },
 };
@@ -227,6 +235,17 @@ class Bot {
         this.extra = {};
         this.floor = { tiles: [], grid: 0, tile: 0 };
         break;
+      case "roundEnd":
+        // Report the round's scores, once, from the host bot. A bot that never scores
+        // is a bot whose strategy is not working, and nothing else here says so: a
+        // broken strategy falls back to `wander`, which terminates a round perfectly
+        // happily and looks like play until someone watches the numbers.
+        if (this.slot === 0) {
+          const line = Object.entries(m.scores ?? {})
+            .map(([slot, sc]) => `s${slot}:${sc}`).join(" ");
+          console.log(`  ${this.game} scores — ${line || "(none)"}`);
+        }
+        break;
       case "snap": {
         this.snapPlayers = m.players.map((p) => ({
           slot: p.slot, x: cm(p.x), z: cm(p.z), y: cm(p.y), alive: p.alive,
@@ -285,7 +304,18 @@ class Bot {
     if (now >= this.nextThink) {
       const strategy = STRATEGIES[this.game] ?? wander;
       let out;
-      try { out = strategy(this); } catch { out = wander(this); }
+      // A strategy that throws falls back to wandering — which looks exactly like a
+      // bot that is playing badly, so it MUST say so. Silently degrading to `wander`
+      // hid a broken scramble strategy through several playtests.
+      try {
+        out = strategy(this);
+      } catch (err) {
+        if (!WARNED.has(this.game)) {
+          WARNED.add(this.game);
+          console.error(`  !! ${this.game} strategy threw, falling back to wander: ${err.message}`);
+        }
+        out = wander(this);
+      }
 
       // Imperfection, scaled by skill: a little aim wobble and the occasional lapse.
       const wobble = (1 - SKILL) * 0.9;

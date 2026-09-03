@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { packPrims, quantPrim } from "../src/shared/src/quant.ts";
 import { STRATEGIES, toward, wander } from "./bots.mjs";
 
 /**
@@ -40,13 +41,22 @@ describe("toward / wander", () => {
 });
 
 describe("scramble — go get the nearest pickup", () => {
+  /**
+   * Build the fixture with the SERVER'S OWN encoder, never by hand.
+   *
+   * The previous version of this file wrote `prims: [{ pos: [...] }]` literally, which
+   * was the wire shape until RD-085 grouped prims and hoisted their constants. After
+   * that the strategy threw on every tick of every scramble round — and these tests
+   * went on passing, because they were feeding it a shape the server had stopped
+   * sending. Four playtests were spent on "the bots are dumb". Running the real
+   * `packPrims`/`quantPrim` here means the fixture cannot drift from the wire again:
+   * change the encoding and this test fails, which is the point of it.
+   */
+  const wire = (...positions) => packPrims(positions.map((pos) => quantPrim({ k: "sphere", r: 0.35, colour: "#ffd23f", pos })));
+
   const bot = mkBot({
     game: "scramble",
-    extra: { prims: [
-      { pos: [10, 0.5, 0] },   // far
-      { pos: [0, 0.5, 2] },    // nearest
-      { pos: [-8, 0.5, -8] },  // far
-    ] },
+    extra: { prims: wire([10, 0.5, 0], [0, 0.5, 2], [-8, 0.5, -8]) },
   });
 
   it("heads for the nearest one, not the first in the list", () => {
@@ -54,9 +64,18 @@ describe("scramble — go get the nearest pickup", () => {
     expect(dirTo(o)).toBeCloseTo(Math.atan2(2, 0), 6); // straight at +z
   });
 
+  it("reads a packed group, which is the only shape the server sends (RD-085)", () => {
+    // The encoder really did hoist the constants — otherwise this test proves nothing.
+    const groups = bot.extra.prims;
+    expect(groups).toHaveLength(1);
+    expect(groups[0].at).toHaveLength(3);
+    expect(groups[0].pos).toBeUndefined();
+    expect(groups[0].k).toBe("sphere");
+  });
+
   it("dashes when the target is a long way off, and not when it is close", () => {
-    const far = mkBot({ game: "scramble", extra: { prims: [{ pos: [12, 0.5, 0] }] } });
-    const near = mkBot({ game: "scramble", extra: { prims: [{ pos: [1, 0.5, 0] }] } });
+    const far = mkBot({ game: "scramble", extra: { prims: wire([12, 0.5, 0]) } });
+    const near = mkBot({ game: "scramble", extra: { prims: wire([1, 0.5, 0]) } });
     expect(STRATEGIES.scramble(far).btn).toBe(true);
     expect(STRATEGIES.scramble(near).btn).toBe(false);
   });
