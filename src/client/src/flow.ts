@@ -45,6 +45,7 @@ export type FlowEvent =
   | { t: "wantReady"; on: boolean }
   | { t: "wantColour"; c: string }
   | { t: "wantKick"; slot: number }
+  | { t: "wantSkip" }
   | { t: "disconnected" };
 
 /**
@@ -162,6 +163,7 @@ export function reduce(state: FlowState, event: FlowEvent): FlowState {
     case "wantReady":
     case "wantColour":
     case "wantKick":
+    case "wantSkip":
       return state;   // intent only; the server's answer arrives as `room`
     case "disconnected":
       // Never a frozen lobby: say what happened and offer the way back.

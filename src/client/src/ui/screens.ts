@@ -564,13 +564,37 @@ export class Ui {
   }
 
   /** The one sentence a player gets before a round (vision pillar 1). */
-  showIntro(displayName: string, rule: string, round: number, of: number): void {
+  showIntro(
+    displayName: string, rule: string, round: number, of: number,
+    skips = 0, ofPlayers = 0,
+  ): void {
     this.banner.innerHTML =
       `<div class="card tilt"><div class="dim">round ${round} of ${of}</div>` +
       `<div class="big">${escapeHtml(displayName)}</div>` +
       `<p class="rule">${escapeHtml(rule)}</p>` +
-      `<div id="count" class="count"></div></div>`;
+      `<div id="count" class="count"></div>` +
+      `<button id="skipBtn" class="skip"></button></div>`;
     this.banner.style.display = "flex";
+    this.setSkips(skips, ofPlayers);
+    this.q("#skipBtn").addEventListener("click", () => {
+      // Idempotent on the server, so a second tap costs nothing; the button simply
+      // stops inviting one.
+      this.handlers.onEvent({ t: "wantSkip" });
+      (this.q("#skipBtn") as HTMLButtonElement).disabled = true;
+    });
+  }
+
+  /**
+   * How many have asked to move on (round-open R2).
+   *
+   * Shown as a tally rather than a bare button so tapping feels collective — the card
+   * belongs to the room, not to whoever is quickest. It never blocks: the dwell expires
+   * on its own, so this can only make the card faster.
+   */
+  setSkips(skips: number, ofPlayers: number): void {
+    const btn = this.banner.querySelector("#skipBtn") as HTMLButtonElement | null;
+    if (!btn) return;
+    btn.textContent = ofPlayers > 1 ? `tap to skip  ${skips}/${ofPlayers}` : "tap to skip";
   }
 
   /**

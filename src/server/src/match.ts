@@ -35,7 +35,9 @@ import type { Room } from "./room.ts";
 import { Bag } from "./select.ts";
 
 export interface MatchEvents {
-  onIntro(game: Minigame<never>, round: number): void;
+  onIntro(game: Minigame<never>, round: number, skips: number, ofPlayers: number): void;
+  /** The round is actually running now (round-open R3). */
+  onPlay(): void;
   onRoundStart(game: Minigame<never>, state: unknown): void;
   onSnapshot(extra: unknown): void;
   onRoundEnd(scores: Record<number, number>): void;
@@ -196,7 +198,7 @@ export class Match {
     this.phaseEndsAt = this.elapsed + INTRO_MS;
     this.skipped.clear();
     this.buildRound();
-    this.events.onIntro(this.game, this.room.round);
+    this.events.onIntro(this.game, this.room.round, 0, this.introVoters());
     this.events.onRoundStart(this.game, this.gameState);
   }
 
@@ -211,7 +213,19 @@ export class Match {
   skip(slot: number): void {
     if (this.room.state !== "ROUND_INTRO") return;
     if (!this.roundRoster.some((r) => r.slot === slot)) return;
+    const before = this.skipped.size;
     this.skipped.add(slot);
+    // Idempotent, so only a CHANGE is worth telling the room about.
+    if (this.skipped.size !== before && this.game) {
+      this.events.onIntro(this.game, this.room.round, this.skipped.size, this.introVoters());
+    }
+  }
+
+  /** How many players a unanimous skip currently needs. */
+  private introVoters(): number {
+    return this.roundRoster.filter(
+      (r) => this.room.players.get(r.slot)?.connected === true,
+    ).length;
   }
 
   /** Everyone still connected on this round's roster has asked to move on. */
@@ -228,6 +242,7 @@ export class Match {
     this.room.state = "ROUND_PLAY";
     // P2: the shell owns the deadline, not the minigame.
     this.phaseEndsAt = this.elapsed + game.maxDurationMs;
+    this.events.onPlay();
   }
 
   /** Place everyone and hand the round to its minigame. Called once, at the intro. */

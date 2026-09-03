@@ -79,6 +79,9 @@ export type ServerMsg =
       inMs: number;
       round: number;
       of: number;
+      /** How many have asked to skip, and how many that needs (round-open R2). */
+      skips: number;
+      ofPlayers: number;
     }
   | {
       t: "roundStart";
@@ -109,6 +112,15 @@ export type ServerMsg =
       /** The recipient's own speed multiplier, so a dash or slow predicts (R5). */
       sm: number;
     }
+  /**
+   * The round is now running (round-open R3).
+   *
+   * Separate from `roundStart`, which arrives at the INTRO so the arena can be drawn and
+   * held still behind the rule card. The client cannot infer this instant from a timer:
+   * a unanimous skip ends the card early, so the only honest source is the server saying
+   * so. Empty on purpose — everything needed was sent with `roundStart`.
+   */
+  | { t: "play" }
   | { t: "roundEnd"; scores: Record<number, number>; totals: Record<number, number> }
   | { t: "matchEnd"; totals: Record<number, number>; winner: number }
   | { t: "err"; code: ErrCode }

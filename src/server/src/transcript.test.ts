@@ -92,6 +92,7 @@ function record(): string[] {
     onRoundEnd: (scores) => lines.push(
       `end     ${Object.entries(scores).map(([s, v]) => `${s}:${v}`).join(" ")}`),
     onMatchEnd: (winner) => lines.push(`match   winner=${winner}`),
+    onPlay: () => {},
     onLobby: () => lines.push("lobby"),
   }, 20260901);
 

@@ -29,6 +29,7 @@ const events = (): MatchEvents & { log: string[]; snaps: number } => {
     onSnapshot: () => { o.snaps++; },
     onRoundEnd: () => o.log.push("roundEnd"),
     onMatchEnd: () => o.log.push("matchEnd"),
+    onPlay: () => {},
     onLobby: () => o.log.push("lobby"),
   };
   return o;

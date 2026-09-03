@@ -50,6 +50,7 @@ const events = (): MatchEvents & { log: string[] } => {
     onSnapshot: () => log.push("snap"),
     onRoundEnd: () => log.push("end"),
     onMatchEnd: () => log.push("match"),
+    onPlay: () => {},
     onLobby: () => log.push("lobby"),
   };
 };
@@ -218,6 +219,7 @@ describe("Match round selection (T8, T9, R4)", () => {
       onSnapshot: () => {},
       onRoundEnd: () => {},
       onMatchEnd: () => {},
+      onPlay: () => {},
       onLobby: () => {},
     };
     const match = new Match(room, games, ev, 7);

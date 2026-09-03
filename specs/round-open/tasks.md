@@ -19,16 +19,16 @@
   Test: `intro.test.ts` — property over every registered minigame: `elapsed` does not
   advance during the intro, so any time-driven flourish is still
 
-- [ ] T5 [R3, P4] — Inert controls during the count, in `src/client/src/main.ts`
+- [x] T5 [R3, P4] — Inert controls during the count, in `src/client/src/main.ts`
   Test: `predict.test.ts` — input during the count banks nothing, produces no `seq` the
   server acknowledges, and leaves nothing to reconcile at the first tick
 
-- [ ] T6 [R1, R2] — The card, the count and the skip tally, in `src/client/src/ui/screens.ts`
+- [x] T6 [R1, R2] — The card, the count and the skip tally, in `src/client/src/ui/screens.ts`
   Test: `intro.dom.test.ts` — mounted: the rule renders verbatim and escaped; the round
   number is shown; tapping sends exactly one `skip` and shows the tally; the card closes
   on the dwell with no taps at all
 
-- [ ] T7 [R3] — The count sits over the arena, not over a card
+- [x] T7 [R3] — The count sits over the arena, not over a card
   Test: `intro.dom.test.ts` — mounted: while counting, no card covers the arena and the
   HUD is present; the count is derived from the server's deadline, not a local timer
   (RD-065)

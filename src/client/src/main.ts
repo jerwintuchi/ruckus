@@ -4,7 +4,7 @@
  * (I1, I6), and everything sent is an intention.
  */
 import {
-  MAX_CATCHUP_STEPS, STALL_NOTICE_MS, TICK_MS, dequantPos, unpackPrims, type PrimGroup, type PlayerView, type Prim, type ServerMsg, type WireAction,
+  MAX_CATCHUP_STEPS, STALL_NOTICE_MS, TICK_MS, dequantPos, unpackPrims, type PrimGroup, type PlayerView, type Prim, type ServerMsg, type Solid, type WireAction,
 } from "@ruckus/shared";
 import {
   amOnRoster, initialState, reduce, shouldShowWaiting, type FlowEvent,
@@ -104,6 +104,12 @@ const aliveLast = new Map<number, boolean>();
 /** The last count drawn, so a tick sounds once rather than every frame. */
 let lastCount = 0;
 let handler: ClientMinigame | undefined;
+/** The round's arena, held from `roundStart` until `play` says it is running. */
+let pendingRound: { solids: Solid[]; jumpSpeed: number } | null = null;
+/** This round's roster, kept so `play` can tell a player from a spectator. */
+let lastRoster: number[] = [];
+/** The round whose card is up, so a tally update does not rebuild it. */
+let introRound = -1;
 
 const net = new Net(serverUrl(), onMessage);
 
@@ -116,6 +122,7 @@ const dispatch = (event: FlowEvent): void => {
     case "wantReady": net.send({ t: "ready", on: event.on }); break;
     case "wantColour": net.send({ t: "colour", c: event.c }); break;
     case "wantKick": net.send({ t: "kick", slot: event.slot }); break;
+    case "wantSkip": net.send({ t: "skip" }); break;
     default: break;
   }
   flow = reduce(flow, event);
@@ -258,8 +265,17 @@ function onMessage(msg: ServerMsg): void {
       // it must not depend on this phone and the server agreeing what time it is —
       // which they did not, so a second player opened the intro already on "1"
       // (RD-065). Latency costs tens of milliseconds, invisible at 1s granularity.
+      // A tally update is the SAME card, not a new one. The server re-sends `intro`
+      // whenever the skip count changes, and rebuilding would make the rule flicker
+      // under someone who is still reading it — which is the one thing the dwell exists
+      // to protect (round-open R1).
+      if (msg.round === introRound) {
+        ui.setSkips(msg.skips, msg.ofPlayers);
+        break;
+      }
+      introRound = msg.round;
       introEndsAt = performance.now() + msg.inMs;
-      ui.showIntro(msg.displayName, msg.rule, msg.round, msg.of);
+      ui.showIntro(msg.displayName, msg.rule, msg.round, msg.of, msg.skips, msg.ofPlayers);
       roundLabelInfo = { name: msg.displayName, round: msg.round, of: msg.of };
       bannerUntil = performance.now() + 4000;
       break;
@@ -286,10 +302,15 @@ function onMessage(msg: ServerMsg): void {
       lastCount = 0;
       ui.clearOut();
       // Looked up, never branched on: main.ts knows no minigame by name (RD-009).
+      lastRoster = msg.roster;
       handler = clientMinigame(msg.game);
       handler?.onRoundStart?.(renderer);
-      playing = true;
+      // The arena goes UP, but the round is not running yet (round-open R3). `roundStart`
+      // now arrives at the intro so the countdown can sit over a real, still world; the
+      // server says when play actually begins, because a unanimous skip means no timer
+      // here could know.
       worldLive = true;
+      playing = false;
       roundSeen = true;
       // The round says which controls it needs; the shell never asks which game it is.
       // A mid-round joiner is watching, not playing, and gets no controls (R4).
@@ -306,8 +327,13 @@ function onMessage(msg: ServerMsg): void {
       // means the next snapshot starts a fresh measurement instead of closing a gap
       // that was never a fault.
       health.expectGap();
-      predictor.beginRound(msg.arena.solids ?? [], msg.jumpSpeed);
+      // Held until `play`: the predictor must bank nothing during the countdown, or the
+      // first tick has a queue of inputs to reconcile that the server never saw (P4).
+      pendingRound = { solids: msg.arena.solids ?? [], jumpSpeed: msg.jumpSpeed };
+      predictor.stop();
       if (amOnRoster(msg.roster, mySlot)) {
+        // Drawn but inert (R3): a control that vanishes and reappears is a control the
+        // player has to find twice.
         controls.show(msg.buttonLabel);
         ui.setSpectating(false);
       } else {
@@ -317,9 +343,21 @@ function onMessage(msg: ServerMsg): void {
         predictor.stop();
         ui.setSpectating(true, roundLabelInfo?.round, roundLabelInfo?.of);
       }
-      introEndsAt = 0;
       ui.hideBanner();
       break;
+
+    case "play": {
+      // The round is running. Everything that must NOT happen during the countdown
+      // starts here, and nothing else changes: the world is already on screen.
+      playing = true;
+      introEndsAt = 0;
+      lastCount = 0;
+      ui.setCountdown(0);
+      if (pendingRound && amOnRoster(lastRoster, mySlot)) {
+        predictor.beginRound(pendingRound.solids, pendingRound.jumpSpeed);
+      }
+      break;
+    }
 
     case "snap": {
       // Only the MEASUREMENT is skipped across a suspension, never the snapshot itself:

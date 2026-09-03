@@ -181,7 +181,7 @@ export class GameServer {
 
   private makeEvents(room: Room) {
     return {
-      onIntro: (game: { id: string; displayName: string; rule: string }, round: number) => {
+      onIntro: (game: { id: string; displayName: string; rule: string }, round: number, skips: number, ofPlayers: number) => {
         this.broadcast(room, {
           t: "intro",
           game: game.id,
@@ -191,9 +191,12 @@ export class GameServer {
           inMs: INTRO_MS,
           round,
           of: ROUNDS_PER_MATCH,
+          skips,
+          ofPlayers,
         });
         this.broadcastRoom(room);
       },
+      onPlay: () => this.broadcast(room, { t: "play" }),
       onRoundStart: (
         game: { id: string; input: InputScheme; buttonLabel?: string; jumpSpeed?: number;
           arena: (s: never) => unknown },
