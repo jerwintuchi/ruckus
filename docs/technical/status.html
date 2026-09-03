@@ -151,16 +151,16 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
     </div>
     <div class="stamp">
       <span class="badge ok">all green</span><br>
-      <b>2026-09-03 08:38 UTC</b><br>
-      <code>1890bc9</code> test(ui): mount what jsdom can settle in the Kit — RD-106
+      <b>2026-09-03 10:27 UTC</b><br>
+      <code>1e66f09</code> test(ui): give screens a real DOM — RD-107
     </div>
   </header>
 
   <div class="metrics">
     <div class="metric"><b>4</b><span>Minigames shipped</span></div>
-    <div class="metric"><b>176</b><span>Tasks done <em>/ 16 open</em></span></div>
+    <div class="metric"><b>176</b><span>Tasks done <em>/ 62 open</em></span></div>
     <div class="metric"><b>1010</b><span>Tests</span></div>
-    <div class="metric"><b>3,853</b><span>Eager context tokens</span></div>
+    <div class="metric"><b>3,890</b><span>Eager context tokens</span></div>
     <div class="metric"><b>73</b><span>Decisions logged</span></div>
   </div>
 
@@ -172,7 +172,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
       <li class="guard guard--ok">
           <span class="guard__state">pass</span>
           <span class="guard__label">Eager context under budget</span>
-          <span class="guard__detail">context budget OK — ~3,853 eager tokens</span>
+          <span class="guard__detail">context budget OK — ~3,890 eager tokens</span>
         </li>
 <li class="guard guard--ok">
           <span class="guard__state">pass</span>
@@ -182,7 +182,7 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
 <li class="guard guard--ok">
           <span class="guard__state">pass</span>
           <span class="guard__label">Spec registry matches the tree</span>
-          <span class="guard__detail">spec registry OK — 22 spec(s), 0 flagged</span>
+          <span class="guard__detail">spec registry OK — 27 spec(s), 5 flagged</span>
         </li>
     </ul>
   </section>
@@ -240,6 +240,46 @@ footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
         <thead><tr><th>Spec</th><th>Status</th><th class="num">Done</th><th class="num">Open</th><th>Progress</th><th>Flags</th></tr></thead>
         <tbody>
         <tr>
+          <td><code>lobby-social</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">0</td>
+          <td class="num">11</td>
+          <td class="bar"><span style="--pct:0%"></span></td>
+          <td class="flags"><span class="flag">MISSING</span><span class="flag">LIKELY-SHIPPED</span></td>
+        </tr>
+<tr>
+          <td><code>main-menu</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">0</td>
+          <td class="num">5</td>
+          <td class="bar"><span style="--pct:0%"></span></td>
+          <td class="flags"><span class="flag">LIKELY-SHIPPED</span></td>
+        </tr>
+<tr>
+          <td><code>mutators</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">0</td>
+          <td class="num">12</td>
+          <td class="bar"><span style="--pct:0%"></span></td>
+          <td class="flags"><span class="flag">MISSING</span><span class="flag">LIKELY-SHIPPED</span></td>
+        </tr>
+<tr>
+          <td><code>round-open</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">0</td>
+          <td class="num">9</td>
+          <td class="bar"><span style="--pct:0%"></span></td>
+          <td class="flags"><span class="flag">MISSING</span><span class="flag">LIKELY-SHIPPED</span></td>
+        </tr>
+<tr>
+          <td><code>round-status</code></td>
+          <td><span class="chip chip--dormant">dormant</span></td>
+          <td class="num">0</td>
+          <td class="num">9</td>
+          <td class="bar"><span style="--pct:0%"></span></td>
+          <td class="flags"><span class="flag">MISSING</span><span class="flag">LIKELY-SHIPPED</span></td>
+        </tr>
+<tr>
           <td><code>action-button</code></td>
           <td><span class="chip chip--dormant">dormant</span></td>
           <td class="num">10</td>

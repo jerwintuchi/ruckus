@@ -4399,3 +4399,69 @@ real DOM.
 | DOM | 50-line hand-written stub | jsdom |
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-108 — Ruckus gets a twist: the loser picks what happens next
+
+*2026-09-03. The game-shaping decision, taken deliberately rather than drifted into.*
+
+Ruckus has four minigames, a rotation and a score. That is a competent party game and it
+is not a distinctive one — nothing in it yet is the thing people describe to someone who
+was not in the room. So: a twist, chosen against four candidates.
+
+### The decision
+
+**Whoever placed LAST in a round chooses the modifier for the next one.** Moon gravity,
+greased floor, giant heads, hyperspeed — a small closed set, one tap, on the results card
+everyone is already looking at.
+
+Why this one:
+
+- **It makes the pillars true instead of aspirational.** "Chaos beats balance" is
+  currently a sentence in `vision.md` that nothing in the code enforces. This makes chaos
+  a *mechanic*: the rotation stops being predictable and the arena stops being fair, by
+  design, at the hands of the person with the least to lose.
+- **It rewards losing, which is the one thing party games rarely do.** Pillar 4 says a
+  bad round costs a round, never the match. This goes further: a bad round buys you the
+  next round's rules. Coming last is now worth something, and it is worth something
+  *loudly*, in front of everyone.
+- **It is free by construction.** A modifier is a shell-level multiplier or a flag on the
+  existing movement primitives — gravity, speed, scale, friction. Every minigame gets
+  every modifier without knowing modifiers exist, exactly as every minigame gets the round
+  timer and the quantizer without knowing about them. **No new assets**, so the closed Kit
+  (RD-001) is untouched.
+- **It costs one tap from one player**, on a card already on screen for `RESULT_MS`, so it
+  adds nothing to the input budget (non-negotiable 2) and no screen to the flow.
+
+What it trades away, stated plainly: **a mutator can make a round unfair, and that is the
+point.** Someone will lose a round to greased floors they did not choose. The design bets
+that "we lost because Sam picked grease" is a better story than a fair round nobody
+retells. If playtests say the modifiers feel arbitrary rather than funny, the reversal is
+to shrink the set or make them cosmetic — not to give the pick to the winner, which would
+make a leader's lead compound.
+
+The three rejected candidates are worth keeping on the record, because each solves a
+problem this one does not:
+
+- **Spectator sabotage** — the eliminated vote a hazard onto the living. Solves that
+  two-thirds of a Hot Potato round is spent dead. Rejected only because it needs a second
+  input surface for dead players; revisit for `spectating`.
+- **Secret rivals** — a per-round bounty on one opponent. Cheapest of the four, adds a
+  private story. Rejected as too quiet: nobody in the room can see it happen.
+- **Escalating stakes** — later rounds worth more. Kept in the back pocket; it is a
+  scoring change and composes with this one.
+
+### Four flow decisions taken with it
+
+| | Decision | Why |
+|---|---|---|
+| **Ready** | Every connected player readies; the **host** then starts | The host can hold for someone still typing a name. Nobody is dropped into a round they were not looking at. |
+| **Kick** | **Host only**, and the kicked player **may rejoin** | A party game among friends. Kick is for a stuck socket or someone who wandered off, not a ban, and it cannot be weaponised. |
+| **Skip the rule card** | **Unanimous** among connected players | Strongest protection for a first-timer, and it cannot stall: the card already auto-advances on `INTRO_MS`, so unanimity only ever ACCELERATES it. I8 holds — a round never requires every player to act. |
+| **Colour** | Claimed in the lobby, taken colours disabled | Eight distinct colours already exist and are chosen for colour-blindness (RD-007); letting players own one makes "find yourself" a choice rather than a lottery. |
+
+Five specs follow, each shippable alone: `main-menu`, `lobby-social`, `round-open`,
+`round-status`, `mutators`.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

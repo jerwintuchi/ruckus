@@ -30,20 +30,21 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 <!-- Max 20 lines. Pointer + next actions only. No history. -->
 
-Phase: **The phone, and nothing else.**
+Phase: **The flow, and the twist.**
 
-The bots play their objectives again (RD-103), so the manual boxes are unblocked.
+Five specs are written and none is implemented: `mutators` (the twist — the last-placed
+player picks the next round's modifier, RD-108), `lobby-social` (ready, colour claim,
+kick, toasts), `main-menu`, `round-open` (unanimous skip, countdown over a paused arena),
+`round-status` (the clock ramp, the alive count, the scoreboard).
 
-Every remaining box in all 22 specs is a **manual phone task** — 16 of them, listed in
-`docs/technical/spec-status.md`. There is no keyboard work left in Ruckus.
+Build order: **`lobby-social` → `round-open` → `round-status` → `mutators`**, with
+`main-menu` any time. Mutators last because it lands on the results card the other
+specs reshape.
 
-They batch. One Hot Potato round at eight players answers `find-yourself` T4,
-`spectating` T3, `flat-controls` T4 and `action-button` T7 together.
+The registry flags all five `LIKELY-SHIPPED`; that is a **false positive on a new spec**,
+whose open tasks name files that already exist. It clears as the boxes get ticked.
 
-The one that can invalidate work is **`input-prediction` T8**. `?debug=1` reports
-`corr`/`worst`/`snaps` on the predict line; `snaps` must stay 0.
-
-Also owed on hardware: `bench.html` p95 (RD-028) and `specs/audio/` T4-T5.
+16 manual phone boxes remain in the older specs, `input-prediction` T8 first.
 
 Run **`pnpm verify`** before ending a session — `pnpm check` alone does not compile.
 
