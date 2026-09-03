@@ -4270,3 +4270,67 @@ behaviour by describing code is not.**
 Seven files remain, largest first: `kit.test.ts` (80), `screens.test.ts` (37).
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-106 — kit: the file that was mostly right, and the correction that owes
+
+*2026-09-03. Second of the client-UI conversions, and a smaller result than advertised.*
+
+RD-104 counted `kit.test.ts` among the ~430 source-text assertions and implied they were
+stand-ins for DOM tests. **For this file that was wrong, and the count was the wrong
+measure.** Its 80 assertions match `UI_CSS` — an exported string constant, not a file
+read — and most of what they claim is cross-cutting policy:
+
+- no blurred shadow **anywhere** in the stylesheet
+- no rule calling `env()` directly **anywhere**
+- no asset url declared **at all** (the Kit is closed, RD-001)
+
+None of that is expressible by mounting an element. You cannot mount "anywhere".
+
+### What jsdom can and cannot settle, measured
+
+```
+card box-shadow   ->  "var(--shadow)"    custom properties are NOT substituted
+card border       ->  "16px none rgba(0,0,0,0)"
+window.matchMedia ->  undefined          so no @media rule is ever applied
+button min-height ->  "44px"             concrete lengths DO resolve
+codeblock columns ->  "auto auto auto"
+```
+
+So every claim about `var(--outline) solid var(--ink)`, the short-viewport layout and the
+portrait nudge is provable **only** against the stylesheet text. That is not a weakness in
+those tests; it is the only place the fact exists.
+
+### What did convert, and why it was worth it
+
+Four cases, in `kit.dom.test.ts`:
+
+- **Tap targets.** The string form asserted the rule `button,input{min-height:44px}` was
+  present. The mounted form reads the computed `min-height` of every button and input the
+  lobby actually renders — so a later rule that lowers one fails, where the string match
+  went on passing against the rule it had lost to.
+- **The code block's columns.** This one read `screens.ts` off disk and counted
+  `class="iconbtn"` inside a slice of its markup. Counting mounted elements is simpler and
+  strictly stronger: it sees a button added by script, which a source grep never could.
+
+| | before | after |
+|---|---:|---:|
+| `kit.test.ts` assertions | 80 | 79 |
+| disk reads | 2 | 1 (a policy guard on `flow.ts`) |
+| `kit.dom.test.ts` | — | 4 mounted cases |
+
+**One assertion moved.** That is the honest result, and recording it matters more than the
+number would have if it were large: the ~430 figure in RD-104 counts a form, not a fault,
+and the two files examined so far land on opposite sides of that. `controls.test.ts` was
+describing behaviour it could have run. `kit.test.ts` is asserting policy it could not.
+
+The remaining disk read stays: `flow.ts` must never mention orientation, portrait,
+landscape or rotate, because a cached orientation flag can disagree with the device where
+a media query cannot. That is a claim about what a module does NOT model, and only its
+source can answer it.
+
+Five files left. They will be judged one at a time on which side they fall, not on their
+assertion count.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

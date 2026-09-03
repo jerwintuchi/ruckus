@@ -1,6 +1,23 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
+/**
+ * The STYLESHEET, as an artefact (RD-105).
+ *
+ * This file matches `UI_CSS` as text, and that is the right form for what it claims. It
+ * is an exported string, not a file read off disk, and most of what is asserted here is
+ * cross-cutting policy — no blurred shadow ANYWHERE, no rule calling `env()` directly,
+ * no asset url declared at all — which is a statement about the whole stylesheet that no
+ * single mounted element can make.
+ *
+ * jsdom cannot settle these anyway: it does not substitute custom properties (a card's
+ * `box-shadow` computes to the literal `var(--shadow)`) and it has no `matchMedia`, so
+ * no `@media` rule is ever applied. Claims about `var(--outline) solid var(--ink)`, the
+ * short-viewport layout and the portrait nudge are provable only here.
+ *
+ * What jsdom DOES settle better — concrete lengths surviving the cascade, and structure
+ * that must agree with the markup — lives in `kit.dom.test.ts`.
+ */
 import { PLAYER_COLOURS } from "@ruckus/shared";
 import { FONT_LINK, UI, UI_CSS, colourFor, escapeHtml } from "./kit.ts";
 
@@ -41,9 +58,10 @@ describe("a panel is a slab (visual-direction T13, R10)", () => {
 });
 
 describe("everything tappable is big enough (R11)", () => {
-  it("gives buttons and inputs at least 44px on their shortest side", () => {
+  it("sets a floor at the platform minimum", () => {
+    // That every mounted button and input actually REACHES this after the cascade is
+    // asserted in kit.dom.test.ts, where the computed value can be read (RD-105).
     expect(UI.minTarget).toBeGreaterThanOrEqual(44);
-    expect(rule("button,input")).toContain(`min-height:${UI.minTarget}px`);
   });
 
   it("keeps that floor even on a short landscape viewport", () => {
@@ -265,17 +283,16 @@ describe("the room code and its copy button share a line (lobby-flow T19, R13)",
     // One column per icon button beside the code. With two, adding mute wrapped it to
     // a row of its own and the footer went off the bottom again.
     expect(block).toContain("grid-template-columns:auto auto auto");
-    const lobby = readFileSync(
-      join(dirname(new URL(import.meta.url).pathname), "screens.ts"), "utf8");
-    const codeblock = lobby.slice(lobby.indexOf('class="codeblock"'), lobby.indexOf('id="linkBox"'));
-    const icons = (codeblock.match(/class="iconbtn"/g) ?? []).length;
-    expect(icons, "one grid column per icon button beside the code").toBe(2);
+    // That the column count AGREES with the number of icon buttons actually rendered is
+    // asserted in kit.dom.test.ts by counting mounted elements — which also sees a
+    // button added by script, where reading screens.ts as text never could (RD-105).
     expect(block).not.toContain("flex-direction:column");
   });
 
   it("spans the label and the link box, so only the code and button share the row", () => {
     // Auto-placement puts the code in column 1 and the button in column 2. Anything
-    // that must not join them has to say so.
+    // that must not join them has to say so. Also asserted on the computed value in
+    // kit.dom.test.ts; kept here because this is where the rule is authored.
     expect(rule(".codelabel")).toContain("grid-column:1/-1");
     expect(rule(".linkbox")).toContain("grid-column:1/-1");
   });
