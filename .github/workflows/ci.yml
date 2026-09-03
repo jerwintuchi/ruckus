@@ -9,6 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # FULL history, not the default shallow clone (RD-099).
+          #
+          # `spec_status.py` embeds each spec's git "last touched" date, so the report
+          # it generates is a function of the history available. At depth 1 there is no
+          # history: every date comes out wrong, the regenerated report never matches
+          # the committed one, and `--check` fails with STALE on a tree that is
+          # perfectly in sync. Green locally, red in CI, for a reason no amount of
+          # regenerating could fix.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 11

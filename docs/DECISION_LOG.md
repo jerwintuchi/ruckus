@@ -3895,3 +3895,33 @@ already thinking about; not one measured the clock the loop was reading.
 The lesson RD-097 drew — "prove the machine under it is running" — was right, and I then
 proved it with a tool that could not tell a stopped machine from a moved clock. **Ask
 what your instrument cannot see, before trusting what it shows you.**
+
+---
+
+## RD-099 — CI was red because it could not see the history the report is made of
+
+*2026-09-03, found while trying to merge PR #1.*
+
+`pnpm check` was green on every developer machine and failed in CI with:
+
+```
+STALE: docs/technical/spec-status.md does not match the tree
+```
+
+Not a stale report. `actions/checkout@v4` defaults to a **shallow clone**, and
+`spec_status.py` embeds each spec's git *last touched* date — so the report it generates
+is a function of the history available to it. At depth 1 there is no history, every date
+comes out wrong, the regenerated report never matches the committed one, and the guard
+fires on a tree that is perfectly in sync.
+
+No amount of regenerating could have fixed it, which is the trap: the obvious response to
+"STALE" is to run the generator again, and that would have produced an identical file and
+an identical failure, over and over.
+
+`fetch-depth: 0` on the checkout step.
+
+**A derived artefact is only reproducible where its inputs are.** `spec_status.py` takes
+git history as an input as surely as it takes the spec files, and CI was handed one and
+not the other. Worth stating because the same shape catches anything deriving from
+`git log`, `git describe`, or a commit count — and this repo now has two such tools, the
+registry and the `?debug=1` build stamp (RD-093).
