@@ -22,8 +22,7 @@ import {
   type ServerMsg,
   type SnapPlayer,
   MAX_SNAPSHOT_BACKLOG_B,
-  packPrims,
-  quantPrim,
+  encodeSnapshotExtra,
 } from "@ruckus/shared";
 import { FixedLoop } from "./loop.ts";
 import { Match } from "./match.ts";
@@ -268,14 +267,14 @@ export class GameServer {
     // remembering is four chances to forget. Measured: it takes `scramble` from a mean
     // of 1123 B and a max of 1647 B — 30% of its snapshots over the 1240 B TCP payload
     // of a 1280-MTU path, and so split across two packets — down inside one packet.
-    const e = extra as { prims?: unknown[] } | null | undefined;
-    if (e && Array.isArray(e.prims)) {
-      // Quantize, then group prims that differ only in position (RD-082, RD-085). Both
-      // here rather than in each minigame: a minigame authors plain prims and never
-      // learns the wire has a compressed shape, exactly as it never learns about
-      // quantization or the round timer.
-      e.prims = packPrims(e.prims.map((p) => quantPrim(p)));
-    }
+    // Quantize, then group prims that differ only in position (RD-082, RD-085). In the
+    // shell rather than in each minigame: a minigame authors plain prims and never
+    // learns the wire has a compressed shape, exactly as it never learns about
+    // quantization or the round timer.
+    //
+    // The encoding itself lives in `@ruckus/shared` so that tests and bots read the
+    // wire through the same function the server writes it with (RD-101).
+    encodeSnapshotExtra(extra);
 
     // The round's own roster, not everyone connected. A mid-round joiner is not in the
     // simulation, so putting them in the snapshot drew a body the round had never dealt

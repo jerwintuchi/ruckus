@@ -4017,3 +4017,44 @@ and sweepers misbehaving were the same rounds seen through a polluted arena — 
 for the inert capsules my own room probes were leaving in it.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-102 — One description of the wire, and a bot that is made to read it
+
+*2026-09-03. The follow-up to RD-101: fixing the instance, then closing the class.*
+
+RD-101 fixed `scramble`'s strategy and rebuilt one hand-written fixture. That leaves the
+same trap set for the other three: `hot-potato` hand-writes `{ holder: 0 }`, `sweepers`
+hand-writes its `bars`, `falling-floor` hand-writes a tile grid. Each is a second,
+private copy of a wire format, and each will keep passing after the real one moves.
+
+Two changes, both aimed at the class rather than the instance.
+
+**The encoding has one home.** `packPrims(prims.map(quantPrim))` lived inline in
+`GameServer.sendSnapshot`, so anything else wanting to know what a snapshot looks like
+had to reproduce it. It is now `encodeSnapshotExtra` in `@ruckus/shared`, and the server
+calls it. Anything reading a snapshot is reading that function's output, so a change to
+it breaks every reader at once — loudly, which is the point.
+
+**The bots are tested against real snapshots.** `src/server/src/bot-contract.test.ts`
+initialises every registered minigame, ticks it, takes its real `snapshot()`, encodes it
+with the server's own function, and hands it to that minigame's bot strategy — at four
+points through a round, because shapes appear and vanish as one progresses
+(`hot-potato` has no `holderPos` until someone holds the bomb). It asserts only that the
+strategy can read the wire and return a usable input; whether the play is *good* is what
+`tools/bots.test.mjs` and the round scores are for.
+
+It also fails when a registered minigame has no strategy at all — a bot wandering
+through an entire round of it, which is precisely what nobody noticed for four playtests.
+
+**Verified by reverting.** The fix was put back to the RD-101 bug and the suite run: the
+new test fails with `Cannot read properties of undefined (reading '0')` on `scramble`
+alone, and the other three pass. A test that has never been seen to fail is a test that
+proves nothing, and this one was watched failing before it was kept.
+
+The rule this encodes, which the freeze hunt and RD-101 both paid for in different
+currency: **a fixture written by hand is a copy of the protocol, and copies drift.**
+Build the fixture with the code that writes the real thing.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

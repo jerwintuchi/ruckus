@@ -106,3 +106,28 @@ export function unpackPrims<T>(groups: readonly PrimGroup[]): T[] {
   }
   return out;
 }
+
+/**
+ * Encode a minigame's `snapshot()` for the wire: quantize its prims, then group them.
+ *
+ * Extracted from `GameServer.sendSnapshot` so there is exactly ONE description of what
+ * a minigame's extra looks like on the wire. RD-101 happened because there were two:
+ * the shell did this, and `tools/bots.test.mjs` hand-wrote what it thought the result
+ * was. The hand-written one stopped matching, kept passing, and the bots played every
+ * scramble round blind for four playtests.
+ *
+ * Anything reading a snapshot — the client, a bot, a test — is reading the output of
+ * this function, so a change here breaks all of them at once, loudly, which is the
+ * entire point.
+ *
+ * Mutates and returns `extra`: the object is freshly built by `snapshot()` every tick
+ * and is not shared, and copying it per tick per room is exactly the allocation I5
+ * exists to avoid.
+ */
+export function encodeSnapshotExtra<T>(extra: T): T {
+  const e = extra as { prims?: unknown[] } | null | undefined;
+  if (e && Array.isArray(e.prims)) {
+    e.prims = packPrims(e.prims.map((p) => quantPrim(p)));
+  }
+  return extra;
+}
