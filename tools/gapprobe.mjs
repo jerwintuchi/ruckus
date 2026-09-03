@@ -23,14 +23,19 @@ const ws = new WebSocket(SERVER);
 let last = 0, n = 0;
 const gaps = [];
 const events = [];
-const t0 = Date.now();
-const at = () => ((Date.now() - t0) / 1000).toFixed(1);
+// MONOTONIC, never Date.now() (RD-098). A WSL2 guest's wall clock is resynced with its
+// host and jumps both ways — measured at +5160 ms and -5156 ms within 200 ms of each
+// other. Timing a packet stream with a clock that moves invents gaps that never
+// happened, and prints a timeline whose timestamps run backwards. This probe reported
+// exactly that for days.
+const t0 = performance.now();
+const at = () => ((performance.now() - t0) / 1000).toFixed(1);
 
 ws.onopen = () => ws.send(JSON.stringify({ t: "join", code: ROOM, name: "gapprobe" }));
 ws.onmessage = (ev) => {
   const m = JSON.parse(ev.data);
   if (m.t === "snap") {
-    const now = Date.now();
+    const now = performance.now();
     if (last) {
       const g = now - last;
       gaps.push(g);
