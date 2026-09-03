@@ -30,13 +30,9 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 <!-- Max 20 lines. Pointer + next actions only. No history. -->
 
-Phase: **The phone — once the bots are worth playing against.**
+Phase: **The phone, and nothing else.**
 
-**Blocker: the bots still play badly.** RD-101 fixed a strategy that threw every tick;
-RD-102 made all four read the real wire. A playtester reports they are *still* not
-playing their objectives. What is proven is that they read the wire and score at all —
-the **quality** of their play has never been measured. Start here: most boxes below
-need opponents.
+The bots play their objectives again (RD-103), so the manual boxes are unblocked.
 
 Every remaining box in all 22 specs is a **manual phone task** — 16 of them, listed in
 `docs/technical/spec-status.md`. There is no keyboard work left in Ruckus.
@@ -44,10 +40,12 @@ Every remaining box in all 22 specs is a **manual phone task** — 16 of them, l
 They batch. One Hot Potato round at eight players answers `find-yourself` T4,
 `spectating` T3, `flat-controls` T4 and `action-button` T7 together.
 
-The one that can invalidate work is **`input-prediction` T8**. `?debug=1` now reports
+The one that can invalidate work is **`input-prediction` T8**. `?debug=1` reports
 `corr`/`worst`/`snaps` on the predict line; `snaps` must stay 0.
 
 Also owed on hardware: `bench.html` p95 (RD-028) and `specs/audio/` T4-T5.
+
+Run **`pnpm verify`** before ending a session — `pnpm check` alone does not compile.
 
 ## Trust Boundary
 

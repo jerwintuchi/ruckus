@@ -24,17 +24,8 @@ import {
   tileCentre,
   type FallingFloorState,
 } from "./index.ts";
+import { mkPlayers } from "../harness.ts";
 
-const mkPlayers = (n: number): PlayerRuntime[] =>
-  Array.from({ length: n }, (_, slot) => ({
-    slot,
-    body: makeBody(vec()),
-    alive: true,
-    connected: true,
-    facing: 0,
-    lastAppliedSeq: 0,
-    speedMul: 1,
-  }));
 
 /** Drive the round exactly as the shell does, so the tests exercise the real path. */
 function run(

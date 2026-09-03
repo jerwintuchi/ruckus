@@ -9,6 +9,7 @@ import {
 import {
   amOnRoster, initialState, reduce, rosterChange, shouldShowWaiting, type FlowEvent,
 } from "./flow.ts";
+import { Health, STALL_MS, pct } from "./health.ts";
 import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
@@ -275,7 +276,7 @@ function onMessage(msg: ServerMsg): void {
       // worst-gap number reports the boundary rather than any real stall. Zeroing it
       // means the next snapshot starts a fresh measurement instead of closing a gap
       // that was never a fault.
-      health.lastSnapAt = 0;
+      health.expectGap();
       predictor.beginRound(msg.arena.solids ?? [], msg.jumpSpeed);
       if (amOnRoster(msg.roster, mySlot)) {
         controls.show(msg.buttonLabel);
@@ -292,19 +293,10 @@ function onMessage(msg: ServerMsg): void {
       break;
 
     case "snap": {
-      const arrived = performance.now();
-      if (health.lastSnapAt && !health.wasHidden) {
-        const gap = arrived - health.lastSnapAt;
-        note(health.snapGaps, gap);
-        if (gap > health.worstSnap) health.worstSnap = gap;
-        // A stall nobody can blame on a sleeping page (RD-096).
-        if (gap > STALL_NOTICE_MS) health.visibleStalls++;
-      }
       // Only the MEASUREMENT is skipped across a suspension, never the snapshot itself:
       // an early `break` here would drop the whole frame — no prims, no reconciliation —
       // and cost a real one to avoid mis-recording a fake one.
-      health.wasHidden = false;
-      health.lastSnapAt = arrived;
+      health.noteSnap(performance.now());
       const extra = (msg.extra ?? {}) as Record<string, unknown>;
       // Expand the grouped prims once, here, before anything downstream reads them
       // (RD-085). The renderer and any client minigame handler go on seeing a plain
@@ -411,86 +403,28 @@ let acc = 0;
 /** Wall clock of the previous rendered frame, so the correction decays in real time (P6). */
 let lastFrameAt = 0;
 
-/**
- * Where the time actually goes, measured on the device (RD-079).
- *
- * "It freezes every now and then" has two completely different causes and they need
- * completely different fixes: the SNAPSHOT STREAM stalling (the network, or the server)
- * or the FRAME LOOP stalling (this phone, dropping frames). From the outside they look
- * identical — everything stops — and no test or screenshot can tell them apart. A probe
- * run on the server host cannot see the first, because it never crosses the network the
- * phone crosses.
- *
- * Counted always and shown only under `?debug=1`: a handful of numbers per frame is far
- * cheaper than another round trip to whoever is holding the device (RD-053).
- */
-const health = {
-  snapGaps: [] as number[],
-  lastSnapAt: 0,
-  frameGaps: [] as number[],
-  worstFrame: 0,
-  worstSnap: 0,
-  /**
-   * Set the moment the page is hidden, cleared by the first snapshot after it returns
-   * (RD-096).
-   *
-   * The RD-094 reset was not enough. It ran on `visibilitychange`, but a hidden tab
-   * still RECEIVES WebSocket messages — so the snap handler recorded the whole
-   * suspension as a network gap before the frame loop ever resumed. Resetting a clock
-   * the other reader had already read is not a reset.
-   */
-  wasHidden: false,
-  /**
-   * Stalls over 300 ms with NO suspension anywhere near them.
-   *
-   * The one number this whole hunt has needed. A stall that coincides with a hidden tab
-   * says nothing — the page was not running. A stall while the page was visible the
-   * entire time is a real fault, and nothing has ever demonstrated one.
-   */
-  visibleStalls: 0,
-};
-const RECENT = 600;
+/** Where the time actually goes, measured on the device (RD-079). See health.ts. */
+const health = new Health();
 
 /**
  * Time the page was not being drawn at all, and must not be blamed for (RD-094).
  *
- * A browser SUSPENDS `requestAnimationFrame` in a hidden tab, and throttles message
- * handling with it. Switch windows, take a screenshot, let a phone dim, glance at a
- * notification — the page stops, and every clock this client keeps goes stale together.
- *
- * On return `now - lastSnapAt` is enormous, so the `reconnecting` chip fires and the
- * frame log records a fourteen-second frame, and neither has anything to do with the
- * network. That is what was being chased: 14538 ms of "frame" on a desktop PC whose
- * p50 is 13 ms, immediately after a window switch.
- *
- * So: when the page comes back, forget the gap rather than measure it. Exactly what a
- * round boundary already does (RD-090) — a known, deliberate pause the instrument has
- * to be told about.
+ * `Health` decides what to forget; this resets the clocks that live out here. A
+ * half-reset is worse than none — it leaves one clock honest and the other reporting
+ * the whole suspension — so every baseline moves together.
  */
-let hiddenCount = 0;
 function onVisible(): void {
   if (document.visibilityState !== "visible") {
-    health.wasHidden = true;
+    health.hide();
     return;
   }
-  hiddenCount++;
-  // Every baseline, together. A half-reset is worse than none: it would leave one
-  // clock honest and the other reporting the whole suspension.
+  health.show();
   lastFrameAt = 0;
   acc = 0;
-  health.lastSnapAt = 0;
   predictor.resync();
 }
 document.addEventListener("visibilitychange", onVisible);
-function note(list: number[], v: number): void {
-  list.push(v);
-  if (list.length > RECENT) list.shift();
-}
-function pct(list: number[], q: number): number {
-  if (list.length === 0) return 0;
-  const a = [...list].sort((x, y) => x - y);
-  return Math.round(a[Math.min(a.length - 1, Math.floor(a.length * q))] ?? 0);
-}
+
 function frame(now: number): void {
   requestAnimationFrame(frame);
 
@@ -498,14 +432,11 @@ function frame(now: number): void {
   // correction decay below needs it too (P6).
   const frameDt = lastFrameAt ? now - lastFrameAt : 0;
   if (lastFrameAt) {
-    note(health.frameGaps, frameDt);
-    if (frameDt > health.worstFrame) health.worstFrame = frameDt;
+    health.noteFrame(frameDt);
   }
   // Say so when the stream stops answering (RD-081). Purely a label: prediction and
   // interpolation each hold on their own, and neither consults this.
-  ui.setStalled(
-    net.connected && health.lastSnapAt > 0 && now - health.lastSnapAt > STALL_NOTICE_MS,
-  );
+  ui.setStalled(health.stalled(now, net.connected, STALL_NOTICE_MS));
 
   // Every frame, NOT only while a round is running (RD-080).
   //
@@ -632,11 +563,11 @@ if (new URLSearchParams(location.search).has("debug")) {
       // (RD-079). `net` is the snapshot stream; `frame` is the render loop. A freeze
       // shows up in exactly one of them, and which one decides what to fix.
       net: `p50 ${pct(health.snapGaps, 0.5)}ms  p95 ${pct(health.snapGaps, 0.95)}ms` +
-        `  worst ${Math.round(health.worstSnap)}ms  stalls>300 ` +
-        `${health.snapGaps.filter((g) => g > 300).length}  REAL ${health.visibleStalls}`,
+        `  worst ${Math.round(health.worstSnap)}ms  stalls>${STALL_MS} ` +
+        `${health.countOver(STALL_MS)}  REAL ${health.visibleStalls}`,
       frame: `p50 ${pct(health.frameGaps, 0.5)}ms  p95 ${pct(health.frameGaps, 0.95)}ms` +
         `  worst ${Math.round(health.worstFrame)}ms  drops>50 ` +
-        `${health.frameGaps.filter((g) => g > 50).length}  hidden ${hiddenCount}`,
+        `${health.frameGaps.filter((g) => g > 50).length}  hidden ${health.hiddenCount}`,
       // Says what the condition actually is. It read "(no snapshots)" long after
       // RD-079 changed the rule to a DIVERGENCE budget, and that wrong label sent me
       // looking for a network stall more than once.

@@ -740,38 +740,8 @@ describe("grouped prims are expanded before anything reads them (RD-085)", () =>
   });
 });
 
-describe("the deliberate round-boundary gap is not a stall (RD-090)", () => {
-  const main = () =>
-    readFileSync(join(here, "main.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-
-  it("forgets the last snapshot time when a round starts", () => {
-    // The server sends nothing for the whole RESULT_MS + INTRO_MS between rounds —
-    // eight seconds, measured, by design. The `reconnecting` chip and the `net worst`
-    // figure both key off "time since the last snapshot", so without this the chip
-    // fires at EVERY round transition on every device, network irrelevant, and the
-    // worst-gap number reports the boundary instead of a real stall.
-    const src = main();
-    const roundStart = src.slice(src.indexOf('case "roundStart"'), src.indexOf('case "snap"'));
-    expect(roundStart).toContain("health.lastSnapAt = 0");
-  });
-
-  it("guards both the chip and the gap stat behind a non-zero timestamp", () => {
-    // Zeroing only helps if both readers skip a zero. The gap recorder must not treat
-    // "no previous snapshot" as a gap of `now`, and the chip must not call it a stall.
-    const src = main();
-    // The condition gained a suspension guard (RD-096); what must hold is that a zero
-    // timestamp still means "no gap to measure".
-    expect(src).toContain("if (health.lastSnapAt &&");
-    expect(src).toContain("health.lastSnapAt > 0");
-  });
-
-  it("still reports a stall that happens inside a round", () => {
-    // The fix must not blind the instrument: only the boundary is excused.
-    const src = main();
-    const stalled = src.slice(src.indexOf("ui.setStalled("), src.indexOf("ui.setStalled(") + 200);
-    expect(stalled).toContain("STALL_NOTICE_MS");
-  });
-});
+// RD-090's round-boundary rule moved to health.test.ts as `expectGap`, where it is
+// exercised rather than grepped for (RD-104).
 
 describe("the world keeps breathing between rounds (RD-091)", () => {
   const main = () =>
@@ -899,9 +869,14 @@ describe("a suspended tab is not a network fault (RD-094)", () => {
     // suspension, and the disagreement reads as a real fault.
     const src = main();
     const fn = src.slice(src.indexOf("function onVisible"), src.indexOf("function onVisible") + 400);
+    // Deliberately still a source-level guard, and one of the few that earns it: the
+    // requirement is that these four baselines are reset TOGETHER in one place, which is
+    // a property of main.ts's wiring and not of any object a unit test can hold. The
+    // behaviour of each individual reset is tested where it lives — health.test.ts for
+    // the stream clocks, this file for the predictor.
+    expect(fn).toContain("health.show()");
     expect(fn).toContain("lastFrameAt = 0");
     expect(fn).toContain("acc = 0");
-    expect(fn).toContain("health.lastSnapAt = 0");
     expect(fn).toContain("predictor.resync()");
   });
 
@@ -932,36 +907,7 @@ describe("a suspended tab is not a network fault (RD-094)", () => {
   });
 });
 
-describe("a stall is only real if the page was awake for it (RD-096)", () => {
-  const main = () =>
-    readFileSync(join(here, "main.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-
-  it("counts stalls that had no suspension anywhere near them", () => {
-    // The one number this hunt needed. Pressing screenshot lifts focus, the tab goes
-    // hidden, rAF stops, and both a frame gap and an input gap appear — so the act of
-    // capturing the evidence manufactures the artefact. A stall recorded while the page
-    // was visible throughout is the only kind that means anything.
-    const src = main();
-    expect(src).toContain("visibleStalls");
-    expect(src).toContain("if (health.lastSnapAt && !health.wasHidden)");
-  });
-
-  it("marks the page hidden on the way out, not only visible on the way back", () => {
-    // RD-094 reset the clocks on becoming visible, which was too late: a hidden tab
-    // still RECEIVES messages, so the snap handler had already recorded the whole
-    // suspension as a network gap. Resetting a clock the other reader has read is not
-    // a reset.
-    const src = main();
-    const fn = src.slice(src.indexOf("function onVisible"), src.indexOf("function onVisible") + 300);
-    expect(fn).toContain("health.wasHidden = true");
-  });
-
-  it("skips only the measurement across a suspension, never the snapshot", () => {
-    // An early `break` here would drop the whole frame — no prims, no reconciliation —
-    // costing a real snapshot to avoid mis-recording a fake gap.
-    const src = main();
-    const snap = src.slice(src.indexOf('case "snap"'), src.indexOf("const extra ="));
-    expect(snap).not.toContain("break;");
-    expect(snap).toContain("health.wasHidden = false");
-  });
-});
+// The RD-096 stall rules moved to health.test.ts, where they are RUN rather than
+// grepped for (RD-104). Three assertions here read main.ts as text and checked it
+// contained certain strings — they passed while the behaviour was broken and failed on
+// a rename, which is the opposite of what a test should do.

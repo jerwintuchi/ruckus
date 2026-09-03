@@ -27,19 +27,10 @@ import {
   scramble,
   type ScrambleState,
 } from "./index.ts";
+import { mkPlayers } from "../harness.ts";
 
 const HALF = ARENA / 2;
 
-const mkPlayers = (n: number): PlayerRuntime[] =>
-  Array.from({ length: n }, (_, slot) => ({
-    slot,
-    body: makeBody(vec()),
-    alive: true,
-    connected: true,
-    facing: 0,
-    lastAppliedSeq: 0,
-    speedMul: 1,
-  }));
 
 /** One rng for init AND every tick, exactly as the shell does since RD-013. */
 function session(n: number, seed: number) {

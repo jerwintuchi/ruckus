@@ -39,19 +39,9 @@ import {
 // directly, so importing it here connects to nothing.
 import { STRATEGIES } from "../../../tools/bots.mjs";
 import { MINIGAMES } from "./minigames/index.ts";
+import { mkPlayers } from "./minigames/harness.ts";
 
 const PLAYERS = 4;
-
-const mkPlayers = (n: number): PlayerRuntime[] =>
-  Array.from({ length: n }, (_, slot) => ({
-    slot,
-    body: makeBody(vec(slot * 0.9 - 1.5, 0)),
-    alive: true,
-    connected: true,
-    facing: 0,
-    lastAppliedSeq: 0,
-    speedMul: 1,
-  }));
 
 /**
  * Run a real round far enough in that its snapshot is fully populated.
@@ -63,6 +53,8 @@ const mkPlayers = (n: number): PlayerRuntime[] =>
 function liveSnapshot(game: (typeof MINIGAMES)[number], seed: number, ticks: number) {
   const rng = makeRng(seed);
   const players = mkPlayers(PLAYERS);
+  // Spread them out, so contact and pickup logic have something to work with.
+  players.forEach((p, i) => { p.body.pos.x = i * 0.9 - 1.5; });
   const state = game.init({ rng, players });
 
   let elapsed = 0;
@@ -72,8 +64,11 @@ function liveSnapshot(game: (typeof MINIGAMES)[number], seed: number, ticks: num
       elapsed,
       rng,
       players,
-      // Everyone leaning right, which keeps bodies moving and pickups being taken.
-      input: (): InputState => ({ ...IDLE_INPUT, ax: 1, ay: 0 }),
+      // Everyone leaning right, so bodies actually move and pickups get taken. The
+      // first version of this wrote `{ ...IDLE_INPUT, ax: 1, ay: 0 }`, which type-checks
+      // as a spread and does nothing: InputState carries `axis`, not `ax`/`ay`, so every
+      // player stood still and the comment claiming otherwise was false.
+      input: (): InputState => ({ axis: { x: 1, z: 0 }, btn: false }),
     };
     game.tick(state, ctx);
     elapsed += TICK_MS;
@@ -111,6 +106,7 @@ describe("every bot strategy can read the real wire (RD-101)", () => {
       // A registered minigame with no strategy is a bot that wanders through a whole
       // round of it, which is the failure this file exists to make visible.
       expect(strategy, `no bot strategy for "${game.id}"`).toBeTypeOf("function");
+      if (!strategy) return;
 
       // Several points through a round: shapes appear and disappear as it progresses.
       for (const ticks of [1, 30, 120, 400]) {

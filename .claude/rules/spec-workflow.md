@@ -117,8 +117,15 @@ phone" for reasons this tool does not change.
 
 ```bash
 python3 tools/handoff.py          # overwrites docs/HANDOFF.md — never appends
-pnpm check                        # context budget + kit + spec registry
+pnpm verify                       # check + typecheck + test — everything CI runs
 ```
+
+**`pnpm check` is not enough, and that is not a nitpick.** It runs the context budget,
+the kit guard and the two registries — it does *not* compile anything. CI runs
+`pnpm check`, `pnpm typecheck` **and** `pnpm test`, so a session that ends on a green
+`pnpm check` can still push a tree that does not type-check. That is exactly how RD-102
+went in: 1006 tests green, both registries green, and two type errors in the test file
+that commit added. `pnpm verify` is the one command that matches CI.
 
 ## A spec states its tradeoffs, and its cost
 

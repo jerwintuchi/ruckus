@@ -31,19 +31,10 @@ import {
   hotPotato,
   type HotPotatoState,
 } from "./index.ts";
+import { mkPlayers } from "../harness.ts";
 
 const HALF = ARENA / 2;
 
-const mkPlayers = (n: number): PlayerRuntime[] =>
-  Array.from({ length: n }, (_, slot) => ({
-    slot,
-    body: makeBody(vec()),
-    alive: true,
-    connected: true,
-    facing: 0,
-    lastAppliedSeq: 0,
-    speedMul: 1,
-  }));
 
 const ctxFor = (
   players: PlayerRuntime[],

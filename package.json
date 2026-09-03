@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "typecheck": "pnpm -r exec tsc --noEmit",
     "check": "python3 tools/context_budget.py --check && python3 tools/kit_check.py --check && python3 tools/spec_status.py --check && python3 tools/status_html.py --check",
+    "verify": "pnpm check && pnpm typecheck && pnpm test",
     "playtest": "bash tools/playtest.sh",
     "status": "python3 tools/spec_status.py && python3 tools/status_html.py",
     "bots": "node tools/bots.mjs",

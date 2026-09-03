@@ -4118,3 +4118,84 @@ may read the wall clock.** Not the server loop, not a tool, not a bot. RD-098 sa
 about game loops and that was too narrow by exactly one file.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-104 — A health pass: what allocated, what was untestable, and what never compiled
+
+*2026-09-03. Asked for directly: make this readable, performant and safe to refactor.*
+
+Five findings, each measured rather than asserted.
+
+### The instrument was tested by grepping its own source
+
+`main.ts` held the freeze-hunt telemetry inline, and its three hardest-won rules —
+RD-090, RD-094, RD-096 — were "tested" by reading `main.ts` as text and asserting it
+contained certain strings:
+
+```js
+expect(src).toContain("if (health.lastSnapAt && !health.wasHidden)");
+```
+
+That passes while the behaviour is broken and fails when a variable is renamed, so it
+penalises exactly the refactoring it should protect. The logic is now `src/client/src/
+health.ts` with 22 cases that RUN it, and the string assertions are deleted.
+
+Two real defects fell out the moment it was testable:
+
+- **`REAL` and `stalls>300` used different thresholds.** `visibleStalls` counted gaps
+  over `STALL_NOTICE_MS` (500) while the label beside it counted 300 — so `REAL` was
+  never the awake-subset of the number it sat next to, which is the only reason to print
+  them together. Both are 300 now.
+- **`lastSnapAt = 0` was both a valid timestamp and the "no baseline" sentinel.** It
+  works only because `performance.now()` is never exactly zero. The first test written
+  against the extracted class hit it on line one. Now an explicit `hasBaseline`.
+
+### Two things allocated every frame
+
+The Kit already forbids per-frame allocation and interpolation was never held to it.
+
+| | before | after |
+|---|---|---|
+| `lerpFrames` | `new Map(b.players.map(...))` — a Map, an array and 8 tuples | linear scan, 0 |
+| `syncPlayers` | `new Set()` per frame | none: hide all, then show |
+
+~600 allocations a second removed. The CPU saving is real but not worth claiming —
+0.92us to 0.31us per frame, measured at eight players, against a 16.7ms budget. The
+collector pressure on a mid-range Android is the reason, and `bench.html` on a phone is
+the only thing that can put a number on that.
+
+`syncPlayers` could have kept a reused `Set` and cleared it. Hiding everything first is
+better because there is no state to forget: a dropped `clear()` would have left a player
+who left on screen for ever, and no test would have caught it.
+
+### The tree did not compile, and nothing local said so
+
+`pnpm typecheck` is in CI. It is **not** in `pnpm check`, and the session-close
+checklist said to run `pnpm check`. So RD-102 shipped with 1006 tests green, both
+registries green, and two type errors — one of them substantive: the bot-contract test
+passed `{ ...IDLE_INPUT, ax: 1, ay: 0 }`, but `InputState` carries `axis`, not `ax`/`ay`.
+Every player in that test stood still while a comment claimed they were moving.
+
+Added `pnpm verify` (check + typecheck + test — exactly what CI runs) and pointed the
+session-close rule at it. A checklist that is weaker than CI is a checklist that ships
+red builds.
+
+### `mkPlayers` existed five times
+
+Byte-identical in four minigame test files and the bot contract test. Now
+`src/server/src/minigames/harness.ts`. The per-minigame drivers stay separate on
+purpose — `falling-floor` wants a tile grid and `hot-potato` wants a fuse, and forcing
+those into one shape would make every test read through an abstraction instead of
+reading a round.
+
+### What was deliberately left alone
+
+~430 source-text assertions remain across 28 files, concentrated in the client UI
+(`controls.test.ts` 87, `kit.test.ts` 80). Many are legitimate **policy guards** — the
+kit rules, the `pkill` check, wire hygiene — which assert something about the code that
+no runtime test can. The rest are stand-ins for DOM tests. Converting them is real work
+with real judgement per case, and doing it unasked in a health pass would be a large
+untested diff. Named here so it is a decision rather than an oversight.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

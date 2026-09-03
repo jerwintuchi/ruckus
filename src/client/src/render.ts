@@ -190,9 +190,19 @@ export class Renderer {
   syncPlayers(
     players: LerpedPlayer[], colours: Map<number, string>, t: number, mine = -1,
   ): void {
-    const seen = new Set<number>();
+    // Hide every character, then show the ones this frame carries.
+    //
+    // This replaced a `new Set()` built per frame to remember which slots were drawn —
+    // one allocation 60 times a second, against a rule the Kit already states (nothing
+    // allocates per frame). Reusing one Set would have removed the allocation too, but
+    // it adds state that goes stale the day someone drops the `clear()`, and a player
+    // who left would then never disappear. There is nothing to forget in this version.
+    //
+    // `setVisible` is a single boolean assignment and is already called once per player
+    // per frame, so paying it for absent characters costs nothing measurable.
+    for (const c of this.characters.values()) c.setVisible(false);
+
     for (const p of players) {
-      seen.add(p.slot);
       let c = this.characters.get(p.slot);
       if (!c) {
         const colour = colours.get(p.slot) ?? PALETTE.accent;
@@ -206,9 +216,6 @@ export class Renderer {
       c.setVisible(true);
       if (!p.alive) c.setEliminated();
       c.update(p.y, p.speed, p.vy, p.facing, t);
-    }
-    for (const [slot, c] of this.characters) {
-      if (!seen.has(slot)) c.setVisible(false);
     }
   }
 
