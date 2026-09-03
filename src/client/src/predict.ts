@@ -110,6 +110,22 @@ export class Predictor {
   private errX = 0;
   private errZ = 0;
 
+  /**
+   * Correction telemetry, for `?debug=1` and for T8 (R3).
+   *
+   * T8 asks whether a mispredicted contact reads as rubber-banding, and that question
+   * has a number behind it: how far the server moved us from where we drew ourselves.
+   * A shove that corrects by a few centimetres is invisible; one that clears
+   * SNAP_DISTANCE is taken whole and IS a visible teleport, which is the regression
+   * the task is looking for. Counting the snaps separates "it felt bad" from "it
+   * teleported", which feel is not reliable at telling apart after the fact.
+   *
+   * Read by the debug box only. Nothing that draws depends on these.
+   */
+  private lastCorr = 0;
+  private worstCorr = 0;
+  private snaps = 0;
+
   private solids: readonly Solid[] = [];
   private jumpSpeed = 0;
   /**
@@ -184,6 +200,9 @@ export class Predictor {
     this.pending = [];
     this.errX = 0;
     this.errZ = 0;
+    this.lastCorr = 0;
+    this.worstCorr = 0;
+    this.snaps = 0;
     this.speedMul = 1;
     this.on = false; // stays off until a snapshot places us (P7)
   }
@@ -307,9 +326,13 @@ export class Predictor {
 
     const dx = wasX - this.body.pos.x;
     const dz = wasZ - this.body.pos.z;
-    if (Math.hypot(dx, dz) >= SNAP_DISTANCE) {
+    const mag = Math.hypot(dx, dz);
+    this.lastCorr = mag;
+    if (mag > this.worstCorr) this.worstCorr = mag;
+    if (mag >= SNAP_DISTANCE) {
       // A teleport, a respawn or a shove past anything movement explains. Take it
       // whole — smearing it across the arena would look far worse than the snap (R3).
+      this.snaps++;
       this.errX = 0;
       this.errZ = 0;
     } else {
@@ -366,6 +389,25 @@ export class Predictor {
   /** Running so far ahead that the correction could no longer be blended (I6, P9). */
   get holding(): boolean {
     return this.divergence >= PREDICT_BUDGET_M;
+  }
+
+  /** The most recent correction, in metres — how wrong the last prediction was (T8). */
+  get lastCorrection(): number {
+    return this.lastCorr;
+  }
+
+  /** The largest correction this round, in metres (T8). */
+  get worstCorrection(): number {
+    return this.worstCorr;
+  }
+
+  /**
+   * How many corrections this round were taken whole rather than blended (T8).
+   *
+   * Every one of these is a visible jump. Zero is the number this spec is claiming.
+   */
+  get snapCount(): number {
+    return this.snaps;
   }
 
   /** One fixed step of the shared integrator — the same call the server makes. */

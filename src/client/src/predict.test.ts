@@ -189,6 +189,62 @@ describe("a correction is blended, not snapped (T4, R3)", () => {
   });
 });
 
+describe("correction telemetry reports what T8 is judging (T8, R3)", () => {
+  it("reports how far the DRAWN body had to move, not how far the server did", () => {
+    const p = live();
+    p.step(1, 0, false);
+    // Where we were claiming to be. With every input acknowledged, replay lands the
+    // body exactly on the server's position, so the correction is the gap between
+    // the two — which is what a player actually sees move.
+    const drawn = p.sample(0).x;
+    p.reconcile(vec(0.2, 0), 0, 1, 1);
+
+    const expected = Math.abs(0.2 - drawn);
+    expect(expected).toBeGreaterThan(0.01); // the test would prove nothing otherwise
+    expect(p.lastCorrection).toBeCloseTo(expected, 6);
+    expect(p.worstCorrection).toBeCloseTo(expected, 6);
+
+    // A smaller one afterwards moves `last` but must not lower the round's worst.
+    p.step(1, 0, false);
+    p.reconcile(vec(0.25, 0), 0, 2, 1);
+    expect(p.lastCorrection).toBeLessThan(expected);
+    expect(p.worstCorrection).toBeCloseTo(expected, 6);
+  });
+
+  it("counts a snap only when the correction is taken whole", () => {
+    const p = live();
+    p.step(1, 0, false);
+    p.reconcile(vec(0.2, 0), 0, 1, 1);
+    expect(p.snapCount).toBe(0);
+
+    p.step(1, 0, false);
+    p.reconcile(vec(SNAP_DISTANCE + 5, 0), 0, 2, 1);
+    expect(p.snapCount).toBe(1);
+  });
+
+  it("does not count the round's first snapshot, which cannot be a misprediction", () => {
+    const p = new Predictor();
+    p.beginRound([], 0);
+    // Placed far from the origin, which is where a fresh body sits. That is a spawn,
+    // not a mispredicted shove, and counting it would put a phantom snap on every round.
+    p.reconcile(vec(SNAP_DISTANCE + 9, 0), 0, 0, 1);
+    expect(p.snapCount).toBe(0);
+    expect(p.worstCorrection).toBe(0);
+  });
+
+  it("forgets the previous round's corrections at the boundary", () => {
+    const p = live();
+    p.step(1, 0, false);
+    p.reconcile(vec(SNAP_DISTANCE + 5, 0), 0, 1, 1);
+    expect(p.snapCount).toBe(1);
+
+    p.beginRound([], 0);
+    expect(p.snapCount).toBe(0);
+    expect(p.worstCorrection).toBe(0);
+    expect(p.lastCorrection).toBe(0);
+  });
+});
+
 describe("the blend is framerate-independent (T4, P6)", () => {
   it("lands identically at 30 fps and at 120 fps over the same wall-clock time", () => {
     const settle = (dtMs: number, steps: number) => {

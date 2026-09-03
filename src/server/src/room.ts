@@ -86,11 +86,25 @@ export class Room {
     return { ok: true, player, rejoined: false };
   }
 
+  /**
+   * A player's socket has gone.
+   *
+   * Mid-match the slot is RESERVED, not freed: it is holding a score for a rejoin at
+   * the next ROUND_START, which is the whole of I8's reconnect story.
+   *
+   * In the lobby that reservation buys nothing — there is no score yet and no match to
+   * rejoin — and it costs a slot for the life of the room, because `join` gates on
+   * `players.size` and that counts the disconnected. A phone that opens the room in a
+   * browser and then again from the home screen leaks a slot each time, and the only
+   * way to get it back is to restart the server. Found on a playtest that could not
+   * rejoin its own eight-player lobby.
+   */
   leave(slot: number): void {
     const p = this.players.get(slot);
     if (!p) return;
     p.connected = false;
     p.runtime.connected = false;
+    if (this.state === "LOBBY") this.players.delete(slot);
     if (this.host === slot) this.reassignHost();
   }
 

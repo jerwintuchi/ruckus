@@ -3925,3 +3925,42 @@ git history as an input as surely as it takes the spec files, and CI was handed 
 not the other. Worth stating because the same shape catches anything deriving from
 `git log`, `git describe`, or a commit count — and this repo now has two such tools, the
 registry and the `?debug=1` build stamp (RD-093).
+
+---
+
+## RD-100 — A lobby slot is not a reconnect slot
+
+*2026-09-03. Found by a playtester who could not join their own eight-player lobby.*
+
+A phone opened the room in Safari, then again from the home screen — two sockets, and the
+first one closed. The room then reported eight players and refused both. Restarting the
+server was the only way to get the slot back.
+
+`Room.leave` sets `connected = false` and keeps the player in the map. `Room.join` gates
+on `players.size`, which counts the disconnected. So every visit that ends permanently
+consumes a slot for the life of the room.
+
+**Mid-match that is exactly right and must not change.** The reservation is holding a
+score for a rejoin at the next `ROUND_START`, which is the whole of I8's reconnect story:
+the name is matched, the slot is returned, the score survives.
+
+**In the lobby it holds nothing.** There is no score yet and no match to rejoin, so the
+reservation is pure loss. `leave` now deletes the player when `state === "LOBBY"` and
+reserves as before in every other phase.
+
+### What this cost beyond the playtest
+
+My own room-verification habit was leaking a slot per check. `tools/bots.mjs --room X
+--count 1` joins, confirms, and disconnects — which reserved a slot every time, so the
+act of verifying a room made it less joinable. Two rooms were handed over already full
+because of it, and one `ROOM_FULL` was read as a phantom socket rather than as the probe.
+
+### The test that would have caught it
+
+Two existing tests asserted I8's reconnect by calling `leave()` in the **default** state,
+which is `LOBBY` — testing mid-match behaviour in the one phase where it does not apply.
+They passed for the wrong reason, and that conflation is the bug itself. They now set
+`state` explicitly, and the lobby's behaviour is asserted separately: twenty visits by one
+name to a five-player room leave five players, where three used to fill it.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

@@ -640,9 +640,17 @@ if (new URLSearchParams(location.search).has("debug")) {
       // Says what the condition actually is. It read "(no snapshots)" long after
       // RD-079 changed the rule to a DIVERGENCE budget, and that wrong label sent me
       // looking for a network stall more than once.
-      predict: predictor.holding
+      // The state, then how wrong prediction has actually been (T8). `snaps` is the
+      // one that matters: a snap is a correction too big to blend, which is a visible
+      // jump — the rubber-banding the task is looking for. It should stay 0.
+      predict: (predictor.holding
         ? `HOLDING (ran ${predictor.divergence.toFixed(2)}m ahead)`
-        : predictor.active ? "live" : "off",
+        : predictor.active ? "live" : "off") +
+        (predictor.active
+          ? `  corr ${predictor.lastCorrection.toFixed(2)}m` +
+            `  worst ${predictor.worstCorrection.toFixed(2)}m` +
+            `  snaps ${predictor.snapCount}`
+          : ""),
     };
     box.textContent = Object.entries(state)
       .map(([k, v]) => `${k.padEnd(9)} ${v}`)
