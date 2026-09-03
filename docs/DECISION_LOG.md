@@ -3825,3 +3825,73 @@ never ran (RD-084), a shared shadow material was being mutated (RD-089), the rou
 boundary was eight seconds of a frozen world (RD-091). All real, all worth having.
 
 None of them was the freeze.
+
+---
+
+## RD-098 — The freeze was ours after all: a game loop driven by a clock that jumps
+
+*2026-09-03. This supersedes RD-097's conclusion, which was wrong, and it was my own
+instrument that made it wrong.*
+
+RD-097 concluded the WSL2 VM was freezing for five seconds. It measured with
+`Date.now()`. Measured against **both** clocks at once:
+
+```
+63.9s   wall 5142ms   monotonic 1ms
+129.0s  wall 5140ms   monotonic 4ms
+```
+
+**The machine never stopped.** The WSL2 guest's wall clock is resynchronised with its
+host, jumping ~5.14 s roughly every 65 s. A monotonic clock sees 1 ms.
+
+### Why that froze the game
+
+`GameServer.pump` read `Date.now()` and handed the delta to `FixedLoop.advance`, whose
+accumulator had no guard against a negative:
+
+```
+normal 33ms tick        -> 0 steps
+clock jumps BACK 5000ms -> 0 steps  (acc now -4967ms)
+server then runs NO simulation for 4983ms of real time
+```
+
+A backward correction drives the accumulator negative, and **no tick runs until real
+time has repaid the debt.** For those seconds the server simulates nothing and sends
+nothing, so every client stalls **simultaneously** — with no packet lost and nothing on
+the wire for any network probe to find.
+
+That is every stubborn fact at once: both probes stalling in lockstep, `skippedSnapshots`
+at 0 (the server was not *sending*, so there was nothing to buffer), and no transport
+path ever mattering — Tailscale, the portproxy and the direct WSL address were all
+innocent because the freeze was upstream of all of them.
+
+The existing guard, `if (this.acc > TICK_MS * MAX_CATCHUP_STEPS) this.acc = 0`, clamps a
+large *positive* accumulator and says nothing about a negative one. Forward jumps were
+handled from the first day; backward jumps were never considered.
+
+**The fix is two lines and a principle.** `pump` uses `performance.now()`, which cannot
+jump — a game loop may not read a wall clock. And `advance` rejects any delta that is
+not positive, because "should be unreachable" is exactly what the wall-clock version
+assumed.
+
+### How the instrument hid it for days
+
+`tools/vmstall.mjs` reported drift over +200 ms. A backward jump is a large **negative**
+drift, so the one event that mattered was filtered out by the tool built to find it —
+while the *forward* half of the same resync was reported loudly and sent me chasing a VM
+freeze that never happened. It now reports both directions.
+
+That is the fourth instrument defect in this hunt (RD-080, RD-089, RD-090, RD-096) and
+the most expensive: the others produced false positives, this one produced a false
+*negative* on the actual cause.
+
+### The tally
+
+Eight wrong attributions before this: the snapshot MTU, the send backlog, the client
+main thread, the round boundary, the prediction clock, the Tailscale tunnel, the Windows
+portproxy, and a VM freeze that was a clock artefact. Every one measured the thing I was
+already thinking about; not one measured the clock the loop was reading.
+
+The lesson RD-097 drew — "prove the machine under it is running" — was right, and I then
+proved it with a tool that could not tell a stopped machine from a moved clock. **Ask
+what your instrument cannot see, before trusting what it shows you.**

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { MAX_CATCHUP_STEPS, TICK_HZ, TICK_MS } from "@ruckus/shared";
 import { FixedLoop } from "./loop.ts";
@@ -39,5 +42,51 @@ describe("FixedLoop (T10, R8, P8)", () => {
     loop.advance(TICK_MS * 0.9);
     loop.reset();
     expect(loop.advance(TICK_MS * 0.9)).toBe(0);
+  });
+});
+
+describe("a clock that jumps cannot stop the simulation (RD-098)", () => {
+  // The root cause of a multi-day freeze hunt. A WSL2 guest clock resyncs with its host
+  // — measured here at ~5.14s roughly every 65s. Fed to a fixed-timestep accumulator,
+  // a BACKWARD jump drives `acc` negative and no tick runs until real time repays the
+  // debt: a five-second freeze for every client at once, with no packet lost and
+  // nothing on the wire for any network probe to find.
+  it("ignores a backward step instead of banking it", () => {
+    const loop = new FixedLoop();
+    expect(loop.advance(-5000)).toBe(0);
+    // The very next ordinary frame must still produce a tick. Before the guard, this
+    // returned 0 for the next ~5000ms of real time.
+    let steps = 0;
+    for (let i = 0; i < 3; i++) steps += loop.advance(TICK_MS);
+    expect(steps).toBeGreaterThan(0);
+  });
+
+  it("measures the freeze the unguarded version caused", () => {
+    // Kept as a regression: the number is the point.
+    const loop = new FixedLoop();
+    loop.advance(-5000);
+    let ms = 0;
+    for (let i = 0; i < 400 && loop.advance(TICK_MS) === 0; i++) ms += TICK_MS;
+    expect(ms).toBeLessThan(TICK_MS * 2);
+  });
+
+  it("ignores zero and NaN as well, since neither is elapsed time", () => {
+    const loop = new FixedLoop();
+    expect(loop.advance(0)).toBe(0);
+    expect(loop.advance(Number.NaN)).toBe(0);
+    // NaN must not have poisoned the accumulator.
+    expect(loop.advance(TICK_MS * 2)).toBeGreaterThan(0);
+  });
+
+  it("still catches up on a forward jump, capped", () => {
+    const loop = new FixedLoop();
+    expect(loop.advance(5000)).toBe(MAX_CATCHUP_STEPS);
+  });
+
+  it("the server drives it from a monotonic clock, never the wall clock", () => {
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "net.ts"), "utf8");
+    const pump = src.slice(src.indexOf("private pump()"), src.indexOf("private pump()") + 200);
+    expect(pump).toContain("performance.now()");
+    expect(pump).not.toContain("Date.now()");
   });
 });

@@ -19,6 +19,17 @@ export class FixedLoop {
    * move the spiral one frame later.
    */
   advance(elapsedMs: number): number {
+    // Time never runs backwards, and a caller who says it did is wrong (RD-098).
+    //
+    // Without this, a negative delta drives the accumulator negative and NO tick runs
+    // until real time has paid the debt back. Measured: a 5000 ms backward step stops
+    // the simulation for 4983 ms — a five-second freeze for every client at once, with
+    // no packet lost and nothing on the wire to see. That is exactly what a WSL2 guest
+    // clock resync did to this server, roughly once a minute, for days.
+    //
+    // The caller now passes a monotonic clock so this should be unreachable; it is here
+    // because "should be unreachable" is what the wall-clock version assumed too.
+    if (!(elapsedMs > 0)) return 0;
     this.acc += elapsedMs;
     let steps = 0;
     while (this.acc >= TICK_MS && steps < MAX_CATCHUP_STEPS) {

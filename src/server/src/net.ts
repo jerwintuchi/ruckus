@@ -82,7 +82,18 @@ export class GameServer {
   /** code -> the time it was retired, so it is not reissued straight away (P1). */
   private readonly retired = new Map<string, number>();
   private readonly loop = new FixedLoop();
-  private last = Date.now();
+  /**
+   * MONOTONIC, never the wall clock (RD-098).
+   *
+   * `Date.now()` can jump: a VM guest's clock is resynchronised with its host, and this
+   * one moved ~5.14 s roughly every 65 s. Fed into a fixed-timestep accumulator, a
+   * backward jump stops the simulation until real time repays it — a multi-second
+   * freeze for every client simultaneously, invisible to any network probe because no
+   * packet was ever lost.
+   *
+   * `performance.now()` cannot jump. It is the only clock a game loop may use.
+   */
+  private last = performance.now();
   private timer: NodeJS.Timeout | null = null;
 
   private readonly wss: WebSocketServer;
@@ -95,7 +106,7 @@ export class GameServer {
   }
 
   start(): void {
-    this.last = Date.now();
+    this.last = performance.now();
     // A plain interval, not a busy loop: the accumulator absorbs the jitter (P8).
     this.timer = setInterval(() => this.pump(), TICK_MS);
   }
@@ -222,7 +233,7 @@ export class GameServer {
   }
 
   private pump(): void {
-    const now = Date.now();
+    const now = performance.now();
     const steps = this.loop.advance(now - this.last);
     this.last = now;
     for (let i = 0; i < Math.min(steps, MAX_CATCHUP_STEPS); i++) {
