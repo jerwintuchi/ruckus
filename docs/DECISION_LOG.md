@@ -4058,3 +4058,63 @@ currency: **a fixture written by hand is a copy of the protocol, and copies drif
 Build the fixture with the code that writes the real thing.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-103 — The bots were reading a clock that jumps, and fixing the server is what exposed it
+
+*2026-09-03. Diagnosed from a playtester's hypothesis, which was right and mine were not.*
+
+"The bots are referring to stale positions, and they were fine before the reconnecting
+fix." Both halves of that were correct, and together they name the bug exactly.
+
+`tools/bots.mjs` scheduled its decisions on the wall clock:
+
+```js
+const now = Date.now();
+if (now >= this.nextThink) { ...decide...; this.nextThink = now + 60 + ...; }
+```
+
+This guest's clock is resynchronised with its host **every ~5 seconds** — forward
+~5.4 s, then back ~5.9 s about 200 ms later. A backward jump leaves `nextThink` five
+seconds in the future, so the bot **stops re-deciding and holds its last input**.
+
+Measured on the real think loop, over 90 seconds:
+
+| | gaps > 400 ms | worst |
+|---|---:|---|
+| `Date.now()` | 16 | 5489 ms |
+| `performance.now()` | **0** | — |
+
+Sixteen stalls in ninety seconds, each 4.8-5.5 s. A bot spent most of every round
+walking on a decision made five seconds earlier — into a wall, past the bomb, away from
+the pickup. Exactly "referring to stale state".
+
+### Why it appeared only after the freeze was fixed
+
+This is the same failure as RD-098, one layer out: there the server's fixed loop read a
+clock that moves, here the bots' scheduler did. **Before RD-098 the server froze at the
+same instants**, so the bots' stalls were hidden inside the world's. Fixing the server
+did not break the bots; it removed the thing that was concealing them, and a five-second
+stall that used to look like "the game froze" started looking like "the bots are dumb".
+
+That is why the playtester's timeline was better evidence than my code reading. A
+regression that appears when an unrelated fix lands is usually a second bug that the
+first was masking, not the fix misbehaving.
+
+### What it cost, and the guard
+
+Two sessions and three wrong answers: RD-101 (a real bug, not this one), RD-102 (a real
+gap, not this one), and my claim that the remaining three strategies were fine — which
+was true of the *code* and irrelevant, because none of them was being run often enough
+to matter.
+
+Every duration in `bots.mjs` is now monotonic, and `check.test.ts` fails if `Date.now()`
+returns to that file. The guard was watched failing before it was kept.
+`tools/vmstall.mjs` is the deliberate exception: comparing the two clocks is its purpose.
+
+**The rule, now stated at full width: in this project, nothing that measures a duration
+may read the wall clock.** Not the server loop, not a tool, not a bot. RD-098 said it
+about game loops and that was too narrow by exactly one file.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

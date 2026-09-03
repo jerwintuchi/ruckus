@@ -139,6 +139,22 @@ describe("one playtest stack per session (RD-073)", () => {
     expect(sh).toContain('"--stop"');
   });
 
+  it("schedules the bots on a clock that cannot jump", () => {
+    // RD-103. This guest's wall clock is resynchronised with its host every ~5s, forward
+    // ~5.4s then back ~5.9s. A deadline written as `Date.now() + delay` lands five
+    // seconds in the future after a backward jump, so a bot stops re-deciding and holds
+    // one stale input: measured at 16 think gaps of 4.8-5.5s in 90 seconds.
+    //
+    // Same failure as RD-098 (the server's fixed loop) one layer out, and it hid behind
+    // the server's own freeze until that was fixed — which is why the bots looked fine
+    // before and dumb after. Anything in this file that measures a DURATION must be
+    // monotonic. `tools/vmstall.mjs` is the deliberate exception and is not covered here:
+    // comparing the two clocks is the whole point of it.
+    const bots = readFileSync(join(ROOT, "tools", "bots.mjs"), "utf8");
+    const code = bots.split("\n").filter((l) => !l.trim().startsWith("*") && !l.trim().startsWith("//")).join("\n");
+    expect(code).not.toContain("Date.now()");
+  });
+
   it("never kills by pattern where the pattern could match itself", () => {
     // `pkill -f bots.mjs` matched the shell that invoked it, twice, during the session
     // that produced this flag. The stop path resolves PIDs from the listening socket,

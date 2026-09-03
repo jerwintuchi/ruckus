@@ -44,6 +44,20 @@ const CREATE = ROOM.length !== 4;   // no usable --room means bot-1 makes the ro
  */
 let sharedRoom = ROOM;
 
+/**
+ * The clock every schedule and duration in this file is measured on (RD-103).
+ *
+ * NEVER `Date.now()`. This guest's wall clock is resynchronised with its host roughly
+ * every five seconds, forward ~5.4s and then back ~5.9s. A backward jump pushes a
+ * deadline computed as `Date.now() + delay` five seconds into the future, so the bot
+ * stops re-deciding and holds one stale input across most of the round — measured at
+ * 16 think gaps of 4.8-5.5s in 90 seconds, which is what "the bots are dumb" was.
+ *
+ * Same failure as RD-098, one layer out: there the server's fixed loop read a clock
+ * that moves, here the bots' scheduler did. `performance.now()` cannot jump.
+ */
+const mono = () => performance.now();
+
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -165,7 +179,7 @@ export function toward(from, to) {
 }
 
 export function wander(bot) {
-  const t = Date.now() / 700 + bot.slot * 2.1;
+  const t = mono() / 700 + bot.slot * 2.1;
   return { ax: Math.sin(t), ay: Math.cos(t * 1.3), btn: false };
 }
 
@@ -179,7 +193,7 @@ class Bot {
     this.extra = {};
     this.snapPlayers = [];
     this.floor = { tiles: [], grid: 0, tile: 0 };
-    this.lobbySince = Date.now();
+    this.lobbySince = mono();
     this.lastHumans = 0;
     this.state = "LOBBY";
     /** Held input, refreshed on a human-ish reaction delay rather than every tick. */
@@ -226,7 +240,7 @@ class Bot {
         break;
       case "room":
         this.host = m.host;
-        if (m.state !== this.state) this.lobbySince = Date.now();
+        if (m.state !== this.state) this.lobbySince = mono();
         this.state = m.state;
         this.players = m.players;
         break;
@@ -287,20 +301,20 @@ class Bot {
       // and you never see the lobby you just walked into.
       if (humans.length !== this.lastHumans) {
         this.lastHumans = humans.length;
-        this.lobbySince = Date.now();
+        this.lobbySince = mono();
       }
-      const waited = Date.now() - this.lobbySince;
+      const waited = mono() - this.lobbySince;
       const ready = connected.length >= 2 && (humans.length > 0 ? waited > 3000 : waited > 12000);
       if (ready) {
         console.log(`  ${this.name} is host — starting (${humans.length} human, ${connected.length - humans.length} bots)`);
         this.send({ t: "start" });
-        this.lobbySince = Date.now();
+        this.lobbySince = mono();
       }
     }
 
     // Think on a reaction delay, then hold that input. Thinking every tick is what
     // makes a bot feel like a machine; SKILL sets how sharp the reactions are.
-    const now = Date.now();
+    const now = mono();
     if (now >= this.nextThink) {
       const strategy = STRATEGIES[this.game] ?? wander;
       let out;
