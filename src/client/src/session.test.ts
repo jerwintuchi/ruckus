@@ -7,7 +7,7 @@
  */
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadSession, rememberSession, forgetSession, withRoom, SESSION_TTL_MS } from "./session.ts";
+import { loadSession, openOnLoad, rememberSession, forgetSession, withRoom, SESSION_TTL_MS } from "./session.ts";
 
 /** A localStorage that behaves, and one that does not. */
 const good = (): Storage => {
@@ -136,6 +136,26 @@ describe("putting the room in the URL keeps everything else (RD-112)", () => {
     for (const bad of ["?", "?&&", "?=x", "?%"]) {
       expect(() => withRoom(bad, "AB12"), bad).not.toThrow();
       expect(withRoom(bad, "AB12")).toContain("room=AB12");
+    }
+  });
+});
+
+describe("the screenshot harness can reach a panel it cannot tap (RD-116)", () => {
+  it("recognises the panel it is asked to open", () => {
+    expect(openOnLoad("?open=settings")).toBe("settings");
+  });
+
+  it("ignores anything it does not know, so a stray query opens nothing", () => {
+    // Same discipline as `?surface=` (RD-052): a switch the harness uses must never be
+    // able to do something surprising to a real player who happens to have it in a link.
+    for (const q of ["", "?open=", "?open=everything", "?room=ABCD", "?open=SETTINGS "]) {
+      expect(openOnLoad(q), q).toBeNull();
+    }
+  });
+
+  it("survives a malformed query rather than throwing", () => {
+    for (const bad of ["?", "?&&", "?=x", "?%"]) {
+      expect(() => openOnLoad(bad), bad).not.toThrow();
     }
   });
 });

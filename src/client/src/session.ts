@@ -101,3 +101,23 @@ export function withRoom(search: string, code: string): string {
   params.set("room", code);
   return `?${params.toString()}`;
 }
+
+/**
+ * A panel the screenshot harness has been asked to open on load (RD-116).
+ *
+ * The harness photographs a page it cannot touch, so a panel that only exists after a tap
+ * is a panel no automated shot can ever check — which is how the settings overlay shipped
+ * opening UNDERNEATH the lobby card (RD-115). This is the same idiom `?surface=` (RD-052)
+ * and `?insets=` (RD-055) already established: a URL switch that lets the harness reach a
+ * state, and does nothing whatsoever without the parameter.
+ *
+ * A closed set, matched exactly. A switch a stranger might have in a shared link must
+ * never be able to do something surprising, so anything unrecognised opens nothing.
+ */
+export type OpenablePanel = "settings";
+
+export function openOnLoad(search: string): OpenablePanel | null {
+  let value: string | null;
+  try { value = new URLSearchParams(search).get("open"); } catch { return null; }
+  return value === "settings" ? "settings" : null;
+}

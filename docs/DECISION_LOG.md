@@ -4863,3 +4863,65 @@ which used backticks to quote two selector names. It works, it caught it at buil
 has now paid for itself.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-116 — What can be tested without a human, and what cannot
+
+*2026-09-04. Asked directly: "can u test it urself and the ui? im tired of manual
+playtesting." A fair ask, and this is the honest answer to it.*
+
+Three UI bugs in a row (RD-115) were found by a person holding a phone, and every one of
+them was a *layout* fact — a row that was a stack, a panel underneath another panel, a
+control below the fold. So the question is exactly right: why is a human finding these?
+
+### What is now automated, and it is most of it
+
+`lobby.dom.test.ts` mounts the real `Ui` against the real stylesheet in jsdom and asserts
+**computed** values: the colour row's `display: flex`, a swatch's width equal to its
+height, a disabled swatch's opacity below 1, `#settings`'s z-index above `#lobby`'s, and
+READY and START living outside the scrolling container. Every one of RD-115's three bugs
+now fails a test before it reaches a phone.
+
+That is the important half, and it needed no browser: **a cascade is computable, and jsdom
+computes it.**
+
+### What is not, and why — measured, not assumed
+
+Two routes to a real browser were tried and both are shut on this machine:
+
+- **Chrome DevTools Protocol.** A driver was written that would open a panel, tap a
+  swatch and photograph each state. Chrome here is the WINDOWS binary, so its debugging
+  port lives across the WSL boundary; bound to loopback it is unreachable, and bound to
+  `0.0.0.0` it is refused — the Windows firewall drops it. Fixing that means changing the
+  user's firewall, which is not mine to do. **The tool was deleted rather than left in the
+  tree not working**: a tool that does not run is a lie of the same kind as an asserted
+  status (RD-003).
+- **`tools/shoot.sh`.** It works, and it cannot photograph a lobby. RD-054 already says
+  why and I rediscovered it: `--virtual-time-budget` runs the page's clock far ahead of
+  real time, so it never waits for a WebSocket join. The shot lands on "Connecting…".
+
+No Linux browser is installed inside WSL, which is the one route that would avoid both
+problems entirely.
+
+### So the honest boundary
+
+| Question | Answerable here |
+|---|---|
+| is the cascade right — display, z-index, computed sizes | **yes**, jsdom, and now asserted |
+| does the DOM have the right shape and handlers | **yes** |
+| does it FIT a 402px landscape phone | **no** — jsdom has no box model |
+| does a panel open above another | z-index yes; visually no |
+| 60fps, feel, would a stranger work it out | **no**, and never was (spec-workflow) |
+
+`?open=settings` was added for the harness that does not yet exist — a URL switch in the
+same family as `?surface=` (RD-052) and `?insets=` (RD-055), unit-tested, doing nothing
+without the parameter. It is honest to say it is **not yet exercised end to end**; it is
+the affordance a driver will need on a machine where one can run.
+
+**The one thing that would move this line** is a browser inside WSL — `chromium` from apt
+— after which the deleted driver becomes worth restoring and real layout is checkable
+without a phone. That is a system package on the user's machine, so it is their call and
+not something to install unasked.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

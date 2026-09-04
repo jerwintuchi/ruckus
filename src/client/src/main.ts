@@ -10,7 +10,7 @@ import {
   amOnRoster, initialState, reduce, shouldShowWaiting, type FlowEvent,
 } from "./flow.ts";
 import { Health, STALL_MS, pct } from "./health.ts";
-import { forgetSession, loadSession, rememberSession, withRoom } from "./session.ts";
+import { forgetSession, loadSession, openOnLoad, rememberSession, withRoom } from "./session.ts";
 import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
@@ -686,6 +686,12 @@ if (new URLSearchParams(location.search).has("debug")) {
 
 
 // A shared link opens straight on the join screen with its code filled and locked.
+// `?open=settings` opens the panel on load, so the screenshot harness can photograph a
+// panel it has no way to tap (RD-116). Does nothing at all without the parameter.
+if (openOnLoad(location.search) === "settings") {
+  setTimeout(() => ui.openSettings(sound.volumeStep), 0);
+}
+
 const fromUrl = new URLSearchParams(location.search).get("room");
 if (fromUrl) {
   dispatch({ t: "deepLink", code: fromUrl });
