@@ -343,12 +343,16 @@ function onMessage(msg: ServerMsg): void {
         predictor.stop();
         ui.setSpectating(true, roundLabelInfo?.round, roundLabelInfo?.of);
       }
-      ui.hideBanner();
+      // NOT hideBanner. `roundStart` now arrives at the INTRO, in the same breath as the
+      // rule card, so hiding here destroyed the card the instant it appeared — and the
+      // countdown with it, because the count lives inside that card. The banner belongs
+      // to the intro and is cleared by `play` (round-open R1, R3).
       break;
 
     case "play": {
       // The round is running. Everything that must NOT happen during the countdown
       // starts here, and nothing else changes: the world is already on screen.
+      ui.hideBanner();
       playing = true;
       introEndsAt = 0;
       lastCount = 0;

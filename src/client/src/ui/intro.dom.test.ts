@@ -91,3 +91,28 @@ describe("the client does not rebuild the card for a tally update (R1)", () => {
     expect(intro).toContain("introRound");
   });
 });
+
+describe("the card survives from intro to play (R1, R3)", () => {
+  it("is not hidden by roundStart, which now arrives at the intro", () => {
+    // The regression this pins: `roundStart` used to arrive AFTER the intro, so hiding
+    // the banner there was right. It now arrives in the same breath as the rule card, so
+    // hiding there destroyed the card the instant it appeared — and the countdown with
+    // it, because the count lives inside that card.
+    //
+    // A wiring fact, so a wiring guard: which handler clears the banner is not something
+    // any single object can be asked. What the banner DOES is tested by running it.
+    const src = readFileSync("src/client/src/main.ts", "utf8");
+    const roundStart = src.slice(src.indexOf('case "roundStart"'), src.indexOf('case "play"'));
+    expect(roundStart).not.toContain("ui.hideBanner()");
+    const play = src.slice(src.indexOf('case "play"'), src.indexOf('case "snap"'));
+    expect(play).toContain("ui.hideBanner()");
+  });
+
+  it("keeps the count element alive for the whole card", () => {
+    const { ui, root } = mount();
+    ui.showIntro("Sweepers", "Jump the sweepers.", 1, 5, 0, 4);
+    expect(root.querySelector("#count")).toBeTruthy();
+    ui.setCountdown(3);
+    expect(root.querySelector("#count")!.textContent).toContain("3");
+  });
+});
