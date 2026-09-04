@@ -75,6 +75,24 @@ export type PaletteKey = keyof typeof PALETTE;
  * Total by construction: anything outside [0,1], and anything that is not a number at
  * all, clamps rather than returning undefined.
  */
+/**
+ * The starting light (round-countdown R3, RD-113).
+ *
+ * **Red, amber, green — in that order, ending on green.** Deliberately the OPPOSITE of
+ * `statusColour`, and the reason is worth stating because the inversion looks like a bug
+ * until you say it: this is not time running out, it is a race about to start. Green must
+ * be last, because green means GO. A count that turned red on "1" would be telling a
+ * player to stop at the instant they are meant to move.
+ *
+ * Anything outside the three counted seconds gets the last light, so a longer count would
+ * hold on green rather than fall off the end.
+ */
+export function countColour(n: number): string {
+  if (n >= 3) return PALETTE.hazard;
+  if (n === 2) return PALETTE.warn;
+  return PALETTE.ok;
+}
+
 export function statusColour(fraction: number): string {
   const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0;
   if (f > 0.5) return PALETTE.ok;

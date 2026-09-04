@@ -51,13 +51,14 @@ Straight reuse of the action button's cooldown (`controls.ts`): a circle with
 that circumference. That code already survives iOS, already avoids `stroke-dashoffset`'s
 sub-pixel seams at small radii, and is already tested.
 
-Colour comes from `statusColour(fraction)` — the function `round-status` defines. **Three
-seconds map onto the same ramp the round clock uses**, so "time running out" looks the
-same everywhere in the game and there is one function to change if it ever reads wrong.
+Colour comes from `countColour(n)` — **red, amber, green**, ending on green because green
+means go (RD-113).
 
-> Ordering note: this spec *uses* `statusColour`. If it is built first, the function moves
-> here and `round-status` imports it. Whichever lands first owns it; it is not written
-> twice.
+That is the inverse of `statusColour`, which `round-status` uses for the round clock, and
+the two are deliberately separate functions. They look like one idea — "colour by how much
+time is left" — and are opposite ones: a clock running out ends red, a race starting ends
+green. Sharing a ramp between them would force one of the two to read backwards, and the
+inversion looks like a bug unless the reasoning sits next to it. It does, at both.
 
 ## Where the value comes from
 

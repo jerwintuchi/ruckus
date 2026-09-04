@@ -5,11 +5,11 @@
  * one construction: flat fill, ink outline, hard offset shadow. `flow.ts` owns which
  * screen is showing; this only draws what it is handed.
  */
-import { COUNT_MS, MAX_PLAYERS, PLAYER_COLOURS, type PlayerView } from "@ruckus/shared";
+import { MAX_PLAYERS, PLAYER_COLOURS, type PlayerView } from "@ruckus/shared";
 import type { FlowEvent, FlowState } from "../flow.ts";
 import { createState, joinState, rosterChange, standings, startState, type Standing } from "../flow.ts";
 import { colourFor, escapeHtml } from "./kit.ts";
-import { statusColour } from "../kit/palette.ts";
+import { countColour } from "../kit/palette.ts";
 import { VOLUME_STEPS } from "../kit/sound.ts";
 import { renderHud, rollTo, roundLabel, type HudData } from "./hud.ts";
 
@@ -633,23 +633,20 @@ export class Ui {
     tick.classList.add("on");
 
     const ring = this.q("#tickRing") as unknown as SVGCircleElement;
-    const c = 2 * Math.PI * 45;
-    ring.style.strokeDasharray = String(c);
-    // Full at the top of each second, draining as it runs out.
-    ring.style.strokeDashoffset = "0";
-    // `(n-1)/(seconds-1)`, not `n/seconds`. With three seconds the naive form gives
-    // 1.0, 0.67, 0.33 — all inside the top two bands, so the ring barely changed across
-    // the whole count. This maps the LAST second to zero, which is what "out of time"
-    // means, and gives three visibly different states.
-    const seconds = COUNT_MS / 1000;
-    ring.style.stroke = statusColour(seconds > 1 ? (n - 1) / (seconds - 1) : 0);
-    // One frame later, so the transition has a start value to move from.
-    requestAnimationFrame(() => { ring.style.strokeDashoffset = String(c); });
+    // The circumference, as a custom property the keyframes read. Set once per number so
+    // the animation has a length to sweep, whatever the element's size.
+    ring.style.setProperty("--c", String(2 * Math.PI * 45));
+    // Red, amber, GREEN: a starting light, not a clock running out (RD-113).
+    ring.style.stroke = countColour(n);
 
-    // Retrigger the landing animation for each new number.
-    num.classList.remove("land");
-    void num.offsetWidth;
-    num.classList.add("land");
+    // Retrigger both animations for each new number. Removing the class, forcing a
+    // reflow and re-adding it is what makes a CSS animation replay — and it is why the
+    // sweep is an animation rather than a transition, which could only ever run once.
+    for (const [el, cls] of [[num, "land"], [ring as unknown as HTMLElement, "drain"]] as const) {
+      el.classList.remove(cls);
+      void el.offsetWidth;
+      el.classList.add(cls);
+    }
   }
 
   /**
@@ -749,7 +746,6 @@ const TEMPLATE = `
   used to live inside it went with it.
 -->
 <div id="tick" class="tick">
-  <div class="disc"></div>
   <svg viewBox="0 0 100 100" aria-hidden="true"><circle id="tickRing" cx="50" cy="50" r="45"></circle></svg>
   <div id="tickNum" class="n"></div>
 </div>

@@ -4680,3 +4680,71 @@ work. Same class as `renderScores` colouring by slot when colour became claimabl
 the moment it was not.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-113 — The countdown is a starting light, and the sweep only ever ran once
+
+*2026-09-04. Three tweaks from a playtest, one of which was a real bug.*
+
+### The sweep animated once and then sat still
+
+The ring was a CSS **transition** on `stroke-dashoffset`, driven like this:
+
+```js
+ring.style.strokeDashoffset = "0";                                    // 1s toward 0
+requestAnimationFrame(() => { ring.style.strokeDashoffset = String(c); });  // and back
+```
+
+Setting the offset to `0` starts a one-second transition *toward* zero. The next frame
+sets it back to `c`, which starts a second transition from wherever it had got to — about
+one frame's worth from where it started. So the ring drained on the first number and
+animated essentially nothing on the second and third.
+
+It is a **CSS animation** now, retriggered exactly the way the numeral already was:
+remove the class, force a reflow, add it back. A transition cannot be replayed; an
+animation can, and the two were being asked to do the same job by different means in the
+same function.
+
+### The disc had to go
+
+It began as a paper stopwatch — a disc with the Kit's hard offset shadow. The playtester
+asked for it gone, and they are right for a reason the spec should have caught: **a slab
+sits over the very arena the count exists to reveal.** `round-open` moved the count off
+the rule card precisely so the world would be visible behind it, and then put a disc there
+instead.
+
+The numeral now carries a hard ink outline. That is how everything else in this game
+separates from what is behind it (RD-021) — **the outline is what makes it an object**, and
+it needs no card to do it.
+
+### Red, amber, green — and why it is not `statusColour`
+
+The count now runs **red on 3, amber on 2, green on 1**: a starting light, a race about to
+begin.
+
+`countColour` is deliberately the INVERSE of `statusColour`, which the round clock uses,
+and they are separate functions on purpose. They look like one idea — "colour by how much
+time is left" — and are opposite ones. **Green must be last, because green means go.** A
+count that turned red on "1" would be telling a player to stop at the instant they are
+meant to move.
+
+Sharing one ramp would force one of the two to read backwards. The inversion looks like a
+bug unless the reasoning sits beside it, so it is written at both, and a test pins
+`countColour(3) === statusColour(0)` so nobody "fixes" it later.
+
+### What is NOT explained
+
+The same report said the numbers went "3 to 1, with 2 not visible and 1 as well".
+`countdownAt` is correct — traced, and each of 3, 2, 1 holds for exactly one second — and
+driving `setCountdown` at 60 fps across a simulated three seconds draws each digit for
+about sixty frames. Two candidate explanations were checked and eliminated: `sound.play`
+swallows its own exceptions, so it cannot break the frame loop, and the digit is deduped
+rather than re-animated per frame.
+
+So the cause is unknown, and this entry says so rather than claiming a fix. The disc is
+gone and the sweep is real now, which removes most of what it could have been hiding in;
+if a digit is still skipped, the next useful observation is whether the count shows 3 and
+then jumps straight to play, or shows 3, goes blank, and then plays.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

@@ -8,10 +8,16 @@ card. This is the design of the thing itself.*
 
 ## The idea, and why this one
 
-A **stopwatch cut from paper**: a disc with an ink outline and the Kit's hard offset
-shadow, a huge number inside it, and a ring around it that drains as the second runs out.
-Each number lands with the same overshoot-and-settle the cards already use; on **GO** the
-disc punches outward and is gone.
+**A starting light**: a huge numeral carrying a hard ink outline, and a ring around it
+that sweeps away as the second runs out. Red on 3, amber on 2, **green on 1**. Each
+number lands with the same overshoot-and-settle the cards already use; on **GO** the whole
+thing punches outward and is gone.
+
+*Revised after the first build (RD-113).* It began as a paper disc with the Kit's hard
+shadow — and a disc is a slab over the very arena the count exists to reveal. The numeral
+now carries the ink outline instead: **the outline is what makes it an object**, which is
+how everything else in this game separates from what is behind it (RD-021), and it needs
+no card to do it.
 
 Chosen over the two alternatives on purpose:
 
@@ -28,7 +34,9 @@ owns — the cooldown ring and the `deal` entrance — rather than inventing a t
 ## Requirements
 
 **R1**: The count is an object, in the game's own material.
-- AC: a disc slab — ink outline at `--outline`, the hard offset shadow (kit-rules, RD-069)
+- AC: **no disc and no shadow.** The numeral and its sweep, nothing else — a slab here
+      covers the arena `round-open` exists to reveal
+- AC: the numeral carries a hard ink outline, so it reads over any arena beneath it
 - AC: every colour from the palette; no hex literal at a call site
 - AC: it reads at arm's length on a phone: the numeral is the largest glyph on screen
 - AC: **the arena stays visible around and behind it.** The disc is bounded, not a
@@ -41,12 +49,17 @@ owns — the cooldown ring and the `deal` entrance — rather than inventing a t
 - AC: the motion is **CSS-driven, not per-frame**: nothing about the count may enter the
       render loop (kit-rules: nothing allocates or animates per frame that need not)
 
-**R3**: The ring drains, so the second is visible without reading.
+**R3**: The ring sweeps, so the second is visible without reading.
 - AC: a full sweep per second, emptying as the second runs out
-- AC: it reuses the cooldown ring's construction — `strokeDashoffset` against a known
-      circumference — because that mechanism exists, is tested, and works on iOS
-- AC: the ring's colour walks the status ramp as the count falls: ok at 3, hazard at 1.
-      **The same ramp `round-status` defines**, so one idea is expressed once
+- AC: **it is a CSS animation, retriggered per number — not a transition.** A transition
+      can only run once: setting the offset back to its start begins a second transition
+      toward that start, so the second and third seconds animate nothing (RD-113)
+- AC: **red on 3, amber on 2, green on 1** — a starting light, not a clock running out
+- AC: green is LAST, because green means go. A count that turned red on "1" would tell a
+      player to stop at the instant they are meant to move
+- AC: this is deliberately the INVERSE of `statusColour`, which the round clock uses. The
+      two look like the same idea and are opposite ones, so they are separate functions
+      with the reasoning written at both
 - AC: under a stalled connection the ring holds rather than draining on a local clock —
       the count is the server's, never this device's (RD-065)
 

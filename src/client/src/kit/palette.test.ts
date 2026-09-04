@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_COLOURS as SHARED_COLOURS } from "@ruckus/shared";
 import {
-  PALETTE, PAPER, PLAYER_COLOURS, contrast, hexToInt, luminance, readableInk, statusColour, tint,
+  PALETTE, PAPER, PLAYER_COLOURS, contrast, hexToInt, luminance, countColour, readableInk, statusColour, tint,
 } from "./palette.ts";
 
 /* sRGB -> CIE Lab, then CIE76 deltaE. Enough to catch "these two look the same". */
@@ -236,5 +236,25 @@ describe("statusColour is the one urgency ramp (round-countdown R3, round-status
   it("goes red only at the very end, so it means something when it does", () => {
     expect(statusColour(0.2)).not.toBe(PALETTE.hazard);
     expect(statusColour(0.05)).toBe(PALETTE.hazard);
+  });
+});
+
+describe("countColour is a starting light, not a clock (RD-113)", () => {
+  it("runs red, amber, green — ending on green", () => {
+    expect(countColour(3)).toBe(PALETTE.hazard);
+    expect(countColour(2)).toBe(PALETTE.warn);
+    expect(countColour(1)).toBe(PALETTE.ok);
+  });
+
+  it("is the INVERSE of statusColour, which is the whole point", () => {
+    // They look like one idea and are opposite ones: a clock running out ends red, a
+    // race starting ends green. Pinned so nobody "fixes" the inversion later.
+    expect(countColour(1)).not.toBe(statusColour(0));
+    expect(countColour(3)).toBe(statusColour(0));
+  });
+
+  it("holds the last light rather than falling off the end of a longer count", () => {
+    for (const n of [0, -1, 1]) expect(countColour(n)).toBe(PALETTE.ok);
+    for (const n of [4, 10]) expect(countColour(n)).toBe(PALETTE.hazard);
   });
 });

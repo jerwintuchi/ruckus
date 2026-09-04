@@ -4,12 +4,12 @@
  * The countdown stopwatch, MOUNTED (round-countdown T1-T3, T5-T7).
  */
 import { describe, expect, it, vi } from "vitest";
-import { COUNT_MS } from "@ruckus/shared";
-import { PALETTE, statusColour } from "../kit/palette.ts";
+import { PALETTE } from "../kit/palette.ts";
 import type { FlowEvent } from "../flow.ts";
 import { initialState } from "../flow.ts";
 import { Ui } from "./screens.ts";
 import { UI_CSS } from "./kit.ts";
+import { countdownAt } from "./hud.ts";
 
 const noop = {
   onCreate: (_n: string) => {}, onJoin: (_c: string, _n: string) => {},
@@ -31,14 +31,13 @@ function mount() {
   return { ui, root, q };
 }
 
-describe("the stopwatch is an object, not floating text (R1)", () => {
-  it("is a disc slab with the Kit's outline and hard shadow", () => {
-    const { q } = mount();
-    const disc = q<HTMLElement>("#tick .disc");
-    expect(disc).toBeTruthy();
-    const cs = getComputedStyle(disc);
-    expect(cs.borderRadius).toBe("50%");
-    expect(cs.boxShadow).toBe("var(--shadow)");
+describe("the count is a numeral and a sweep, nothing else (R1, RD-113)", () => {
+  it("has no disc and no shadow to cover the arena", () => {
+    // The disc was a slab over the very arena the count exists to reveal. The numeral
+    // carries a hard ink outline instead — the outline IS the object (RD-021).
+    const { root, q } = mount();
+    expect(root.querySelector("#tick .disc"), "no slab").toBeNull();
+    expect(getComputedStyle(q<HTMLElement>("#tick")).boxShadow).not.toContain("shadow");
   });
 
   it("is hidden until there is a number, so it never covers a rule card", () => {
@@ -91,17 +90,17 @@ describe("each number lands, and GO releases (R2, R4)", () => {
 });
 
 describe("the ring drains, in the one urgency ramp (R3)", () => {
-  it("sets the dash to the circumference so a full sweep is one second", () => {
+  it("gives the keyframes a circumference to sweep", () => {
     const { ui, q } = mount();
     ui.setCountdown(3);
     const ring = q<SVGCircleElement>("#tickRing");
-    expect(Number(ring.style.strokeDasharray)).toBeCloseTo(2 * Math.PI * 45, 3);
+    expect(Number(ring.style.getPropertyValue("--c"))).toBeCloseTo(2 * Math.PI * 45, 3);
   });
 
-  it("gives every second of the count a visibly different colour", () => {
-    // The bug this pins: with `n/seconds` the three fractions were 1.0, 0.67 and 0.33 —
-    // all inside the top two bands — so the ring barely changed across the whole count.
-    // jsdom normalises a hex to rgb(), so compare through the same lens.
+  it("runs red, amber, GREEN — a starting light, not a clock running out", () => {
+    // Deliberately the opposite of statusColour. Green must be LAST because green means
+    // go; a count that turned red on "1" would tell a player to stop at the instant they
+    // are meant to move (RD-113). jsdom normalises a hex to rgb(), so compare likewise.
     const asRgb = (hex: string): string => {
       const probe = document.createElement("div");
       probe.style.color = hex;
@@ -113,8 +112,44 @@ describe("the ring drains, in the one urgency ramp (R3)", () => {
       ui.setCountdown(n);
       seen.push(q<SVGCircleElement>("#tickRing").style.stroke);
     }
-    expect(new Set(seen).size, "three seconds, three states").toBe(3);
-    expect(seen[0]).toBe(asRgb(PALETTE.ok));
-    expect(seen[2]).toBe(asRgb(PALETTE.hazard));
+    expect(new Set(seen).size, "three seconds, three lights").toBe(3);
+    expect(seen[0], "3 is red").toBe(asRgb(PALETTE.hazard));
+    expect(seen[1], "2 is amber").toBe(asRgb(PALETTE.warn));
+    expect(seen[2], "1 is green — GO").toBe(asRgb(PALETTE.ok));
+  });
+});
+
+describe("driven the way the render loop drives it (R2, R5)", () => {
+  it("shows every number for its whole second", () => {
+    // The playtest report: "3 goes quickly to 1, with 2 not visible and 1 as well".
+    // countdownAt is correct — 3, 2 and 1 each hold a second — so the fault is in what
+    // gets DRAWN when the same value arrives sixty times a second.
+    const { ui, q } = mount();
+    const endsAt = 3000;
+    const drawn: string[] = [];
+    for (let t = 0; t < 3000; t += 16) {
+      ui.setCountdown(countdownAt(endsAt, t));
+      drawn.push(q<HTMLElement>("#tickNum").textContent ?? "");
+    }
+    const held = (d: string) => drawn.filter((x) => x === d).length;
+    expect(held("3"), "3 held for about a second of frames").toBeGreaterThan(50);
+    expect(held("2"), "2 held for about a second of frames").toBeGreaterThan(50);
+    expect(held("1"), "1 held for about a second of frames").toBeGreaterThan(50);
+  });
+
+  it("restarts the sweep for each number, not just the first", () => {
+    // The ring drained once and then sat full: setting the offset to 0 started a
+    // one-second transition TOWARD 0, and the very next frame set it back, so the second
+    // and third seconds animated nothing.
+    const { ui, q } = mount();
+    const offsets: string[] = [];
+    for (const n of [3, 2, 1]) {
+      ui.setCountdown(n);
+      offsets.push(q<SVGCircleElement>("#tickRing").style.getPropertyValue("--c"));
+    }
+    // Every number re-arms the sweep. As a transition this ran exactly once; as an
+    // animation retriggered by class it runs for each second (RD-113).
+    expect(offsets.every((o) => o === offsets[0])).toBe(true);
+    expect(q<SVGCircleElement>("#tickRing").classList.contains("drain")).toBe(true);
   });
 });
