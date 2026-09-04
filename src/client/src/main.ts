@@ -10,7 +10,7 @@ import {
   amOnRoster, initialState, reduce, shouldShowWaiting, type FlowEvent,
 } from "./flow.ts";
 import { Health, STALL_MS, pct } from "./health.ts";
-import { forgetSession, loadSession, rememberSession } from "./session.ts";
+import { forgetSession, loadSession, rememberSession, withRoom } from "./session.ts";
 import { InputController } from "./input.ts";
 import { clientMinigame, type ClientMinigame } from "./minigames/index.ts";
 import { Net } from "./net.ts";
@@ -224,7 +224,7 @@ function onMessage(msg: ServerMsg): void {
       dispatch({ t: "welcome", slot: msg.slot, code: msg.code, host: msg.host });
       // Put the code in the URL so "send them this link" is the whole invite flow,
       // and on screen so it can be read aloud across a room.
-      history.replaceState(null, "", `?room=${msg.code}`);
+      history.replaceState(null, "", withRoom(location.search, msg.code));
       // Remember who we are, so a page iOS discards can walk straight back in (RD-110).
       rememberSession(store, { name: myName, code: msg.code }, Date.now());
       break;

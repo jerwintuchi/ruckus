@@ -4636,3 +4636,47 @@ sent. **An empty name field meant a reloaded page; a filled one meant a dead roo
 pixel of difference, two entirely different bugs.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-112 — Putting the room in the URL threw away every other switch
+
+*2026-09-04. Noticed in passing: "it holds after switching apps now, but it reloaded
+without the debug field in the url."*
+
+The invite link is the whole sharing flow, so the room code goes in the URL. The line that
+did it was:
+
+```js
+history.replaceState(null, "", `?room=${msg.code}`);
+```
+
+That does not ADD a parameter. It replaces the entire query string, so creating or joining
+a room silently destroyed every other switch the project has:
+
+| | |
+|---|---|
+| `?debug=1` | the on-device instrument every playtest reads (RD-053) |
+| `?server=` | pointing a client at another host |
+| `?surface=` | the screenshot harness's touch override (RD-052) |
+| `?insets=` | a real phone's safe areas, replayed (RD-055) |
+
+Three of those four exist specifically to make playtesting possible, and all three were
+being switched off by the act of entering a room — which is the only state in which they
+are useful.
+
+It surfaced only because RD-111 made rooms survive a reload: the page came back on the URL
+this line had already stripped. Before that the room was gone anyway and nobody looked at
+the query string.
+
+`withRoom(search, code)` sets `room` and leaves the rest alone. Tested for the empty
+query, for each switch surviving, for replacing an existing `room` rather than appending a
+second, and for a malformed query not throwing.
+
+**The general shape, which is worth naming:** a URL is shared state with several owners,
+and a writer that assumes it owns the whole thing will silently delete the other owners'
+work. Same class as `renderScores` colouring by slot when colour became claimable
+(lobby-social) — a piece of code that was correct while it was the only writer, and wrong
+the moment it was not.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

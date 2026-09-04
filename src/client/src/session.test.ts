@@ -7,7 +7,7 @@
  */
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadSession, rememberSession, forgetSession, SESSION_TTL_MS } from "./session.ts";
+import { loadSession, rememberSession, forgetSession, withRoom, SESSION_TTL_MS } from "./session.ts";
 
 /** A localStorage that behaves, and one that does not. */
 const good = (): Storage => {
@@ -100,5 +100,42 @@ describe("the client actually uses it (RD-110)", () => {
 
   it("forgets it when the player leaves deliberately", () => {
     expect(main()).toContain("forgetSession(store)");
+  });
+});
+
+describe("putting the room in the URL keeps everything else (RD-112)", () => {
+  it("adds the code to an empty query", () => {
+    expect(withRoom("", "AB12")).toBe("?room=AB12");
+  });
+
+  it("keeps ?debug=1, which is the whole playtest instrument", () => {
+    // The bug: `?room=CODE` replaced the entire query string, so creating a room silently
+    // turned the debug overlay off. Found when a reloaded page came back without it.
+    expect(withRoom("?debug=1", "AB12")).toContain("debug=1");
+    expect(withRoom("?debug=1", "AB12")).toContain("room=AB12");
+  });
+
+  it("keeps every other switch the tools rely on", () => {
+    // ?server= points at another host, ?surface= forces touch for the screenshot
+    // harness (RD-052), ?insets= replays a real phone's safe areas (RD-055). All four
+    // were destroyed the moment a room was created.
+    const out = withRoom("?server=ws://x:1&surface=touch&insets=0,62,20,62", "AB12");
+    for (const keep of ["server=", "surface=touch", "insets=0%2C62%2C20%2C62", "room=AB12"]) {
+      expect(out, keep).toContain(keep);
+    }
+  });
+
+  it("replaces a room already there rather than adding a second", () => {
+    const out = withRoom("?room=OLD1&debug=1", "NEW2");
+    expect(out).toContain("room=NEW2");
+    expect(out).not.toContain("OLD1");
+    expect(out.match(/room=/g)).toHaveLength(1);
+  });
+
+  it("survives a malformed query rather than throwing", () => {
+    for (const bad of ["?", "?&&", "?=x", "?%"]) {
+      expect(() => withRoom(bad, "AB12"), bad).not.toThrow();
+      expect(withRoom(bad, "AB12")).toContain("room=AB12");
+    }
   });
 });

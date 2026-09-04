@@ -80,3 +80,24 @@ export function loadSession(store: Storage | null, code: string, now: number): S
 
   return { name, code: stored };
 }
+
+/**
+ * The query string with `room` set, and everything else left alone (RD-112).
+ *
+ * The invite link is the whole sharing flow, so the code goes in the URL — but the line
+ * that did it wrote `?room=CODE` and thereby replaced the ENTIRE query string. Creating
+ * or joining a room silently destroyed:
+ *
+ *   ?debug=1    the on-device instrument every playtest reads
+ *   ?server=    pointing a client at another host
+ *   ?surface=   the screenshot harness's touch override (RD-052)
+ *   ?insets=    a real phone's safe areas, replayed (RD-055)
+ *
+ * Found when a page iOS had discarded came back without its debug overlay — the URL it
+ * reloaded was the one this function had already stripped.
+ */
+export function withRoom(search: string, code: string): string {
+  const params = new URLSearchParams(search);
+  params.set("room", code);
+  return `?${params.toString()}`;
+}
