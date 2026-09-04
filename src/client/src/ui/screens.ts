@@ -8,7 +8,7 @@
 import { MAX_PLAYERS, PLAYER_COLOURS, type PlayerView } from "@ruckus/shared";
 import type { FlowEvent, FlowState } from "../flow.ts";
 import { createState, joinState, rosterChange, standings, startState, type Standing } from "../flow.ts";
-import { colourFor, escapeHtml } from "./kit.ts";
+import { colourFor, escapeHtml, replayAnimation } from "./kit.ts";
 import { countColour } from "../kit/palette.ts";
 import { VOLUME_STEPS } from "../kit/sound.ts";
 import { renderHud, rollTo, roundLabel, type HudData } from "./hud.ts";
@@ -238,7 +238,9 @@ export class Ui {
     if (state.screen === "LOBBY") {
       this.code = state.code;
       this.q("#roomCode").textContent = state.code;
-      this.renderScores(state.players, state.host, state.mySlot);
+      // No scores in the lobby: nobody has played yet, so a column of zeros beside
+      // every name is noise that reads as part of the ready state — "ready 0".
+      this.renderScores(state.players, state.host, state.mySlot, false);
       this.renderSlots(state.players);
 
       this.announceRoster(state.players, state.mySlot);
@@ -406,7 +408,7 @@ export class Ui {
    * One row per player. A disconnected player is dimmed rather than removed — a room
    * that silently reshuffles underneath everyone is worse than one showing a gap.
    */
-  private renderScores(players: PlayerView[], host = -1, mySlot = -1): void {
+  private renderScores(players: PlayerView[], host = -1, mySlot = -1, scores = true): void {
     // `p.colour`, NOT `colourFor(p.slot)`. Once a colour can be claimed those two
     // disagree, and the dot beside a name would stop matching the capsule on screen
     // (lobby-social R3).
@@ -418,7 +420,7 @@ export class Ui {
             <span class="dot" style="background:${p.colour || colourFor(p.slot)}"></span>
             <span class="nm">${escapeHtml(p.name)}</span>
             ${p.ready ? '<span class="rdy">ready</span>' : ""}
-            <span class="sc">${p.score}</span>
+            ${scores ? `<span class="sc">${p.score}</span>` : ""}
             ${canKick && p.slot !== host
               ? `<button class="kick iconbtn" data-slot="${p.slot}" data-name="${escapeHtml(p.name)}" aria-label="remove ${escapeHtml(p.name)}">&times;</button>`
               : ""}
@@ -639,14 +641,12 @@ export class Ui {
     // Red, amber, GREEN: a starting light, not a clock running out (RD-113).
     ring.style.stroke = countColour(n);
 
-    // Retrigger both animations for each new number. Removing the class, forcing a
-    // reflow and re-adding it is what makes a CSS animation replay — and it is why the
-    // sweep is an animation rather than a transition, which could only ever run once.
-    for (const [el, cls] of [[num, "land"], [ring as unknown as HTMLElement, "drain"]] as const) {
-      el.classList.remove(cls);
-      void el.offsetWidth;
-      el.classList.add(cls);
-    }
+    // Replay both animations for each new number. The layout flush is taken from the
+    // container, which is an HTMLElement — reading `offsetWidth` off the SVG circle
+    // forces nothing, because SVG elements do not have one, and the sweep then runs
+    // exactly once (RD-114).
+    replayAnimation(num, "land", tick);
+    replayAnimation(ring, "drain", tick);
   }
 
   /**
@@ -844,16 +844,24 @@ const TEMPLATE = `
       <!-- Eight slots, filled or empty: "how many more" without counting rows (R3). -->
       <div id="slots" class="slots"></div>
     </div>
-    <div id="scoreboard"></div>
-
     <!--
-      The colour row sits BELOW the roster and above the actions (lobby-social R3): it
-      is a decision made once, and it must not compete with READY, which is the action
-      taken every match. Populated by renderColours; empty markup here so the row has
-      a home even before a roster arrives.
+      The roster and the colour row scroll; the ACTIONS below do not (RD-114).
+      On a landscape phone the card is bounded and scrolls inside itself, which put READY
+      and START below the fold — a primary action you have to discover by scrolling is a
+      primary action most people never find.
     -->
-    <div class="colourlabel dim">your colour</div>
-    <div id="colourRow" class="colourrow"></div>
+    <div class="lobbyscroll">
+      <div id="scoreboard"></div>
+
+      <!--
+        The colour row sits BELOW the roster and above the actions (lobby-social R3): it
+        is a decision made once, and it must not compete with READY, which is the action
+        taken every match. Populated by renderColours; empty markup here so the row has
+        a home even before a roster arrives.
+      -->
+      <div class="colourlabel dim">your colour</div>
+      <div id="colourRow" class="colourrow"></div>
+    </div>
 
     <button id="readyBtn">ready</button>
     <button id="startBtn">start</button>

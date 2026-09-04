@@ -8,7 +8,7 @@ import { PALETTE } from "../kit/palette.ts";
 import type { FlowEvent } from "../flow.ts";
 import { initialState } from "../flow.ts";
 import { Ui } from "./screens.ts";
-import { UI_CSS } from "./kit.ts";
+import { UI_CSS, replayAnimation } from "./kit.ts";
 import { countdownAt } from "./hud.ts";
 
 const noop = {
@@ -151,5 +151,34 @@ describe("driven the way the render loop drives it (R2, R5)", () => {
     // animation retriggered by class it runs for each second (RD-113).
     expect(offsets.every((o) => o === offsets[0])).toBe(true);
     expect(q<SVGCircleElement>("#tickRing").classList.contains("drain")).toBe(true);
+  });
+});
+
+describe("replaying a CSS animation actually flushes layout (RD-114)", () => {
+  it("removes the class, flushes, and puts it back", () => {
+    const host = document.createElement("div");
+    const el = document.createElement("span");
+    el.classList.add("land");
+    expect(replayAnimation(el, "land", host)).toBe(true);
+    expect(el.classList.contains("land")).toBe(true);
+  });
+
+  it("reads the flush from the HOST, not from the element itself", () => {
+    // The bug: `offsetWidth` is HTMLElement's, and an SVG <circle> has none. Reading it
+    // there yields undefined, forces no reflow, and the animation runs exactly once.
+    let reads = 0;
+    const host = document.createElement("div");
+    Object.defineProperty(host, "offsetWidth", { get: () => { reads++; return 1; } });
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    replayAnimation(svg, "drain", host);
+    expect(reads, "layout was flushed exactly once").toBe(1);
+    expect(svg.classList.contains("drain")).toBe(true);
+  });
+
+  it("adds the class even when it was not there to begin with", () => {
+    const host = document.createElement("div");
+    const el = document.createElement("span");
+    expect(replayAnimation(el, "land", host)).toBe(true);
+    expect(el.classList.contains("land")).toBe(true);
   });
 });

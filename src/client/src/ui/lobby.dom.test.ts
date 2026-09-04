@@ -235,3 +235,34 @@ describe("removing a player asks first (T7, R5)", () => {
     expect(events).toEqual([{ t: "wantKick", slot: 1 }]);
   });
 });
+
+describe("the lobby shows no scores, because nobody has played (RD-114)", () => {
+  it("leaves the score column out entirely", () => {
+    // A column of zeros beside every name reads as part of the ready state — the
+    // playtest photo showed "ready 0" on every row and it was taken as "not ready".
+    const { ui, root } = mount();
+    ui.render(lobby());
+    expect(root.querySelectorAll("#scoreboard .sc")).toHaveLength(0);
+  });
+
+  it("still shows who is ready", () => {
+    const { ui, root } = mount();
+    ui.render(lobby({ players: [player(0, { ready: true }), player(1)] }));
+    expect(root.querySelectorAll("#scoreboard .rdy")).toHaveLength(1);
+  });
+});
+
+describe("the lobby's actions are never below the fold (RD-114)", () => {
+  it("keeps READY and START outside the scrolling half", () => {
+    // On a landscape phone the card is bounded and scrolls inside itself (RD-055). The
+    // roster grows with the room; the actions must not move with it, or the primary
+    // action is one a player has to discover by scrolling.
+    const { ui, root } = mount();
+    ui.render(lobby());
+    const scroller = root.querySelector(".lobbyscroll")!;
+    expect(scroller.querySelector("#scoreboard"), "roster scrolls").toBeTruthy();
+    expect(scroller.querySelector("#colourRow"), "colour row scrolls").toBeTruthy();
+    expect(scroller.querySelector("#readyBtn"), "READY is pinned").toBeNull();
+    expect(scroller.querySelector("#startBtn"), "START is pinned").toBeNull();
+  });
+});

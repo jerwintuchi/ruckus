@@ -333,6 +333,16 @@ button.danger:active:not(:disabled){background:color-mix(in srgb, var(--card) 84
 @keyframes spectate-pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
 /*
+ * The lobby's scrolling half (RD-114).
+ *
+ * The roster and the colour row grow with the room; READY and START must not move. On a
+ * landscape phone the card is bounded and scrolls inside itself (RD-055), which put both
+ * actions below the fold — so the scroll is confined to the part that can afford it.
+ * min-height:0 is what lets a flex child shrink below its content at all.
+ */
+.lobbyscroll{display:flex;flex-direction:column;gap:inherit;overflow-y:auto;min-height:0;flex:1 1 auto}
+
+/*
  * The countdown: a starting light (round-countdown R1-R3).
  *
  * No disc and no shadow — the numeral and its sweep, nothing else, so the arena the
@@ -500,4 +510,25 @@ export function colourFor(slot: number): string {
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
+}
+
+/**
+ * Replay a CSS animation on `el` by re-adding its class (RD-114).
+ *
+ * A browser coalesces a class removed and re-added in the same task, so the animation
+ * does not restart unless layout is flushed in between. The usual idiom is to read
+ * `offsetWidth` — but **`offsetWidth` does not exist on an SVG element**. It is
+ * `HTMLElement`'s. Reading it off an `<circle>` yields `undefined`, forces nothing, and
+ * the animation silently runs exactly once: the countdown's ring swept on "3" and then
+ * sat still for "2" and "1" through two playtests.
+ *
+ * So the flush is taken from a host that definitely has layout, and the caller passes
+ * one. Returns whether it actually read a number, so a test can prove the flush happened
+ * rather than trusting that it did.
+ */
+export function replayAnimation(el: Element, cls: string, host: HTMLElement): boolean {
+  el.classList.remove(cls);
+  const flushed = host.offsetWidth;
+  el.classList.add(cls);
+  return typeof flushed === "number";
 }

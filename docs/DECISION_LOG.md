@@ -4748,3 +4748,61 @@ if a digit is still skipped, the next useful observation is whether the count sh
 then jumps straight to play, or shows 3, goes blank, and then plays.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-114 — offsetWidth is not on SVG, and three things a landscape phone showed
+
+*2026-09-04. One real bug I had "fixed" twice, and two the photo caught.*
+
+### The sweep, for the third time
+
+RD-113 changed the ring from a CSS transition to an animation, retriggered by removing a
+class, forcing a reflow, and adding it back. It still ran exactly once, and the reason is
+one word:
+
+```js
+void el.offsetWidth;   // el is an SVGCircleElement
+```
+
+**`offsetWidth` is `HTMLElement`'s. An SVG element does not have one.** Reading it yields
+`undefined`, flushes nothing, so the browser coalesces the remove and the add and the
+animation never restarts. The fix in RD-113 was correct about the mechanism and wrong
+about the flush, which is why it looked right and changed nothing.
+
+It is `replayAnimation(el, cls, host)` now: the flush is taken from a host that definitely
+has layout, and the function returns whether it actually read a number so a test can prove
+the flush happened rather than assume it. The test defines a counting getter on the host
+and asserts it was read exactly once.
+
+**Three attempts on one bug, and the lesson is the same each time:** the first was wrong
+about transitions, the second about which element has layout. Neither could be caught by a
+test in jsdom, because jsdom runs no animations — so the thing to test was not "does it
+animate" but "was layout flushed", which is a fact a test *can* hold.
+
+### "ready 0"
+
+The lobby roster printed every player's score beside their ready state, so every row read
+`ready 0`. The photo was sent with "the bots are not ready but i can start" — the bots
+were ready; the `0` was a score column, and it made the row unreadable.
+
+Nobody has played yet in a lobby, so there is no score to show. It is gone there and stays
+on the results card, where it means something.
+
+### The actions were below the fold
+
+On a landscape phone the card is bounded and scrolls inside itself (RD-055) — correct, and
+it put READY and START below the fold. A primary action a player has to discover by
+scrolling is one most players never find.
+
+The roster and the colour row now scroll inside `.lobbyscroll`; the actions sit outside it
+and never move. What can afford to scroll does, and what cannot, does not.
+
+### A guard for a mistake made four times
+
+A comment written *inside* `UI_CSS` or `CONTROLS_HTML` that quotes a property name with
+backticks ENDS the template literal and turns the rest of the file into TypeScript. It
+fails at build so it never ships, but it has cost a cycle four times in this session
+alone. `kit.test.ts` now asserts neither stylesheet contains a backtick.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
  */
 import { PLAYER_COLOURS } from "@ruckus/shared";
 import { FONT_LINK, UI, UI_CSS, colourFor, escapeHtml } from "./kit.ts";
+import { CONTROLS_CSS } from "./controls.ts";
 
 /** Pull one rule body out of the stylesheet so a claim can be made about it. */
 const rule = (selector: string): string => {
@@ -408,5 +409,17 @@ describe("the wordmark and the slot strip in CSS (ui-identity T1, T4)", () => {
     expect(out).toContain("line-through");
     expect(gone).toMatch(/opacity:0?\.[1-9]/);
     expect(out).not.toBe(gone);
+  });
+});
+
+describe("a comment inside a CSS template cannot close it (RD-114)", () => {
+  it("has no backtick anywhere in the stylesheets", () => {
+    // Four times this session a comment written inside UI_CSS or CONTROLS_HTML used
+    // `backticks` to quote a property name, which ENDS the template literal and turns the
+    // rest of the file into TypeScript. It fails at build, so it is never shipped — but
+    // it costs a cycle every time, and the fix is always "use plain quotes".
+    for (const [name, css] of [["UI_CSS", UI_CSS], ["CONTROLS_CSS", CONTROLS_CSS]] as const) {
+      expect(css.includes("`"), `${name} contains a backtick`).toBe(false);
+    }
   });
 });
