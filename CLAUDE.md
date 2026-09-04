@@ -32,17 +32,17 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 Phase: **The flow, and the twist.**
 
-Five specs are written and none is implemented: `mutators` (the twist — the last-placed
-player picks the next round's modifier, RD-108), `lobby-social` (ready, colour claim,
-kick, toasts), `main-menu`, `round-open` (unanimous skip, countdown over a paused arena),
-`round-status` (the clock ramp, the alive count, the scoreboard).
+`lobby-social` and `round-open` are built (T11 / T9 are their phone playtests).
+Four specs remain unbuilt: `round-countdown` (the paper stopwatch — spec only),
+`round-status` (clock ramp, alive count, scoreboard), `mutators` (the twist —
+last place picks the next round's modifier, RD-108), and `main-menu`.
 
-Build order: **`lobby-social` → `round-open` → `round-status` → `mutators`**, with
-`main-menu` any time. Mutators last because it lands on the results card the other
-specs reshape.
+Build order: **`round-countdown` → `round-status` → `mutators`**, with `main-menu`
+any time. `statusColour` is shared by the first two — whichever lands first owns it.
 
-The registry flags all five `LIKELY-SHIPPED`; that is a **false positive on a new spec**,
-whose open tasks name files that already exist. It clears as the boxes get ticked.
+Open bug: **a stutter in `scramble` on a phone**, cause unknown. The wire is
+exonerated (gapprobe: p50 33.2ms, zero unexplained gaps over Tailscale), so it is
+the wifi hop or the render loop. A `?debug=1` photo during it decides.
 
 16 manual phone boxes remain in the older specs, `input-prediction` T8 first.
 
