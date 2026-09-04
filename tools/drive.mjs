@@ -5,6 +5,10 @@
  *   node tools/drive.mjs --url "?room=ABCD&auto=probe" --size 874x402 \
  *     --shot lobby --do 'ui.openSettings(0)' --shot settings
  *
+ * Steps run in the order typed: `--do` runs JS, `--shot` photographs, `--wait` sleeps,
+ * and `--until` polls an expression until it is truthy — which is how a transient state
+ * like the 3s countdown gets photographed at all (RD-119).
+ *
  * `tools/shoot.sh` takes ONE picture of a page it cannot touch, and cannot photograph a
  * lobby at all: `--virtual-time-budget` outruns a WebSocket join, so the shot lands on
  * "Connecting…" (RD-054). That is why three layout bugs in a row were found by a person
@@ -36,11 +40,71 @@ if (!existsSync(CHROME)) {
   process.exit(2);
 }
 
+/**
+ * Only spawn a browser when RUN AS A SCRIPT, so the pure parts below can be imported and
+ * tested. Same guard `tools/bots.mjs` uses, and for the same reason: a tool nobody can
+ * unit-test is a tool whose argument handling is verified by running it and squinting.
+ */
+export const IS_CLI = process.argv[1]?.endsWith("drive.mjs") ?? false;
+
 const argv = process.argv.slice(2);
 const arg = (name, fallback) => {
   const i = argv.indexOf(`--${name}`);
   return i >= 0 && argv[i + 1] ? argv[i + 1] : fallback;
 };
+
+/**
+ * The ordered steps, read straight off argv so every kind interleaves in the order typed.
+ *
+ * Order is the whole point: `--do` then `--shot` photographs the result of the action,
+ * and the reverse photographs the state before it. A flags-then-actions parser would
+ * silently reorder them.
+ */
+export function parseSteps(args) {
+  const kinds = ["do", "shot", "wait", "until"];
+  const out = [];
+  for (let i = 0; i < args.length; i++) {
+    const kind = args[i]?.startsWith("--") ? args[i].slice(2) : null;
+    if (kind && kinds.includes(kind)) out.push({ kind, value: args[i + 1] });
+  }
+  return out;
+}
+
+/**
+ * Wrap `expr` so the page waits for it, per animation frame, and reports how long (RD-119).
+ *
+ * The obvious build polls from HERE — evaluate, sleep 100ms, evaluate again. It does not
+ * work, and the failure is the exact one RD-119 already records against itself: each poll
+ * costs a CDP round trip, so the sampler's own overhead sets the resolution, and a state
+ * that holds for ~900ms (one numeral of a 3-2-1 count) is missed three times out of three.
+ *
+ * So the wait happens where the state is. One `Runtime.evaluate` with `awaitPromise`, a
+ * `requestAnimationFrame` loop inside the page, and one round trip total for the whole
+ * wait however long it takes.
+ *
+ * Resolves to the milliseconds waited, or -1 on timeout — never rejects, and a throwing
+ * expression counts as "not yet" rather than an error. A selector that is not there is
+ * the normal case while waiting for it to appear.
+ */
+export function untilExpression(expr, timeoutMs) {
+  return `new Promise((resolve) => {
+    const t0 = performance.now();
+    const check = () => {
+      let ok = false;
+      try { ok = !!(${expr}); } catch { ok = false; }
+      if (ok) return resolve(Math.round(performance.now() - t0));
+      if (performance.now() - t0 >= ${timeoutMs}) return resolve(-1);
+      requestAnimationFrame(check);
+    };
+    check();
+  })`;
+}
+
+const steps = parseSteps(argv);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+if (!IS_CLI) { /* imported for its exports; the browser below never starts */ }
+else {
 
 const host = process.env.RUCKUS_HOST ?? "localhost";
 const url = `http://${host}:5173/${arg("url", "")}`;
@@ -48,16 +112,6 @@ const [w, h] = arg("size", "874x402").split("x").map(Number);
 const scale = Number(arg("scale", "2"));
 const outDir = arg("out", "/tmp/ruckus-shots");
 mkdirSync(outDir, { recursive: true });
-
-/** The ordered steps, read straight off argv so --do and --shot interleave. */
-const steps = [];
-for (let i = 0; i < argv.length; i++) {
-  if (["--do", "--shot", "--wait"].includes(argv[i])) {
-    steps.push({ kind: argv[i].slice(2), value: argv[i + 1] });
-  }
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** One CDP session: send a command, await its reply by id. */
 function session(ws) {
@@ -134,6 +188,17 @@ let shots = 0, failed = 0;
 for (const step of steps) {
   if (step.kind === "wait") { await sleep(Number(step.value)); continue; }
 
+  if (step.kind === "until") {
+    const r = await send("Runtime.evaluate", {
+      expression: untilExpression(step.value, Number(arg("timeout", "60000"))),
+      returnByValue: true, awaitPromise: true,
+    });
+    const waited = r.result?.value ?? -1;
+    if (waited < 0) { failed++; console.error(`  !! timed out waiting for ${step.value}`); }
+    else console.log(`  until ${step.value}  (${waited}ms)`);
+    continue;
+  }
+
   if (step.kind === "do") {
     const r = await send("Runtime.evaluate", {
       expression: step.value, returnByValue: true, awaitPromise: true,
@@ -159,3 +224,4 @@ console.log(`  ${shots} shot(s), ${failed} failed step(s)`);
 ws.close();
 bye();
 process.exit(failed > 0 ? 1 : 0);
+}

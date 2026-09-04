@@ -5030,3 +5030,66 @@ level up: the tests asserted everything jsdom can see, and the property that mat
 screen, the assertion has to come from something that lays out.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-119 — `--until`: the driver waits for a state, not a clock
+
+RD-054 listed what a screenshot tool here cannot answer, and one item was structural
+rather than a limitation of software rendering: *any state that needs waiting for*. A
+round's opening is 4s of brief and 3s of count inside a 45–90s round. A fixed `--wait`
+cannot land in it without already knowing when the round turns over, which is the thing
+being waited for.
+
+So `tools/drive.mjs` gained `--until '<expr>'`: poll the page every 100ms until the
+expression is truthy, then carry on with the next step. It caught the round boundary at
+20,084ms on the first run — a number no `--wait` would have been written with.
+
+**A timeout returns `-1` and is reported, never thrown.** The remaining steps still run: a
+photograph of the wrong moment is evidence, and a crashed run is not.
+
+**The first build of it did not work, for the reason written at the bottom of this entry.**
+It polled from the driver — evaluate, sleep 100ms, evaluate — so every sample cost a CDP
+round trip and the sampler's own overhead set the resolution. Asked to photograph each
+numeral of the 3-2-1 count, each of which holds for about 900ms, it missed all three. The
+wait now happens **inside the page**: one `Runtime.evaluate` with `awaitPromise`, a
+`requestAnimationFrame` loop, and one round trip for the whole wait however long it takes.
+A throwing expression counts as "not yet" rather than an error, because a selector that is
+not there yet is the normal case while waiting for it to appear.
+
+The test evaluates the built expression with a controlled clock and frame scheduler rather
+than asserting the string contains things — a wrapper that had lost its expression would
+sit in the timeout branch forever and look exactly like a state that never arrived.
+
+The file is now importable (`IS_CLI`, the guard `tools/bots.mjs` already uses), so
+`parseSteps` and `pollUntil` are unit-tested rather than verified by running the tool and
+squinting. `parseSteps` earns its test on one property in particular: **steps keep the
+order they were typed**, because `--do X --shot a` and `--shot a --do X` mean opposite
+things and a flags-then-actions parser runs both identically.
+
+### What it settled immediately: the countdown is correct
+
+RD-113 recorded, honestly, that a playtester's "2 and 1 are not visible" was never
+explained. A per-frame recorder installed through `--do` and dumped afterwards:
+
+```
+t=3067  "3"  opacity 0→1 over ~90ms   stroke rgb(230, 72, 77)   red
+t=4042  "2"                           stroke rgb(255, 210, 63)  amber
+t=5039  "1"                           stroke rgb(63, 174, 109)  green
+t=6039  ""   .go
+t=6281  gone
+```
+
+One second each, in order, red→amber→green, and **"1" renders for ~900 of its 1000ms**.
+The `land` keyframe holds each numeral at opacity 0 for its first ~90ms, which is the only
+window in which a numeral is genuinely absent. RD-113's report is not reproducible on the
+current build; it is most likely what RD-114 fixed (the sweep replaying only once).
+
+**A caution recorded against myself**: the first pass at this sampled with three separate
+`--do`/`--shot` pairs and read `""` where "1" should have been — because each `--do` costs
+a 400ms settle and the drift put the last shot past the end of the count. I took that for
+the reported bug before checking. The instrument's own overhead is part of the
+measurement, and sampling a 3-second event with steps that each cost 400ms is not
+sampling it. The per-frame recorder is the right shape: record inside the page, dump once.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
