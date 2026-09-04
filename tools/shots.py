@@ -208,8 +208,7 @@ def data_uri(path: str) -> str:
 
 def render(embed: bool = False) -> str:
     m = load()
-    head = sh("git", "rev-parse", "--short", "HEAD")
-    subject = sh("git", "log", "-1", "--pretty=%s")
+    shot = sum(1 for e in m["scenes"].values() if e.get("commit"))
     cards = []
     for name, (caption, size, _) in SCENES.items():
         e = m["scenes"].get(name, {})
@@ -223,9 +222,14 @@ def render(embed: bool = False) -> str:
             f'<dl><div><dt>viewport</dt><dd>{size}</dd></div>'
             f'<div><dt>captured at</dt><dd><code>{commit}</code></dd></div></dl>'
             f'</figcaption></figure>')
+    # Deliberately NO page-level commit stamp. status_html.py carries one and pays for it
+    # with the wrinkle spec-workflow documents — committing the report changes the report.
+    # Here it would be worse than a wrinkle: the stamp changes on every commit, so
+    # `--check` would fail after every commit forever and the guard would be trained out
+    # of usefulness within a day. Each CARD already records the commit its scene was shot
+    # at, which is the stamp that actually means something.
     return PAGE_TEMPLATE.replace("{{CARDS}}", "\n".join(cards)) \
-                        .replace("{{HEAD}}", head).replace("{{SUBJECT}}", subject) \
-                        .replace("{{N}}", str(sum(1 for s in m["scenes"].values() if s.get("url"))))
+                        .replace("{{N}}", str(shot))
 
 
 PAGE_TEMPLATE = """<title>Ruckus Screens</title>
@@ -266,11 +270,11 @@ footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
   <h1>Ruckus &mdash; the screens</h1>
   <p class="sub">A <strong>fixed</strong> set of frames, re-shot on demand by
   <code>tools/shots.py</code> driving the real client through the real join flow. Same
-  scenes every time, so the difference between two runs is the change. {{N}} captured.</p>
+  scenes every time, so the difference between two runs is the change. {{N}} of them
+  captured; each card carries the commit its frame was shot at.</p>
   <p class="sub">What this cannot answer, unchanged: whether it holds 60&nbsp;fps, whether
   it feels right under a thumb, or whether a stranger would work it out.
   <strong>A screenshot never ticks a manual box.</strong></p>
-  <p class="stamp">{{HEAD}} &middot; {{SUBJECT}}</p>
   <div class="shots">
 {{CARDS}}
   </div>
@@ -296,6 +300,11 @@ def selftest() -> int:
                 fails.append(f"{name}: step {i} is not a drive.mjs step: {tok}")
 
     page = render()
+    # The page must not move when only HEAD does, or `--check` fails after every commit
+    # and the guard gets ignored.
+    if "{{HEAD}}" in PAGE_TEMPLATE or "{{SUBJECT}}" in PAGE_TEMPLATE:
+        fails.append("page carries a per-commit stamp — --check will never stay green")
+
     for must in ("Ruckus", "never ticks a manual box", "prefers-color-scheme"):
         if must not in page:
             fails.append(f"page missing {must!r}")

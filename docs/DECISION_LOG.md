@@ -5204,6 +5204,13 @@ The first capture: <https://claude.ai/code/artifact/5a34f063-5a47-4ff8-a499-e03c
 7/7 scenes, recorded in `shots.py` so the next session republishes to the same URL instead
 of minting a second gallery nobody has the link to.
 
+**The committed page carries no per-commit stamp**, unlike `status.html`. That page pays
+for its stamp with the wrinkle spec-workflow documents — committing the report changes the
+report — and here it would have been worse than a wrinkle: the stamp moves on every commit,
+so `--check` would fail after every commit forever and the guard would be trained out of
+usefulness inside a day. It failed exactly that way once before this was noticed. Each card
+records the commit its own frame was shot at, which is the stamp that means something.
+
 ### What none of this changes
 
 The page says so itself, and so does every spec's last task: it cannot tell you whether it
