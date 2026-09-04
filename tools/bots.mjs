@@ -246,6 +246,12 @@ class Bot {
         this.state = m.state;
         this.players = m.players;
         break;
+      case "intro":
+        // Skip the rule card: a bot has read it (round-open R2). Without this, unanimity
+        // is unreachable in any room containing a bot and the card always runs its full
+        // dwell — so the feature could never be felt in a playtest.
+        this.send({ t: "skip" });
+        break;
       case "roundStart":
         this.game = m.game;
         this.extra = {};

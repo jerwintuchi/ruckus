@@ -204,3 +204,11 @@ describe("bots ready up, or no room with a bot in it can start (lobby-social R1)
     expect(code).toContain('if (this.state !== "LOBBY") this.saidReady = false;');
   });
 });
+
+describe("bots skip the rule card (round-open R2)", () => {
+  it("sends skip on intro, or unanimity is unreachable in any room with a bot", () => {
+    const src = readFileSync(new URL("./bots.mjs", import.meta.url), "utf8");
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(code).toContain('this.send({ t: "skip" })');
+  });
+});
