@@ -160,7 +160,9 @@ export class Match {
 
       case "MATCH_RESULT":
         if (this.elapsed >= this.phaseEndsAt) {
-          this.room.state = "LOBBY";
+          // Not just a state change: everyone who never came back has their reserved
+          // slot released here, or it leaks for the life of the room (RD-115).
+          this.room.toLobby();
           this.events.onLobby();
         }
         return false;

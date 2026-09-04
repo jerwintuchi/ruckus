@@ -4806,3 +4806,60 @@ fails at build so it never ships, but it has cost a cycle four times in this ses
 alone. `kit.test.ts` now asserts neither stylesheet contains a backtick.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-115 — A ghost roster, an unstyled row, and a modal underneath
+
+*2026-09-04. Three from one playtest, and a fair complaint attached: "please always
+create a test case for those scenarios, I thought I already told you that."*
+
+They had, and they were right to say it again. Two of these three shipped **with no test
+of the thing that broke** — one shipped with no CSS at all — so this entry records the
+process failure alongside the bugs.
+
+### The roster kept everyone who ever left
+
+RD-100 frees a slot when a player leaves the **lobby**. Mid-match the slot is RESERVED
+instead, because that is how a rejoin keeps its score (I8) — and **nothing released it
+when the match ended.** So every player who quit during a match stayed in the roster for
+the life of the room: RD-100's leak, reappearing through the other door.
+
+`Room.toLobby()` now ends a match rather than a bare `state = "LOBBY"`: it drops everyone
+still disconnected, clears readiness, and hands the host on if the host was among them.
+
+Worth noting how it was found. The first four tests written for this — join, leave, rejoin
+in the lobby and mid-match, ten times over — **all passed**. The `Room` logic was correct.
+The bug lived in the one transition nothing exercised, and only writing the lobby cases
+first made it obvious which transition that was.
+
+### The colour row had no CSS
+
+Not "the wrong CSS" — **none**. The markup and the render function shipped in
+`lobby-social` T8 with a mounted test that asserted the swatches existed, were disabled
+when taken, and sent the right message. Every one of those passed. Nothing asserted the
+row was a ROW, so eight unstyled buttons inherited the 44px tap floor and stacked as
+blocks: about 350px of column on a 402px landscape phone, which pushed the row itself,
+READY and START off the card.
+
+The test that would have caught it is the one now written — computed `display: flex`, a
+bounded square swatch, and a taken one visibly dimmed rather than merely inert.
+
+**The lesson is specific: a test that mounts a component proves the component exists, not
+that it is usable.** Asserting the computed layout is a different claim from asserting the
+element is there, and only the second one had been made.
+
+### The settings panel opened underneath the lobby
+
+Every overlay carried `z-index: 10`, and `#settings` is declared BEFORE `#lobby` in the
+markup — so with equal z-index the later sibling wins and the lobby card covered the panel
+completely. **DOM order is not a stacking policy.** `#settings` is now 15: a modal sits
+above what it modally covers.
+
+### And the backtick, a fifth time
+
+The guard added in RD-114 fired immediately — on the comment written in *this* commit,
+which used backticks to quote two selector names. It works, it caught it at build, and it
+has now paid for itself.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

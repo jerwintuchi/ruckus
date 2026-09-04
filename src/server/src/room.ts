@@ -195,6 +195,28 @@ export class Room {
     return true;
   }
 
+  /**
+   * The match is over; the room is a lobby again (RD-115).
+   *
+   * Everyone who disconnected mid-match had their slot RESERVED, because that is how a
+   * rejoin keeps its score (I8). Once the match ends there is no score left to hold, so
+   * the reservation becomes exactly the leak RD-100 removed from the lobby — a row that
+   * never goes away and a slot nobody can use. A player who quit during a match stayed in
+   * the roster for the life of the room, which is what a playtester saw when leaving and
+   * rejoining several times.
+   *
+   * Readiness goes with it: a rematch is a deliberate act, not something a room falls
+   * into while half of it is looking away (lobby-social R2).
+   */
+  toLobby(): void {
+    this.state = "LOBBY";
+    for (const [slot, p] of [...this.players]) {
+      if (!p.connected) this.players.delete(slot);
+    }
+    this.clearReady();
+    if (!this.players.get(this.host)?.connected) this.reassignHost();
+  }
+
   private freeSlot(): number {
     for (let i = 0; i < MAX_PLAYERS; i++) if (!this.players.has(i)) return i;
     throw new Error("no free slot"); // unreachable: size is checked first

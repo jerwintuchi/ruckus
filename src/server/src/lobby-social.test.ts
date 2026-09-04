@@ -224,3 +224,102 @@ describe("the start gate (R2, P2)", () => {
     expect(room.allReady()).toBe(true);
   });
 });
+
+describe("leaving and rejoining does not accumulate ghosts (RD-115)", () => {
+  it("removes a player who leaves the lobby, however many times they do it", () => {
+    const room = new Room("ABCD");
+    fill(room, 4);                       // four bots already there
+    for (let visit = 0; visit < 10; visit++) {
+      const j = room.join("phone-test");
+      expect(j.ok).toBe(true);
+      if (j.ok) room.leave(j.player.slot);
+      expect(room.players.size, `after visit ${visit}`).toBe(4);
+    }
+  });
+
+  it("reclaims the same slot mid-match rather than opening a new one", () => {
+    // Mid-match the slot is RESERVED for a rejoin with the score intact (I8), so a
+    // player who leaves and comes back must land on the SAME row — not add a second.
+    const room = new Room("ABCD");
+    fill(room, 4);
+    const first = room.join("phone-test");
+    expect(first.ok && first.player.slot).toBe(4);
+    room.state = "ROUND_PLAY";
+
+    for (let visit = 0; visit < 10; visit++) {
+      room.leave(4);
+      const back = room.join("phone-test");
+      expect(back.ok).toBe(true);
+      if (back.ok) {
+        expect(back.rejoined, `visit ${visit} is a rejoin`).toBe(true);
+        expect(back.player.slot, `visit ${visit} keeps its slot`).toBe(4);
+      }
+      expect(room.players.size, `after visit ${visit}`).toBe(5);
+    }
+  });
+
+  it("does not rename a returning player into a second identity", () => {
+    // `uniqueName` appends a digit when a name is taken. If the rejoin path is missed,
+    // a returning "phone-test" becomes "phone-test2" and every visit adds a row.
+    const room = new Room("ABCD");
+    fill(room, 2);
+    room.state = "ROUND_PLAY";
+    const a = room.join("phone-test");
+    expect(a.ok && a.player.name).toBe("phone-test");
+    room.leave(a.ok ? a.player.slot : -1);
+    const b = room.join("phone-test");
+    expect(b.ok && b.player.name, "same name, same person").toBe("phone-test");
+    expect([...room.players.values()].filter((p) => p.name.startsWith("phone-test"))).toHaveLength(1);
+  });
+});
+
+describe("a match ending cleans up who never came back (RD-115)", () => {
+  it("drops players who disconnected mid-match once the lobby returns", () => {
+    // RD-100 frees a slot when someone leaves the LOBBY. Mid-match the slot is reserved
+    // instead, for a rejoin with the score intact (I8) — and nothing released it when the
+    // match ended, so every player who quit mid-match stayed in the roster for the life
+    // of the room. That is RD-100's leak, reappearing by the other door.
+    const room = new Room("ABCD");
+    fill(room, 5);
+    room.state = "ROUND_PLAY";
+    room.leave(3);
+    room.leave(4);
+    expect(room.players.size, "reserved while the match runs").toBe(5);
+
+    room.toLobby();
+    expect(room.players.size, "the two who left are gone").toBe(3);
+    expect(room.players.has(3)).toBe(false);
+    expect(room.state).toBe("LOBBY");
+  });
+
+  it("keeps everyone who is still connected, with their scores", () => {
+    const room = new Room("ABCD");
+    fill(room, 3);
+    room.state = "ROUND_PLAY";
+    room.players.get(1)!.score = 7;
+    room.leave(2);
+
+    room.toLobby();
+    expect(room.players.size).toBe(2);
+    expect(room.players.get(1)!.score, "a score survives into the lobby").toBe(7);
+  });
+
+  it("hands the host on if the host was the one who never came back", () => {
+    const room = new Room("ABCD");
+    fill(room, 3);
+    room.state = "ROUND_PLAY";
+    room.leave(0);
+    room.toLobby();
+    expect(room.players.has(0)).toBe(false);
+    expect(room.connected.some((p) => p.slot === room.host), "a real player holds it").toBe(true);
+  });
+
+  it("clears readiness, so a rematch is deliberate (lobby-social R2)", () => {
+    const room = new Room("ABCD");
+    fill(room, 3);
+    room.setReady(1, true);
+    room.state = "ROUND_PLAY";
+    room.toLobby();
+    expect(room.players.get(1)!.ready).toBe(false);
+  });
+});

@@ -266,3 +266,52 @@ describe("the lobby's actions are never below the fold (RD-114)", () => {
     expect(scroller.querySelector("#startBtn"), "START is pinned").toBeNull();
   });
 });
+
+describe("the colour row is a row, and it is reachable (RD-115)", () => {
+  it("lays the swatches out in one wrapping row, not a stack of full-width buttons", () => {
+    // Shipped with markup and a render function and NO CSS at all. Eight unstyled
+    // buttons inherit `button{min-height:44px}` and stack as blocks — about 350px of
+    // vertical space, which on a 402px landscape phone pushes everything off the card.
+    const { ui, root } = mount();
+    ui.render(lobby());
+    const row = root.querySelector("#colourRow") as HTMLElement;
+    const cs = getComputedStyle(row);
+    expect(cs.display, "a row, not a stack").toBe("flex");
+    expect(cs.flexWrap).toBe("wrap");
+  });
+
+  it("gives each swatch a bounded, square tap target", () => {
+    const { ui, root } = mount();
+    ui.render(lobby());
+    const sw = root.querySelector("#colourRow .swatch") as HTMLElement;
+    const cs = getComputedStyle(sw);
+    expect(cs.width, "square").toBe(cs.height);
+    // Big enough to hit, small enough that eight fit a landscape phone's width.
+    expect(parseFloat(cs.width)).toBeGreaterThanOrEqual(34);
+    expect(parseFloat(cs.width)).toBeLessThanOrEqual(52);
+  });
+
+  it("shows a taken swatch as unavailable rather than merely inert", () => {
+    // It already cannot be tapped; it has to LOOK that way too, or the row reads as
+    // broken rather than as full.
+    const { ui, root } = mount();
+    ui.render(lobby());
+    const taken = root.querySelector("#colourRow .swatch[disabled]") as HTMLElement;
+    expect(taken).toBeTruthy();
+    expect(parseFloat(getComputedStyle(taken).opacity)).toBeLessThan(1);
+  });
+});
+
+describe("the settings panel is above what it covers (RD-115)", () => {
+  it("outranks the lobby, which is declared after it", () => {
+    // Every overlay shared z-index 10, and #settings is declared BEFORE #lobby — so with
+    // equal z-index the later sibling paints on top and the lobby card covered the
+    // settings panel entirely.
+    const { root } = mount();
+    const z = (sel: string) => Number(getComputedStyle(root.querySelector(sel) as HTMLElement).zIndex);
+    expect(z("#settings"), "a modal sits above what it modally covers")
+      .toBeGreaterThan(z("#lobby"));
+    expect(z("#settings")).toBeGreaterThan(z("#menu"));
+    expect(z("#settings")).toBeGreaterThan(z("#joining"));
+  });
+});

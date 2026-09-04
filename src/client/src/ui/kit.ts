@@ -104,6 +104,14 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
  * bar. The padding is what actually keeps things clear of it. In landscape the notch
  * is at the SIDE, so all four sides are inset, not just the top.
  */
+/*
+ * A modal sits above what it modally covers (RD-115).
+ *
+ * Every overlay shared z-index 10, and #settings is declared BEFORE #lobby — so with
+ * equal z-index the later sibling paints on top and the settings panel opened UNDERNEATH
+ * the lobby card. DOM order is not a stacking policy; this is.
+ */
+#settings{z-index:15}
 .overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;
   justify-content:center;flex-direction:column;gap:14px;pointer-events:none;
   text-align:center;
@@ -340,6 +348,25 @@ button.danger:active:not(:disabled){background:color-mix(in srgb, var(--card) 84
  * actions below the fold — so the scroll is confined to the part that can afford it.
  * min-height:0 is what lets a flex child shrink below its content at all.
  */
+/*
+ * The colour row (lobby-social R3, RD-115).
+ *
+ * Shipped with markup and a render function and NO styles at all, so eight unstyled
+ * buttons inherited the 44px tap floor and stacked as blocks — roughly 350px of column
+ * on a 402px landscape phone, which pushed READY, START and the row itself off the card.
+ *
+ * A wrapping row of square swatches instead. Each is ink on the surface, so it takes the
+ * outline and NOT the slab shadow (RD-069): a swatch is a control, not an object.
+ */
+.colourlabel{font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.colourrow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.colourrow .swatch{width:40px;height:40px;min-height:0;padding:0;border-radius:10px;
+  border:var(--outline) solid var(--ink);box-shadow:none;flex:0 0 auto}
+/* Taken: visibly unavailable, not merely unresponsive — a dead row reads as broken. */
+.colourrow .swatch[disabled]{opacity:.28}
+/* Mine: the one I hold, marked by a ring rather than by a colour change. */
+.colourrow .swatch.mine{outline:3px solid var(--ink);outline-offset:3px}
+
 .lobbyscroll{display:flex;flex-direction:column;gap:inherit;overflow-y:auto;min-height:0;flex:1 1 auto}
 
 /*
