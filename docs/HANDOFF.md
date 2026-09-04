@@ -1,27 +1,27 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `e58b0fb`, work has happened since this was written: distrust it and read
+> `1456067`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-09-03 15:05 · branch `main` ·
-HEAD `e58b0fb` — fix(tools): the bots were scheduling on a clock that jumps — RD-103 · 0 uncommitted file(s)*
+*Written 2026-09-04 22:36 · branch `main` ·
+HEAD `1456067` — feat(tools): the driver waits for a state, not a clock — RD-119 · 0 uncommitted file(s)*
 
 ## What I was doing
 
-Chased 'the bots are dumb' to its actual cause, on the playtester's hypothesis (stale positions; fine before the reconnecting fix) — both halves correct. bots.mjs scheduled decisions with Date.now() + delay; this guest's clock jumps back ~5.9s every ~5s, so a bot held one stale input for most of every round. Measured: 16 think gaps of 4.8-5.5s per 90s, now 0 (RD-103).
+Built tools/drive.mjs into a working browser driver (RD-117: Chrome for Testing under ~/.cache, CDP over Node's WebSocket; RD-119: --until waits for a state inside the page). Used it to find and fix RD-118 — the lobby colour row rendered 34px below the bottom of its own scroller, so elementFromPoint on a swatch returned the card behind it. Controls are now pinned outside .lobbyscroll; .slots hides at the 430px tier to buy the roster height back.
 
 ## What is half-finished
 
-Nothing. Tree clean, 1012 tests, four guards green. input-prediction T8 has still never been PLAYED — every attempt hit broken bots, so its box stays open on purpose.
+Nothing half-done in the tree. pnpm verify green (1190 tests, 61 files), status.html regenerated AND republished (it was 15 decisions and 6 specs stale).
 
 ## The very next action
 
-Play input-prediction T8 on a phone with a real room. The ?debug=1 predict line reports corr / worst / snaps; snaps counts corrections too big to blend and must stay 0. Then the 15 other manual boxes, which batch: one Hot Potato round at eight players answers find-yourself T4, spectating T3, flat-controls T4 and action-button T7 together.
+round-status is the next unbuilt spec (statusColour is already in palette.ts). Then mutators, then main-menu. round-countdown T4/T8, round-open T9, lobby-social T11 and input-prediction T8 are all manual phone boxes — a screenshot never ticks one.
 
 ## Gotchas
 
-NOTHING that measures a duration may read the wall clock — not the server loop (RD-098), not a tool, not a bot (RD-103). check.test.ts now fails if Date.now() returns to bots.mjs; vmstall.mjs is the deliberate exception. Also: a join-probe RUINS the room it verifies (mid-match a disconnect reserves the slot and leaves an inert capsule that looks like a dumb bot) — verify from the bots' own join lines. And editing src/server or src/shared trips node --watch, dropping every live room.
+A live stack is running: server+client, bots on room NL5W (autostart ON, bot-1 host). The driver must click #readyBtn or bot-1 logs NOT_READY forever — the gate needs every connected player ready, including a headless one. Never pkill -f a pattern that is in your own command line; use pgrep -x chrome. RD-113's 'the 2 and 1 are not visible' is now closed: a per-frame recorder shows red 3 / amber 2 / green 1, one second each.
 
 ## Uncommitted when this was written
 
