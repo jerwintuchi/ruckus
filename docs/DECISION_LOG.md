@@ -4566,3 +4566,73 @@ instead of theorising; RD-103 by measuring the think loop; this by looking at an
 text field.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-111 — The room was retired while its host went to share the code
+
+*2026-09-04. Third and last cause of "switching apps throws me out", and the only one
+that was never about the client at all.*
+
+RD-109 taught the socket to reconnect. RD-110 taught the page to remember who it was. The
+playtester switched apps again and landed on the join screen — but this time the screenshot
+showed something different: **the name field was filled in** (`phone-test`), the code was
+in place, and the error read *"No room with that code."*
+
+So the client did everything right. It remembered the session, it rejoined automatically,
+and the server said the room did not exist.
+
+### The chain
+
+1. A host creates a room and is **alone in it** — which is the normal state for as long as
+   it takes to share four letters.
+2. They switch to a messaging app. iOS discards the page; the socket closes.
+3. `Room.leave` deletes the lobby player (RD-100, correctly — that fixed a real leak).
+4. The lobby is now empty, so on the **very next tick, 33 ms later**, the room is retired.
+5. They come back to a code that no longer exists.
+
+Every step is individually right. RD-100 freed leaked slots. I7 says a room nobody is in
+is not worth a tick or a megabyte. Nothing in the chain is a mistake; the *composition* is.
+
+### The fix, and its cost
+
+An empty lobby is now kept for `EMPTY_ROOM_GRACE_MS` (60 s) before retirement. A minute is
+far longer than sharing a code takes and far shorter than anyone would wait before giving
+up. An empty lobby is **not simulated** while it waits, so the grace really does cost one
+map entry.
+
+This is a deliberate, bounded exception to I7 and is written as one. The invariant's
+reasoning — an idle room is not worth a tick — still holds, and is why the room is skipped
+by the step loop rather than ticked for a minute.
+
+### A second bug, found by the test that would not pass
+
+The retirement check lived **inside** the fixed-step loop. `FixedLoop.advance` returns
+**zero steps** after a long delta, by design — that is its spiral-of-death guard. So no
+room was examined at all during exactly the stalls where one had been idle longest, and
+when steps did run the same check ran up to five times to reach one answer.
+
+It is now a `sweepRooms(now)` once per pump, outside the loop. The test could not be made
+to pass without finding this, which is the argument for writing it first.
+
+Two extractions came with it, both making an untested path testable: the socket's `close`
+handler is now `drop(conn)`, and `pump()` is `pumpAt(now)` with the clock injected — so a
+sixty-second grace is tested without waiting sixty seconds.
+
+### What the three fixes together say
+
+The same symptom had three independent causes, and each fix was shipped as *the* answer:
+
+| | Cause | Fix |
+|---|---|---|
+| RD-109 | the socket closed, nothing reconnected | retry with backoff |
+| RD-110 | iOS discarded the page; no identity survived | remember name + room |
+| RD-111 | the empty room was retired instantly | a 60 s grace |
+
+Only the third was the one the playtester kept hitting. The first two were real and would
+have bitten later, but both were diagnosed from the code rather than from the device — and
+both times the artefact needed to distinguish them was already in a photograph I had been
+sent. **An empty name field meant a reloaded page; a filled one meant a dead room.** One
+pixel of difference, two entirely different bugs.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

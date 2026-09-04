@@ -10,6 +10,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import {
   CODE_COOLDOWN_MS,
   BRIEF_MS,
+  EMPTY_ROOM_GRACE_MS,
   COUNT_MS,
   ROUNDS_PER_MATCH,
   MAX_CATCHUP_STEPS,
@@ -38,8 +39,13 @@ interface Conn {
   lastInputAt: number;
 }
 
+/** A room with nobody in it, waiting in the lobby. Nothing to simulate, and retirable. */
+function isEmptyLobby(room: Room): boolean {
+  return room.isEmpty() && room.state === "LOBBY";
+}
+
 export class GameServer {
-  private readonly rooms = new Map<string, { room: Room; match: Match }>();
+  private readonly rooms = new Map<string, { room: Room; match: Match; emptyAt: number | null }>();
   private readonly conns = new Map<WebSocket, Conn>();
   private readonly rng = makeRng(Date.now() >>> 0);
   /**
@@ -138,11 +144,13 @@ export class GameServer {
    * empty room you then sat alone in, and two unrelated groups who both typed `PLAY`
    * were dropped into a match together. Creating is now its own intention.
    */
-  private makeRoom(code: string): { room: Room; match: Match } {
+  private makeRoom(code: string): { room: Room; match: Match; emptyAt: number | null } {
     const room = new Room(code);
     const entry = {
       room,
       match: new Match(room, MINIGAMES, this.makeEvents(room), this.rng.int(2 ** 30)),
+      /** When this lobby last emptied, for the grace period (RD-111). */
+      emptyAt: null as number | null,
     };
     this.rooms.set(code, entry);
     return entry;
@@ -236,16 +244,64 @@ export class GameServer {
     return out;
   }
 
+  /**
+   * A socket has gone. Extracted from the close handler so it can be driven by a test —
+   * the whole of RD-104's lesson, applied to the one path every disconnect takes.
+   */
+  private drop(conn: Conn): void {
+    if (conn.room) {
+      conn.room.leave(conn.slot);
+      this.broadcastRoom(conn.room);
+    }
+    this.conns.delete(conn.ws);
+  }
+
   private pump(): void {
-    const now = performance.now();
+    this.pumpAt(performance.now());
+  }
+
+  /**
+   * One pump, at an injected clock.
+   *
+   * The clock is a parameter so the grace period below can be tested without waiting a
+   * real minute. `pump()` supplies `performance.now()`, which cannot jump (RD-098).
+   */
+  private pumpAt(now: number): void {
     const steps = this.loop.advance(now - this.last);
     this.last = now;
     for (let i = 0; i < Math.min(steps, MAX_CATCHUP_STEPS); i++) {
-      for (const [code, entry] of this.rooms) {
-        entry.match.update();
-        // I7: a room nobody is in is not worth a tick or a megabyte.
-        if (entry.room.isEmpty() && entry.room.state === "LOBBY") this.retireRoom(code);
+      for (const entry of this.rooms.values()) {
+        // An empty lobby is not simulated — there is nobody to simulate for — so the
+        // grace below really does cost a map entry and nothing else (I7).
+        if (!isEmptyLobby(entry.room)) entry.match.update();
       }
+    }
+    this.sweepRooms(now);
+  }
+
+  /**
+   * Retire rooms nobody has come back to (RD-111).
+   *
+   * Once per pump, OUTSIDE the step loop, and that placement is the point. It used to run
+   * per simulation step, so after a long stall — where `FixedLoop.advance` deliberately
+   * returns zero steps rather than spiralling — no room was examined at all, which is
+   * exactly when one has been idle longest. It also ran up to five times a pump to reach
+   * the same answer.
+   *
+   * The grace itself is a deliberate, bounded exception to I7: **a host is alone in their
+   * room for as long as it takes to share the code.** Switching to a messaging app is
+   * enough for iOS to discard the page and close the socket, and retiring on the next
+   * tick meant they came back to "No room with that code" for the room they had made
+   * seconds earlier. Measured on a phone, twice.
+   */
+  private sweepRooms(now: number): void {
+    for (const [code, entry] of this.rooms) {
+      if (!isEmptyLobby(entry.room)) {
+        entry.emptyAt = null;
+        continue;
+      }
+      if (entry.emptyAt === null) entry.emptyAt = now;
+      else if (now - entry.emptyAt > EMPTY_ROOM_GRACE_MS) this.retireRoom(code);
     }
   }
 
@@ -335,13 +391,7 @@ export class GameServer {
       this.handle(conn, msg);
     });
 
-    ws.on("close", () => {
-      if (conn.room) {
-        conn.room.leave(conn.slot);
-        this.broadcastRoom(conn.room);
-      }
-      this.conns.delete(ws);
-    });
+    ws.on("close", () => this.drop(conn));
 
     ws.on("error", () => ws.close());
   }

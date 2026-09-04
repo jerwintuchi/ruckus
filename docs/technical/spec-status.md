@@ -47,7 +47,7 @@ These are disagreements between what a spec says and what the tree contains.
 | `player-collision` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
 | `responsiveness` | 🟡 dormant | 3 | 1 | 1 | 2026-09-02 | — |
 | `round-lifecycle` | 🟡 dormant | 4 | 1 | 0 | 2026-08-31 | — |
-| `round-open` | 🟡 dormant | 8 | 1 | 0 | 2026-09-03 | — |
+| `round-open` | 🟡 dormant | 8 | 1 | 0 | 2026-09-04 | — |
 | `spectating` | 🟡 dormant | 3 | 1 | 1 | 2026-09-01 | — |
 | `touch-controls` | 🟡 dormant | 8 | 1 | 0 | 2026-08-31 | — |
 | `ui-identity` | 🟡 dormant | 7 | 1 | 0 | 2026-09-01 | — |

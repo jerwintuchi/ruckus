@@ -3,7 +3,7 @@ import { WebSocketServer } from "ws";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CODE_ALPHABET, CODE_COOLDOWN_MS, MAX_PLAYERS, MAX_SNAPSHOT_BACKLOG_B } from "@ruckus/shared";
+import { CODE_ALPHABET, CODE_COOLDOWN_MS, EMPTY_ROOM_GRACE_MS, MAX_PLAYERS, MAX_SNAPSHOT_BACKLOG_B } from "@ruckus/shared";
 import { GameServer } from "./net.ts";
 
 /**
@@ -395,4 +395,79 @@ describe("the server enforces the ready gate, not just the button (lobby-social 
     handle(host, { t: "start" });
     expect(sent.some((m) => (m as { code?: string }).code === "NOT_READY")).toBe(false);
   });
+});
+
+describe("a room outlives its host stepping away (RD-111)", () => {
+  /** Drive the server's tick without waiting for real time. */
+  const tick = (g: GameServer, atMs: number) =>
+    (g as unknown as { pumpAt(now: number): void }).pumpAt(atMs);
+
+  const solo = (g: GameServer) => {
+    const sent: unknown[] = [];
+    const ws = { readyState: 1, OPEN: 1, send: (s: string) => sent.push(JSON.parse(s)), close: () => {} };
+    const c = { ws, room: null as unknown, slot: -1 };
+    (g as unknown as { conns: Map<unknown, unknown> }).conns.set(ws, c);
+    const handle = (msg: unknown) =>
+      (g as unknown as { handle(c: unknown, m: unknown): void }).handle(c, msg);
+    handle({ t: "create", name: "host" });
+    const code = (sent.find((m) => (m as { t: string }).t === "welcome") as { code: string }).code;
+    return { sent, c, handle, code, ws };
+  };
+
+  it("keeps the room while the host is away sharing the code", () => {
+    // The exact playtest: create a room, switch apps to send the four letters, come back.
+    // iOS discards the page, so the socket closes and the lobby empties.
+    const g = mk();
+    const { c, code } = solo(g);
+    (g as unknown as { drop(c: unknown): void }).drop(c);
+
+    tick(g, 1000);
+    expect(rooms(g).has(code), "still there a second later").toBe(true);
+    tick(g, 30_000);
+    expect(rooms(g).has(code), "still there half a minute later").toBe(true);
+  });
+
+  it("lets them walk straight back in with the same code", () => {
+    const g = mk();
+    const { c, code } = solo(g);
+    (g as unknown as { drop(c: unknown): void }).drop(c);
+    tick(g, 20_000);
+
+    const back = solo2(g, code);
+    expect(back.some((m) => (m as { t: string }).t === "welcome"), "rejoined").toBe(true);
+  });
+
+  it("retires it once nobody has come back for a whole minute", () => {
+    // The grace is bounded: an abandoned room must not live for ever (I7).
+    const g = mk();
+    const { c, code } = solo(g);
+    (g as unknown as { drop(c: unknown): void }).drop(c);
+    // The real server pumps every ~33ms, so the grace clock starts on the first tick
+    // after the drop rather than at the drop itself.
+    tick(g, 100);
+    tick(g, EMPTY_ROOM_GRACE_MS + 1000);
+    expect(rooms(g).has(code)).toBe(false);
+  });
+
+  it("starts the grace again if they leave a second time", () => {
+    const g = mk();
+    const { c, code } = solo(g);
+    (g as unknown as { drop(c: unknown): void }).drop(c);
+    tick(g, 100);
+    tick(g, 40_000);
+    solo2(g, code);                       // back, with 40s of grace already spent
+    tick(g, 41_000);
+    tick(g, 95_000);                      // well past a grace that had not been reset
+    expect(rooms(g).has(code), "the clock reset when they returned").toBe(true);
+  });
+
+  /** Join an existing room and return what the server sent. */
+  function solo2(g: GameServer, code: string): unknown[] {
+    const sent: unknown[] = [];
+    const ws = { readyState: 1, OPEN: 1, send: (s: string) => sent.push(JSON.parse(s)), close: () => {} };
+    const c = { ws, room: null as unknown, slot: -1 };
+    (g as unknown as { conns: Map<unknown, unknown> }).conns.set(ws, c);
+    (g as unknown as { handle(c: unknown, m: unknown): void }).handle(c, { t: "join", code, name: "host" });
+    return sent;
+  }
 });

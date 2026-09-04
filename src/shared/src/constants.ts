@@ -33,6 +33,24 @@ export const CODE_LENGTH = 4;
  */
 export const CODE_COOLDOWN_MS = 90_000;
 
+/**
+ * How long an empty lobby is kept before the room is retired (RD-111).
+ *
+ * I7 says a room nobody is in is not worth a tick or a megabyte, and that is still true —
+ * this is a deliberate, bounded exception to it, for one reason: **a host is alone in
+ * their room for as long as it takes to share the code.**
+ *
+ * Switching to a messaging app to send four letters is enough for iOS to discard the page
+ * and close the socket. With no grace at all the room was retired on the very next tick,
+ * 33 ms later, and the host came back to "No room with that code" — for the room they had
+ * made seconds earlier. Measured on a phone, twice.
+ *
+ * A minute is far longer than sending a code takes and far shorter than anyone would wait
+ * before giving up. An empty lobby is not ticked while it waits, so the cost really is a
+ * map entry.
+ */
+export const EMPTY_ROOM_GRACE_MS = 60_000;
+
 /** Movement. Metres and seconds throughout; the sim is 2.5D (X/Z plane + scalar y). */
 /**
  * Tuned by playing it, not by taste (RD-008): at 8.0 m/s on the original 14.4 m
