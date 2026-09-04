@@ -274,7 +274,11 @@ function onMessage(msg: ServerMsg): void {
         break;
       }
       introRound = msg.round;
-      introEndsAt = performance.now() + msg.inMs;
+      // No countdown on the brief (round-open R1): the numbers used to pull the eye
+      // while the sentence was still being read. The count is its own beat, announced
+      // by its own message, over an arena this card is no longer covering.
+      introEndsAt = 0;
+      ui.setCountdown(0);
       ui.showIntro(msg.displayName, msg.rule, msg.round, msg.of, msg.skips, msg.ofPlayers);
       roundLabelInfo = { name: msg.displayName, round: msg.round, of: msg.of };
       bannerUntil = performance.now() + 4000;
@@ -349,9 +353,19 @@ function onMessage(msg: ServerMsg): void {
       // to the intro and is cleared by `play` (round-open R1, R3).
       break;
 
+    case "count": {
+      // The brief is done. Card away, arena on show, 3-2-1 over it.
+      ui.hideBanner();
+      bannerUntil = 0;
+      lastCount = 0;
+      introEndsAt = performance.now() + msg.inMs;
+      break;
+    }
+
     case "play": {
       // The round is running. Everything that must NOT happen during the countdown
-      // starts here, and nothing else changes: the world is already on screen.
+      // starts here, and nothing else changes: the world is already on screen and the
+      // brief was cleared by `count`.
       ui.hideBanner();
       playing = true;
       introEndsAt = 0;

@@ -332,16 +332,19 @@ describe("the count on the intro card (round-brief T2, T3, R1, R3)", () => {
   });
 
   it("draws the number, and nothing at all at zero", () => {
+    // The count moved OUT of the rule card into its own stopwatch (round-open R1): the
+    // brief is gone by the time it runs, so a count printed on the card could not be
+    // shown at all. Its element is `#tickNum`; the behaviour is unchanged.
     const { root } = stubDom();
     const ui = new Ui(root, noop);
     intro(ui);
     ui.setCountdown(3);
-    expect(at(root, "#count").textContent).toBe("3");
+    expect(at(root, "#tickNum").textContent).toBe("3");
     ui.setCountdown(1);
-    expect(at(root, "#count").textContent).toBe("1");
-    // The first second of the intro, and everything after the deadline.
+    expect(at(root, "#tickNum").textContent).toBe("1");
+    // Everything after the deadline.
     ui.setCountdown(0);
-    expect(at(root, "#count").textContent).toBe("");
+    expect(at(root, "#tickNum").textContent).toBe("");
   });
 
   it("updates without a new message arriving (T3)", () => {
@@ -350,10 +353,10 @@ describe("the count on the intro card (round-brief T2, T3, R1, R3)", () => {
     const ui = new Ui(root, noop);
     intro(ui);
     for (const n of [3, 3, 2, 1]) ui.setCountdown(n);
-    expect(at(root, "#count").textContent).toBe("1");
+    expect(at(root, "#tickNum").textContent).toBe("1");
   });
 
-  it("does nothing when no intro card is showing", () => {
+  it("is safe to drive before anything is showing", () => {
     const { root } = stubDom();
     const ui = new Ui(root, noop);
     expect(() => ui.setCountdown(2)).not.toThrow();

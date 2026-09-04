@@ -9,24 +9,38 @@ round starts is a surprise.*
 
 ## Requirements
 
-**R1**: The rule card holds long enough to read and no longer.
-- AC: the minigame's name and its one-sentence `rule`, verbatim (minigame-contract rule 1)
-- AC: a fixed dwell of 4–5 s, which is the vision's five-second budget (pillar 1)
+**R1**: The round opens in two beats, not one.
+- AC: **the brief comes first, alone.** The minigame's name and its one-sentence `rule`,
+      verbatim (minigame-contract rule 1), on a card, with **no countdown on it**
 - AC: it names the round — "round 3 of 5" — so a player knows where the match stands
+- AC: a fixed dwell of ~4 s, which is the vision's five-second budget (pillar 1)
+- AC: **then the card goes away**, and only then does the count begin. A player is told
+      what is coming, and afterwards told when it starts — never both at once
 
-**R2**: The room can skip it together.
-- AC: any player may tap to skip; the card advances when **every connected player** has
-- AC: the card shows the count — "3 / 8 ready to skip" — so tapping feels collective
-- AC: **it cannot stall.** The dwell always expires on its own, so unanimity only ever
-      ACCELERATES the card. A player who never taps costs the room nothing beyond the
-      normal dwell (I8: a round's progress never requires every player to act)
+> **Why sequential.** The first build ran the count inside the rule card, so the numbers
+> pulled the eye while the sentence was still being read, and the card was still covering
+> the arena when it hit zero. Reading and preparing are two different jobs and each wants
+> the screen to itself. This is the Mario Party shape, and it is the shape because it
+> works: brief, clear, count, go.
+
+**R2**: The room can skip the brief together.
+- AC: any player may tap to skip; the brief ends when **every connected player** has
+- AC: it shows the count — "3 / 8 ready to skip" — so tapping feels collective
+- AC: **skipping skips the BRIEF, never the count.** Getting to the round faster must
+      never mean arriving at it unprepared — the 3-2-1 is the part that makes a player
+      ready, and it is the same length for everyone, always
+- AC: **it cannot stall.** The brief's dwell always expires on its own, so unanimity only
+      ever ACCELERATES it (I8: a round's progress never requires every player to act)
 - AC: a disconnected player is not counted in the denominator
 - AC: a spectator waiting for the next round may skip too — they are in the room
 
-**R3**: The countdown runs over the arena, paused.
-- AC: when the card clears, the **arena is on screen** — geometry, players in their spawn
+**R3**: The countdown runs over the arena, with nothing in front of it.
+- AC: when the brief clears, the **arena is on screen** — geometry, players in their spawn
       positions, the HUD — with the simulation not yet running
 - AC: 3-2-1 counts over that, so the last thing before movement is the world itself
+- AC: **no card, banner or scrim covers the arena during the count.** Its design is
+      `round-countdown`; what this spec requires is that the arena is not hidden by it
+- AC: the count is a fixed three seconds and is **not skippable**
 - AC: the controls are visible and inert during the count; a stick moved early does
       nothing and is not banked
 - AC: the count is derived from the server's deadline, never ticked locally (RD-065)

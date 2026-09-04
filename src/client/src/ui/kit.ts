@@ -332,6 +332,33 @@ button.danger:active:not(:disabled){background:color-mix(in srgb, var(--card) 84
    already stops this, and a second media block splits the one the guards read. */
 @keyframes spectate-pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
+/*
+ * The countdown stopwatch (round-countdown R1-R3).
+ *
+ * A disc slab, standing on its own over the arena — NOT inside the rule card, which is
+ * gone by the time this appears. Same three declarations every card carries, so it
+ * belongs without a new visual idea being invented for it.
+ */
+.tick{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:150px;height:150px;display:none;place-items:center;z-index:6;pointer-events:none}
+.tick.on{display:grid}
+.tick .disc{position:absolute;inset:0;border-radius:50%;background:var(--card);
+  border:var(--outline) solid var(--ink);box-shadow:var(--shadow)}
+.tick svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.tick circle{fill:none;stroke-width:7;stroke-linecap:round;
+  transition:stroke-dashoffset 1s linear,stroke .3s linear}
+.tick .n{position:relative;font-family:var(--display);font-size:76px;line-height:1;
+  color:var(--ink);font-variant-numeric:tabular-nums}
+/* Each number lands with the deal the cards already use, then GO releases it. */
+.tick .n.land{animation:deal .34s cubic-bezier(.2,1.5,.4,1) both}
+.tick.go{animation:punch .24s ease-out both}
+/* Reduced motion needs no rule of its own here: the global block below drops every
+   animation and transition, and the digit and the ring's value are inline styles, so
+   what is SHOWN is identical either way (round-countdown R7). */
+@keyframes punch{
+  0%{transform:translate(-50%,-50%) scale(1);opacity:1}
+  100%{transform:translate(-50%,-50%) scale(1.5);opacity:0}
+}
 /* Entrances overshoot and settle — nothing simply fades (R10). */
 @keyframes deal{
   0%{transform:scale(.86) rotate(-${UI.tilt * 3}deg);opacity:0}

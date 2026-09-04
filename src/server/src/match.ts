@@ -12,7 +12,8 @@
  * isOver() never fires because everyone disconnected, still ends (I8).
  */
 import {
-  INTRO_MS,
+  BRIEF_MS,
+  COUNT_MS,
   resolvePlayerOverlaps,
   type PlayerRuntime,
   type Solid,
@@ -36,6 +37,8 @@ import { Bag } from "./select.ts";
 
 export interface MatchEvents {
   onIntro(game: Minigame<never>, round: number, skips: number, ofPlayers: number): void;
+  /** The brief is over; the 3-2-1 begins (round-open R1, R3). */
+  onCount(): void;
   /** The round is actually running now (round-open R3). */
   onPlay(): void;
   onRoundStart(game: Minigame<never>, state: unknown): void;
@@ -51,6 +54,8 @@ export class Match {
   private startRequested = false;
   /** Slots that have asked to skip THIS round's card (round-open R2). */
   private readonly skipped = new Set<number>();
+  /** Which beat of the opening we are in: the brief, or the 3-2-1 (round-open R1). */
+  private counting = false;
 
   private game: Minigame<never> | null = null;
   private gameState: unknown = null;
@@ -131,11 +136,16 @@ export class Match {
 
       case "ROUND_INTRO":
         // A still world, drawn but not simulated (R4). `tick` is never called here, so
-        // `elapsed` does not advance and no time-driven flourish runs.
+        // `elapsed` does not advance and no time-driven flourish runs — through BOTH
+        // beats of the opening.
         this.events.onSnapshot(this.game!.snapshot(this.gameState as never));
-        // The timer is authoritative and is checked FIRST: unanimity is an accelerator,
-        // never a gate (P1, P2).
-        if (this.elapsed >= this.phaseEndsAt || this.allSkipped()) this.beginPlay();
+        if (!this.counting) {
+          // The brief. The timer is authoritative and is checked FIRST: unanimity is an
+          // accelerator, never a gate (P1, P2).
+          if (this.elapsed >= this.phaseEndsAt || this.allSkipped()) this.beginCount();
+        } else if (this.elapsed >= this.phaseEndsAt) {
+          this.beginPlay();
+        }
         return false;
 
       case "ROUND_PLAY":
@@ -195,7 +205,8 @@ export class Match {
     this.room.round += 1;
     this.game = this.bag.next();
     this.room.state = "ROUND_INTRO";
-    this.phaseEndsAt = this.elapsed + INTRO_MS;
+    this.phaseEndsAt = this.elapsed + BRIEF_MS;
+    this.counting = false;
     this.skipped.clear();
     this.buildRound();
     this.events.onIntro(this.game, this.room.round, 0, this.introVoters());
@@ -212,6 +223,9 @@ export class Match {
    */
   skip(slot: number): void {
     if (this.room.state !== "ROUND_INTRO") return;
+    // Only the brief is skippable (round-open R2). Getting to the round faster must never
+    // mean arriving at it unprepared: everyone gets the same three seconds, every round.
+    if (this.counting) return;
     if (!this.roundRoster.some((r) => r.slot === slot)) return;
     const before = this.skipped.size;
     this.skipped.add(slot);
@@ -234,6 +248,18 @@ export class Match {
       (r) => this.room.players.get(r.slot)?.connected === true,
     );
     return live.length > 0 && live.every((r) => this.skipped.has(r.slot));
+  }
+
+  /**
+   * The brief is done; put the arena on show and count (round-open R1, R3).
+   *
+   * A separate beat, not a countdown printed on the rule card. Reading what a round is
+   * and preparing to play it are two jobs, and each wants the screen to itself.
+   */
+  private beginCount(): void {
+    this.counting = true;
+    this.phaseEndsAt = this.elapsed + COUNT_MS;
+    this.events.onCount();
   }
 
   private beginPlay(): void {

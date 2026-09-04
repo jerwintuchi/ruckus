@@ -92,7 +92,24 @@ export const ROUNDS_PER_MATCH = 5;
  * either clips the first number or takes away the read — vision pillar 1 gives a rule
  * five seconds to land, and this is already under that.
  */
-export const INTRO_MS = 4000;
+export const BRIEF_MS = 4000;
+
+/**
+ * The 3-2-1, alone, over the arena (round-open R3).
+ *
+ * A SEPARATE beat from the brief, not a countdown printed on it. The first build ran both
+ * at once: the numbers pulled the eye while the sentence was still being read, and the
+ * card was still covering the arena when it reached zero. Reading what a round is and
+ * preparing to play it are two jobs, and each wants the screen to itself.
+ *
+ * Three seconds, fixed, and deliberately **not skippable** (round-open R2). Getting to
+ * the round faster must never mean arriving at it unprepared — a unanimous skip shortens
+ * the brief and leaves this exactly as it is, for everyone, every round.
+ */
+export const COUNT_MS = 3000;
+
+/** The whole opening, for anything that needs to reason about the gap between rounds. */
+export const INTRO_MS = BRIEF_MS + COUNT_MS;
 
 /**
  * How long the round-over scores stay up (RD-091).

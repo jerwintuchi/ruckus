@@ -190,7 +190,10 @@ describe("two devices count together, whatever their clocks say (RD-065)", () =>
 
   it("the server sends a duration from the constant, not a literal or an instant", () => {
     const net = readFileSync(join(SERVER, "net.ts"), "utf8");
-    expect(net).toContain("inMs: INTRO_MS");
+    // BRIEF_MS now: `intro` carries the brief's duration and `count` carries the
+    // count's, each from its own constant (round-open R1). Still never a literal.
+    expect(net).toContain("inMs: BRIEF_MS");
+    expect(net).toContain("inMs: COUNT_MS");
     expect(net).toContain("of: ROUNDS_PER_MATCH");
     const intro = net.slice(net.indexOf('t: "intro"'), net.indexOf('t: "intro"') + 400);
     expect(intro).not.toContain("Date.now()");

@@ -76,6 +76,7 @@ export type ServerMsg =
        * 3-2-1 and the phone opened on "1" and lost it immediately (RD-065). A duration
        * is skew-proof — every client adds it to a clock it already trusts.
        */
+      /** How long the BRIEF has left, in ms. A duration, never an instant (RD-065). */
       inMs: number;
       round: number;
       of: number;
@@ -120,6 +121,14 @@ export type ServerMsg =
    * a unanimous skip ends the card early, so the only honest source is the server saying
    * so. Empty on purpose — everything needed was sent with `roundStart`.
    */
+  /**
+   * The brief is over; the 3-2-1 begins (round-open R1, R3).
+   *
+   * Its own moment, because the brief can end early on a unanimous skip and no local
+   * timer could know when. `inMs` is a DURATION added to a clock this device already
+   * trusts — never a server timestamp two phones would disagree about (RD-065).
+   */
+  | { t: "count"; inMs: number }
   | { t: "play" }
   | { t: "roundEnd"; scores: Record<number, number>; totals: Record<number, number> }
   | { t: "matchEnd"; totals: Record<number, number>; winner: number }

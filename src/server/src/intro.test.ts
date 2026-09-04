@@ -6,7 +6,7 @@
  * intro, so the countdown runs over a real, still world rather than over a card.
  */
 import { describe, expect, it } from "vitest";
-import { INTRO_MS, TICK_DT, type Minigame } from "@ruckus/shared";
+import { BRIEF_MS, COUNT_MS, INTRO_MS, TICK_DT, type Minigame } from "@ruckus/shared";
 import { Match, type MatchEvents } from "./match.ts";
 import { Room } from "./room.ts";
 import { mkPlayers } from "./minigames/harness.ts";
@@ -30,6 +30,7 @@ const events = (): MatchEvents & { log: string[]; snaps: number } => {
     onRoundEnd: () => o.log.push("roundEnd"),
     onMatchEnd: () => o.log.push("matchEnd"),
     onPlay: () => {},
+    onCount: () => o.log.push("count"),
     onLobby: () => o.log.push("lobby"),
   };
   return o;
@@ -60,59 +61,62 @@ describe("the dwell is a ceiling, never a gate (R2, P1, P2)", () => {
   it("never lasts LONGER because the feature exists", () => {
     const { room, match } = setup();
     pump(match, INTRO_MS - 200);
-    expect(room.state, "still in the intro just before the dwell").toBe("ROUND_INTRO");
+    expect(room.state, "still opening just before the whole dwell").toBe("ROUND_INTRO");
     pump(match, 300);
     expect(room.state).toBe("ROUND_PLAY");
   });
 
-  it("ends early once every connected player has skipped", () => {
-    const { room, match } = setup();
+  it("ends the BRIEF early once every connected player has skipped", () => {
+    // Into the count, not into play — the three seconds are never skipped (R2).
+    const { room, ev, match } = setup();
     for (const p of room.connected) match.skip(p.slot);
     match.update();
-    expect(room.state).toBe("ROUND_PLAY");
+    expect(ev.log).toContain("count");
+    expect(room.state).toBe("ROUND_INTRO");
   });
 
   it("waits while even one player has not skipped", () => {
-    const { room, match } = setup();
+    const { ev, match } = setup();
     match.skip(0);
     match.skip(1);
     match.update();
-    expect(room.state).toBe("ROUND_INTRO");
+    expect(ev.log, "the brief is still up").not.toContain("count");
   });
 
   it("is idempotent — tapping twice is tapping once", () => {
-    const { room, match } = setup();
+    const { ev, match } = setup();
     for (let i = 0; i < 50; i++) match.skip(0);
     match.update();
-    expect(room.state).toBe("ROUND_INTRO");
+    expect(ev.log).not.toContain("count");
   });
 
   it("does not count a player who has gone, so unanimity stays reachable (P3)", () => {
-    const { room, match } = setup();
+    const { ev, match, room } = setup();
     match.skip(0);
     match.skip(1);
     room.leave(2);           // the silent one drops
     match.update();
-    expect(room.state).toBe("ROUND_PLAY");
+    expect(ev.log).toContain("count");
   });
 
   it("ignores a skip from a slot nobody holds", () => {
-    const { room, match } = setup();
+    const { ev, match } = setup();
     expect(() => match.skip(99)).not.toThrow();
     match.update();
-    expect(room.state).toBe("ROUND_INTRO");
+    expect(ev.log).not.toContain("count");
   });
 
   it("forgets skips between rounds, so one tap does not skip the whole match", () => {
-    const { room, match } = setup();
+    const { room, ev, match } = setup();
     for (const p of room.connected) match.skip(p.slot);
-    match.update();
+    pump(match, COUNT_MS + 100);
     expect(room.state).toBe("ROUND_PLAY");
-    // Into the next round's intro, with nobody having tapped for IT.
+    // Into the next round's brief, with nobody having tapped for IT.
+    ev.log.length = 0;
     pump(match, 40_000);
     if (room.state === "ROUND_INTRO") {
       match.update();
-      expect(room.state, "the new round's card is not pre-skipped").toBe("ROUND_INTRO");
+      expect(ev.log.filter((l) => l === "count").length, "not pre-skipped").toBeLessThan(2);
     }
   });
 });
@@ -143,16 +147,72 @@ describe("the arena is up during the intro, and still (R3, R4, P5)", () => {
     match.requestStart(0);
     match.update();
     pump(match, INTRO_MS - 200);
-    expect(seen, "tick is not called at all during the intro").toHaveLength(0);
+    expect(seen, "tick is not called at all during the opening").toHaveLength(0);
   });
 });
 
 describe("who counts toward unanimity (R5, T8)", () => {
   it("does not count a player who arrived after the round was built", () => {
-    const { room, match } = setup(2);
+    const { room, ev, match } = setup(2);
     for (const p of room.connected) match.skip(p.slot);
-    room.join("latecomer");     // arrives during the intro; not on this round's roster
+    room.join("latecomer");     // arrives during the brief; not on this round's roster
     match.update();
-    expect(room.state, "the newcomer is audience, not a vote").toBe("ROUND_PLAY");
+    expect(ev.log, "the newcomer is audience, not a vote").toContain("count");
+  });
+});
+
+describe("the opening is two beats, and only the first is skippable (R1, R2)", () => {
+  it("holds the brief, then counts, then plays", () => {
+    const { room, match } = setup();
+    pump(match, BRIEF_MS - 200);
+    expect(room.state, "still briefing").toBe("ROUND_INTRO");
+    pump(match, 300);
+    expect(room.state, "counting is still the intro phase").toBe("ROUND_INTRO");
+    pump(match, COUNT_MS);
+    expect(room.state).toBe("ROUND_PLAY");
+  });
+
+  it("announces the count as its own moment, once the brief is done", () => {
+    const { ev, match } = setup();
+    expect(ev.log.filter((l) => l === "count"), "not during the brief").toHaveLength(0);
+    pump(match, BRIEF_MS + 100);
+    expect(ev.log.filter((l) => l === "count")).toHaveLength(1);
+  });
+
+  it("a unanimous skip shortens the BRIEF and leaves the count whole", () => {
+    // The rule that matters: skipping gets you to the round sooner, never to a round you
+    // were not ready for. Everyone gets the same three seconds.
+    const { room, ev, match } = setup();
+    for (const p of room.connected) match.skip(p.slot);
+    match.update();
+    expect(ev.log.filter((l) => l === "count"), "the count began early").toHaveLength(1);
+    expect(room.state, "but it is still a count, not play").toBe("ROUND_INTRO");
+
+    pump(match, COUNT_MS - 200);
+    expect(room.state, "the full three seconds, however early it started").toBe("ROUND_INTRO");
+    pump(match, 300);
+    expect(room.state).toBe("ROUND_PLAY");
+  });
+
+  it("ignores a skip once the count has started", () => {
+    const { room, match } = setup();
+    pump(match, BRIEF_MS + 100);       // now counting
+    for (const p of room.connected) match.skip(p.slot);
+    match.update();
+    expect(room.state, "the count is not skippable").toBe("ROUND_INTRO");
+  });
+
+  it("keeps the world still through BOTH beats", () => {
+    const seen: number[] = [];
+    const room = new Room("ABCD");
+    for (let i = 0; i < 2; i++) room.join(`p${i}`);
+    for (const p of room.connected) room.setReady(p.slot, true);
+    const game = { ...stub("a"), tick: (_s: never, ctx: { elapsed: number }) => seen.push(ctx.elapsed) };
+    const ev = events();
+    const match = new Match(room, [game as unknown as Minigame<never>], ev, 1);
+    match.requestStart(0);
+    match.update();
+    pump(match, BRIEF_MS + COUNT_MS - 200);
+    expect(seen, "nothing simulates until play").toHaveLength(0);
   });
 });

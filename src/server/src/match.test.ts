@@ -51,6 +51,7 @@ const events = (): MatchEvents & { log: string[] } => {
     onRoundEnd: () => log.push("end"),
     onMatchEnd: () => log.push("match"),
     onPlay: () => {},
+    onCount: () => {},
     onLobby: () => log.push("lobby"),
   };
 };
@@ -69,6 +70,18 @@ const setup = (games: Minigame<never>[], players = 2) => {
 
 const pump = (match: Match, ms: number): void => {
   for (let i = 0; i < Math.round(ms / (TICK_DT * 1000)); i++) match.update();
+};
+
+/**
+ * Run until the round is actually playable.
+ *
+ * Not `pump(match, INTRO_MS + a tick)`. The opening has a SHAPE — a brief, then a count
+ * — and a test that hard-codes its total is a test that breaks whenever that shape
+ * changes, for no reason connected to what it is checking. Every case below wants "a
+ * round is running", not "7033 milliseconds have passed".
+ */
+const toPlay = (match: Match, room: Room): void => {
+  for (let i = 0; i < 2000 && room.state !== "ROUND_PLAY"; i++) match.update();
 };
 
 describe("Match transitions (T8, R4, P1)", () => {
@@ -220,6 +233,7 @@ describe("Match round selection (T8, T9, R4)", () => {
       onRoundEnd: () => {},
       onMatchEnd: () => {},
       onPlay: () => {},
+      onCount: () => {},
       onLobby: () => {},
     };
     const match = new Match(room, games, ev, 7);
@@ -300,7 +314,7 @@ describe("players are solid, and the shell is what makes them so (player-collisi
     // the property: a minigame gets solidity for free and cannot forget it.
     const { room, match } = setup([stub("a", 999) as Minigame<never>]);
     match.requestStart(0);
-    pump(match, INTRO_MS + TICK_DT * 1000);
+    toPlay(match, room);
 
     const bodies = [...room.players.values()].map((p) => p.runtime);
     expect(bodies.length).toBeGreaterThanOrEqual(2);
@@ -337,7 +351,7 @@ describe("a player who arrives mid-match plays the next round (I8)", () => {
   it("is not in the round already running, and is in the one after", () => {
     const { room, match } = setup([stub("a", 3) as Minigame<never>, stub("b", 3) as Minigame<never>]);
     match.requestStart(0);
-    pump(match, INTRO_MS + TICK_DT * 1000);
+    toPlay(match, room);
 
     const before = room.connected.length;
     room.join("latecomer");
@@ -356,7 +370,7 @@ describe("a player who arrives mid-match plays the next round (I8)", () => {
   it("keeps their score across the rounds they were present for", () => {
     const { room, match } = setup([stub("a", 3) as Minigame<never>]);
     match.requestStart(0);
-    pump(match, INTRO_MS + TICK_DT * 1000);
+    toPlay(match, room);
     room.join("latecomer");
     pump(match, 12_000);
     // Whatever they scored, they still have — a late arrival is not reset each round.
@@ -373,7 +387,7 @@ describe("a round is played with the roster it started with (RD-046)", () => {
     // never heard of, so it could not move and did not belong to the round it stood in.
     const { room, match } = setup([stub("a", 999) as Minigame<never>]);
     match.requestStart(0);
-    pump(match, INTRO_MS + TICK_DT * 1000);
+    toPlay(match, room);
     const during = match.roster.length;
 
     room.join("latecomer");
@@ -387,7 +401,7 @@ describe("a round is played with the roster it started with (RD-046)", () => {
     // round nobody is playing never ends.
     const { room, match } = setup([stub("a", 999) as Minigame<never>]);
     match.requestStart(0);
-    pump(match, INTRO_MS + TICK_DT * 1000);
+    toPlay(match, room);
     expect(room.state).toBe("ROUND_PLAY");
     for (const p of [...room.players.values()]) room.leave(p.slot);
     match.update();
@@ -403,7 +417,7 @@ describe("a round begins from nothing (round-lifecycle T1, R1, P1)", () => {
     // first tick, greyed and frozen for the whole round (RD-049).
     const { room, match } = setup([stub("a", 3) as Minigame<never>, stub("b", 3) as Minigame<never>]);
     match.requestStart(0);
-    pump(match, INTRO_MS + TICK_DT * 1000);
+    toPlay(match, room);
 
     // Wreck every body the way a real round would: mid-fall, sprinting, turned around.
     for (const p of room.players.values()) {
@@ -446,7 +460,7 @@ describe("a round begins from nothing (round-lifecycle T1, R1, P1)", () => {
     };
     const { room, match } = setup([spawner as unknown as Minigame<never>]);
     match.requestStart(0);
-    pump(match, INTRO_MS + TICK_DT * 1000);
+    toPlay(match, room);
     expect(placed.length).toBeGreaterThan(0);
     for (const p of room.players.values()) {
       expect(p.runtime.body.pos.x, "the spawn survived the reset").toBe(5);
@@ -458,14 +472,17 @@ describe("a spectator is shown the round they are watching (round-lifecycle T2, 
   it("offers the round in progress, and nothing outside one", () => {
     // Without this a mid-round joiner received snapshots with no arena to draw them in
     // — a scramble round arrived as pickups floating in an empty sky (RD-049).
-    const { match } = setup([stub("a", 999) as Minigame<never>]);
+    const { room, match } = setup([stub("a", 999) as Minigame<never>]);
     expect(match.inProgress(), "nothing to watch in the lobby").toBeNull();
 
     match.requestStart(0);
-    pump(match, INTRO_MS / 2);
-    expect(match.inProgress(), "nor during the intro").toBeNull();
+    match.update();
+    expect(room.state, "the opening has begun").toBe("ROUND_INTRO");
+    expect(match.inProgress(), "nor during the opening").toBeNull();
 
-    pump(match, INTRO_MS);
+    // Up to play and no further: this stub's round is short, and pumping a fixed span
+    // past the opening ran clean through it.
+    toPlay(match, room);
     const live = match.inProgress();
     expect(live, "but yes during play").not.toBeNull();
     expect(live!.game.arena(live!.state)).toBeDefined();
@@ -476,7 +493,7 @@ describe("a spectator is shown the round they are watching (round-lifecycle T2, 
     // a ghost at the arena's centre.
     const { room, match } = setup([stub("a", 999) as Minigame<never>]);
     match.requestStart(0);
-    pump(match, INTRO_MS + TICK_DT * 1000);
+    toPlay(match, room);
     const before = match.roster.length;
 
     room.join("watcher");

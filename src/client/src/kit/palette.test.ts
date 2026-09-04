@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PLAYER_COLOURS as SHARED_COLOURS } from "@ruckus/shared";
 import {
-  PALETTE, PAPER, PLAYER_COLOURS, contrast, hexToInt, luminance, readableInk, tint,
+  PALETTE, PAPER, PLAYER_COLOURS, contrast, hexToInt, luminance, readableInk, statusColour, tint,
 } from "./palette.ts";
 
 /* sRGB -> CIE Lab, then CIE76 deltaE. Enough to catch "these two look the same". */
@@ -207,5 +207,34 @@ describe("your colour is readable, measured not hoped (ui-identity T6, R5)", () 
       expect(tint(c, 1)).toBe(PAPER.card.toLowerCase());
       expect(tint(c, 0)).toBe(c.toLowerCase());
     }
+  });
+});
+
+describe("statusColour is the one urgency ramp (round-countdown R3, round-status R1)", () => {
+  it("walks ok -> warn -> caution -> hazard as time runs out", () => {
+    expect(statusColour(1)).toBe(PALETTE.ok);
+    expect(statusColour(0.4)).toBe(PALETTE.warn);
+    expect(statusColour(0.2)).toBe(PALETTE.caution);
+    expect(statusColour(0)).toBe(PALETTE.hazard);
+  });
+
+  it("is total: every input in [0,1] returns a PALETTE colour, never undefined", () => {
+    const named = new Set(Object.values(PALETTE));
+    for (let i = 0; i <= 1000; i++) {
+      const c = statusColour(i / 1000);
+      expect(named.has(c as never), String(i / 1000)).toBe(true);
+    }
+  });
+
+  it("clamps rather than trusting its caller", () => {
+    // A fraction out of range is a bug upstream, and it must not become a blank ring.
+    for (const bad of [-1, 2, Infinity, -Infinity, NaN]) {
+      expect(Object.values(PALETTE)).toContain(statusColour(bad));
+    }
+  });
+
+  it("goes red only at the very end, so it means something when it does", () => {
+    expect(statusColour(0.2)).not.toBe(PALETTE.hazard);
+    expect(statusColour(0.05)).toBe(PALETTE.hazard);
   });
 });

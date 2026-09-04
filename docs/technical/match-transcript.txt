@@ -4,19 +4,18 @@ start   sweepers input=stick+button label=JUMP
   snap  30 actions{4} bars[1] prims[1]
   snap  60 actions{4} bars[1] prims[1]
   snap  90 actions{4} bars[1] prims[1]
-  snap  120 actions{4} bars[1] prims[1] remaining=74966.67
-  snap  150 actions{4} bars[1] prims[1] remaining=73966.67
-  snap  180 actions{4} bars[1] prims[1] remaining=72966.67
-  snap  210 actions{3} bars[1] prims[1] remaining=71966.67
-  snap  240 actions{3} bars[1] prims[1] remaining=70966.67
-  snap  270 actions{3} bars[1] prims[1] remaining=69966.67
-  snap  300 actions{3} bars[1] prims[1] remaining=68966.67
-  snap  330 actions{3} bars[1] prims[1] remaining=67966.67
-  snap  360 actions{3} bars[1] prims[1] remaining=66966.67
-  snap  390 actions{3} bars[1] prims[1] remaining=65966.67
-  snap  420 actions{3} bars[2] prims[2] remaining=64966.67
-  snap  450 actions{2} bars[2] prims[2] remaining=63966.67
-end     0:0 1:3 2:2 3:1
+  snap  120 actions{4} bars[1] prims[1]
+  snap  150 actions{4} bars[1] prims[1]
+  snap  180 actions{4} bars[1] prims[1]
+  snap  210 actions{4} bars[1] prims[1]
+  snap  240 actions{4} bars[1] prims[1] remaining=74000
+  snap  270 actions{4} bars[1] prims[1] remaining=73000.00
+  snap  300 actions{3} bars[1] prims[1] remaining=72000.00
+  snap  330 actions{3} bars[1] prims[1] remaining=71000.00
+  snap  360 actions{3} bars[1] prims[1] remaining=70000.00
+  snap  390 actions{3} bars[1] prims[1] remaining=69000.00
+  snap  420 actions{2} bars[1] prims[1] remaining=68000.00
+end     0:0 1:3 2:1 3:2
 intro   r2 scramble "Grab the most before time runs out."
 start   scramble input=stick+button label=TUMBLE
   snap  0 actions{4} counts{4} prims[6]
@@ -24,51 +23,55 @@ start   scramble input=stick+button label=TUMBLE
   snap  60 actions{4} counts{4} prims[6]
   snap  90 actions{4} counts{4} prims[6]
   snap  120 actions{4} counts{4} prims[6]
-  snap  150 actions{4} counts{4} prims[5] remaining=44000.00
-  snap  180 actions{4} counts{4} prims[7] remaining=43000.00
-  snap  210 actions{4} counts{4} prims[8] remaining=42000.00
-  snap  240 actions{4} counts{4} prims[8] remaining=41000.00
-  snap  270 actions{4} counts{4} prims[9] remaining=40000.00
-  snap  300 actions{4} counts{4} prims[8] remaining=39000.00
-  snap  330 actions{4} counts{4} prims[8] remaining=38000.00
-  snap  360 actions{4} counts{4} prims[9] remaining=37000.00
-  snap  390 actions{4} counts{4} prims[9] remaining=36000.00
-  snap  420 actions{4} counts{4} prims[9] remaining=35000.00
-  snap  450 actions{4} counts{4} prims[9] remaining=34000.00
-  snap  480 actions{4} counts{4} prims[9] remaining=33000.00
-  snap  510 actions{4} counts{4} prims[10] remaining=32000.00
-  snap  540 actions{4} counts{4} prims[11] remaining=31000.00
-  snap  570 actions{4} counts{4} prims[13] remaining=30000.00
-  snap  600 actions{4} counts{4} prims[14] remaining=29000.00
-  snap  630 actions{4} counts{4} prims[14] remaining=28000.00
-  snap  660 actions{4} counts{4} prims[13] remaining=27000.00
-  snap  690 actions{4} counts{4} prims[14] remaining=26000.00
-  snap  720 actions{4} counts{4} prims[14] remaining=25000.00
-  snap  750 actions{4} counts{4} prims[13] remaining=24000.00
-  snap  780 actions{4} counts{4} prims[14] remaining=23000.00
-  snap  810 actions{4} counts{4} prims[11] remaining=22000.00
-  snap  840 actions{4} counts{4} prims[11] remaining=21000.00
-  snap  870 actions{4} counts{4} prims[11] remaining=20000.00
-  snap  900 actions{4} counts{4} prims[12] remaining=19000.00
-  snap  930 actions{4} counts{4} prims[11] remaining=18000.00
-  snap  960 actions{4} counts{4} prims[12] remaining=17000.00
-  snap  990 actions{4} counts{4} prims[13] remaining=16000.00
-  snap  1020 actions{4} counts{4} prims[13] remaining=15000.00
-  snap  1050 actions{4} counts{4} prims[14] remaining=14000.00
-  snap  1080 actions{4} counts{4} prims[14] remaining=13000.00
-  snap  1110 actions{4} counts{4} prims[14] remaining=12000.00
-  snap  1140 actions{4} counts{4} prims[14] remaining=11000.00
-  snap  1170 actions{4} counts{4} prims[14] remaining=10000.00
-  snap  1200 actions{4} counts{4} prims[13] remaining=9000.00
-  snap  1230 actions{4} counts{4} prims[14] remaining=8000.00
-  snap  1260 actions{4} counts{4} prims[13] remaining=7000.00
-  snap  1290 actions{4} counts{4} prims[12] remaining=6000.00
-  snap  1320 actions{4} counts{4} prims[12] remaining=5000.00
-  snap  1350 actions{4} counts{4} prims[13] remaining=4000.00
-  snap  1380 actions{4} counts{4} prims[14] remaining=3000.00
-  snap  1410 actions{4} counts{4} prims[13] remaining=2000.00
-  snap  1440 actions{4} counts{4} prims[14] remaining=1000.00
-end     0:1 1:0 2:3 3:2
+  snap  150 actions{4} counts{4} prims[6]
+  snap  180 actions{4} counts{4} prims[6]
+  snap  210 actions{4} counts{4} prims[6]
+  snap  240 actions{4} counts{4} prims[6] remaining=44033.33
+  snap  270 actions{4} counts{4} prims[6] remaining=43033.33
+  snap  300 actions{4} counts{4} prims[7] remaining=42033.33
+  snap  330 actions{4} counts{4} prims[9] remaining=41033.33
+  snap  360 actions{4} counts{4} prims[10] remaining=40033.33
+  snap  390 actions{4} counts{4} prims[10] remaining=39033.33
+  snap  420 actions{4} counts{4} prims[11] remaining=38033.33
+  snap  450 actions{4} counts{4} prims[10] remaining=37033.33
+  snap  480 actions{4} counts{4} prims[10] remaining=36033.33
+  snap  510 actions{4} counts{4} prims[11] remaining=35033.33
+  snap  540 actions{4} counts{4} prims[11] remaining=34033.33
+  snap  570 actions{4} counts{4} prims[12] remaining=33033.33
+  snap  600 actions{4} counts{4} prims[13] remaining=32033.33
+  snap  630 actions{4} counts{4} prims[14] remaining=31033.33
+  snap  660 actions{4} counts{4} prims[13] remaining=30033.33
+  snap  690 actions{4} counts{4} prims[13] remaining=29033.33
+  snap  720 actions{4} counts{4} prims[14] remaining=28033.33
+  snap  750 actions{4} counts{4} prims[13] remaining=27033.33
+  snap  780 actions{4} counts{4} prims[14] remaining=26033.33
+  snap  810 actions{4} counts{4} prims[14] remaining=25033.33
+  snap  840 actions{4} counts{4} prims[12] remaining=24033.33
+  snap  870 actions{4} counts{4} prims[14] remaining=23033.33
+  snap  900 actions{4} counts{4} prims[14] remaining=22033.33
+  snap  930 actions{4} counts{4} prims[13] remaining=21033.33
+  snap  960 actions{4} counts{4} prims[14] remaining=20033.33
+  snap  990 actions{4} counts{4} prims[13] remaining=19033.33
+  snap  1020 actions{4} counts{4} prims[13] remaining=18033.33
+  snap  1050 actions{4} counts{4} prims[13] remaining=17033.33
+  snap  1080 actions{4} counts{4} prims[14] remaining=16033.33
+  snap  1110 actions{4} counts{4} prims[12] remaining=15033.33
+  snap  1140 actions{4} counts{4} prims[13] remaining=14033.33
+  snap  1170 actions{4} counts{4} prims[12] remaining=13033.33
+  snap  1200 actions{4} counts{4} prims[13] remaining=12033.33
+  snap  1230 actions{4} counts{4} prims[14] remaining=11033.33
+  snap  1260 actions{4} counts{4} prims[14] remaining=10033.33
+  snap  1290 actions{4} counts{4} prims[13] remaining=9033.33
+  snap  1320 actions{4} counts{4} prims[12] remaining=8033.33
+  snap  1350 actions{4} counts{4} prims[13] remaining=7033.33
+  snap  1380 actions{4} counts{4} prims[14] remaining=6033.33
+  snap  1410 actions{4} counts{4} prims[14] remaining=5033.33
+  snap  1440 actions{4} counts{4} prims[14] remaining=4033.33
+  snap  1470 actions{4} counts{4} prims[13] remaining=3033.33
+  snap  1500 actions{4} counts{4} prims[13] remaining=2033.33
+  snap  1530 actions{4} counts{4} prims[14] remaining=1033.33
+  snap  1560 actions{4} counts{4} prims[12] remaining=33.33
+end     0:2 1:2 2:0 3:3
 intro   r3 hot-potato "Pass the bomb before it goes off."
 start   hot-potato input=stick+button label=TUMBLE
   snap  0 actions{4} blasts=0 fuse=9000 fuseLength=9000 holder=2 prims[0]
@@ -76,31 +79,34 @@ start   hot-potato input=stick+button label=TUMBLE
   snap  60 actions{4} blasts=0 fuse=9000 fuseLength=9000 holder=2 prims[0]
   snap  90 actions{4} blasts=0 fuse=9000 fuseLength=9000 holder=2 prims[0]
   snap  120 actions{4} blasts=0 fuse=9000 fuseLength=9000 holder=2 prims[0]
-  snap  150 actions{4} blasts=0 fuse=8000.00 fuseLength=9000 holder=2 prims[1] remaining=89000.00
-  snap  180 actions{4} blasts=0 fuse=7000.00 fuseLength=9000 holder=2 prims[1] remaining=88000.00
-  snap  210 actions{4} blasts=0 fuse=6000.00 fuseLength=9000 holder=2 prims[1] remaining=87000.00
-  snap  240 actions{4} blasts=0 fuse=5000.00 fuseLength=9000 holder=2 prims[1] remaining=86000.00
-  snap  270 actions{4} blasts=0 fuse=4000.00 fuseLength=9000 holder=2 prims[1] remaining=85000.00
-  snap  300 actions{4} blasts=0 fuse=3000.00 fuseLength=9000 holder=2 prims[1] remaining=84000.00
-  snap  330 actions{4} blasts=0 fuse=2000.00 fuseLength=9000 holder=2 prims[1] remaining=83000.00
-  snap  360 actions{4} blasts=0 fuse=1000.00 fuseLength=9000 holder=3 prims[1] remaining=82000.00
-  snap  390 actions{4} blasts=0 fuse=0.00 fuseLength=9000 holder=1 prims[1] remaining=81000.00
-  snap  420 actions{3} blasts=1 fuse=7033.33 fuseLength=8000 holder=2 prims[1] remaining=80000.00
-  snap  450 actions{3} blasts=1 fuse=6033.33 fuseLength=8000 holder=2 prims[1] remaining=79000.00
-  snap  480 actions{3} blasts=1 fuse=5033.33 fuseLength=8000 holder=2 prims[1] remaining=78000.00
-  snap  510 actions{3} blasts=1 fuse=4033.33 fuseLength=8000 holder=2 prims[1] remaining=77000.00
-  snap  540 actions{3} blasts=1 fuse=3033.33 fuseLength=8000 holder=2 prims[1] remaining=76000.00
-  snap  570 actions{3} blasts=1 fuse=2033.33 fuseLength=8000 holder=2 prims[1] remaining=75000.00
-  snap  600 actions{3} blasts=1 fuse=1033.33 fuseLength=8000 holder=2 prims[1] remaining=74000.00
-  snap  630 actions{3} blasts=1 fuse=33.33 fuseLength=8000 holder=2 prims[1] remaining=73000.00
-  snap  660 actions{2} blasts=2 fuse=6066.67 fuseLength=7000 holder=3 prims[1] remaining=72000.00
-  snap  690 actions{2} blasts=2 fuse=5066.67 fuseLength=7000 holder=3 prims[1] remaining=71000.00
-  snap  720 actions{2} blasts=2 fuse=4066.67 fuseLength=7000 holder=3 prims[1] remaining=70000.00
-  snap  750 actions{2} blasts=2 fuse=3066.67 fuseLength=7000 holder=3 prims[1] remaining=69000.00
-  snap  780 actions{2} blasts=2 fuse=2066.67 fuseLength=7000 holder=3 prims[1] remaining=68000.00
-  snap  810 actions{2} blasts=2 fuse=1066.67 fuseLength=7000 holder=3 prims[1] remaining=67000.00
-  snap  840 actions{2} blasts=2 fuse=66.67 fuseLength=7000 holder=3 prims[1] remaining=66000.00
-end     0:3 1:0 2:1 3:2
+  snap  150 actions{4} blasts=0 fuse=9000 fuseLength=9000 holder=2 prims[0]
+  snap  180 actions{4} blasts=0 fuse=9000 fuseLength=9000 holder=2 prims[0]
+  snap  210 actions{4} blasts=0 fuse=9000 fuseLength=9000 holder=2 prims[0]
+  snap  240 actions{4} blasts=0 fuse=8033.33 fuseLength=9000 holder=2 prims[1] remaining=89033.33
+  snap  270 actions{4} blasts=0 fuse=7033.33 fuseLength=9000 holder=3 prims[1] remaining=88033.33
+  snap  300 actions{4} blasts=0 fuse=6033.33 fuseLength=9000 holder=3 prims[1] remaining=87033.33
+  snap  330 actions{4} blasts=0 fuse=5033.33 fuseLength=9000 holder=3 prims[1] remaining=86033.33
+  snap  360 actions{4} blasts=0 fuse=4033.33 fuseLength=9000 holder=3 prims[1] remaining=85033.33
+  snap  390 actions{4} blasts=0 fuse=3033.33 fuseLength=9000 holder=3 prims[1] remaining=84033.33
+  snap  420 actions{4} blasts=0 fuse=2033.33 fuseLength=9000 holder=3 prims[1] remaining=83033.33
+  snap  450 actions{4} blasts=0 fuse=1033.33 fuseLength=9000 holder=3 prims[1] remaining=82033.33
+  snap  480 actions{4} blasts=0 fuse=33.33 fuseLength=9000 holder=3 prims[1] remaining=81033.33
+  snap  510 actions{3} blasts=1 fuse=7066.67 fuseLength=8000 holder=2 prims[1] remaining=80033.33
+  snap  540 actions{3} blasts=1 fuse=6066.67 fuseLength=8000 holder=2 prims[1] remaining=79033.33
+  snap  570 actions{3} blasts=1 fuse=5066.67 fuseLength=8000 holder=2 prims[1] remaining=78033.33
+  snap  600 actions{3} blasts=1 fuse=4066.67 fuseLength=8000 holder=2 prims[1] remaining=77033.33
+  snap  630 actions{3} blasts=1 fuse=3066.67 fuseLength=8000 holder=2 prims[1] remaining=76033.33
+  snap  660 actions{3} blasts=1 fuse=2066.67 fuseLength=8000 holder=2 prims[1] remaining=75033.33
+  snap  690 actions{3} blasts=1 fuse=1066.67 fuseLength=8000 holder=2 prims[1] remaining=74033.33
+  snap  720 actions{3} blasts=1 fuse=66.67 fuseLength=8000 holder=2 prims[1] remaining=73033.33
+  snap  750 actions{2} blasts=2 fuse=6100.00 fuseLength=7000 holder=1 prims[1] remaining=72033.33
+  snap  780 actions{2} blasts=2 fuse=5100.00 fuseLength=7000 holder=1 prims[1] remaining=71033.33
+  snap  810 actions{2} blasts=2 fuse=4100.00 fuseLength=7000 holder=1 prims[1] remaining=70033.33
+  snap  840 actions{2} blasts=2 fuse=3100.00 fuseLength=7000 holder=1 prims[1] remaining=69033.33
+  snap  870 actions{2} blasts=2 fuse=2100.00 fuseLength=7000 holder=1 prims[1] remaining=68033.33
+  snap  900 actions{2} blasts=2 fuse=1100.00 fuseLength=7000 holder=1 prims[1] remaining=67033.33
+  snap  930 actions{2} blasts=2 fuse=100.00 fuseLength=7000 holder=1 prims[1] remaining=66033.33
+end     0:3 1:2 2:1 3:0
 intro   r4 falling-floor "The floor is falling, so keep moving."
 start   falling-floor input=stick label=-
   snap  0 full[121] grid=11 tile=2
@@ -108,25 +114,12 @@ start   falling-floor input=stick label=-
   snap  60 changed[0]
   snap  90 changed[0]
   snap  120 changed[0]
-  snap  150 changed[0] remaining=74000.00
-  snap  180 changed[0] remaining=73000.00
-  snap  210 changed[0] remaining=72000.00
-  snap  240 changed[0] remaining=71000.00
-  snap  270 changed[0] remaining=70000.00
-  snap  300 changed[0] remaining=69000.00
-  snap  330 changed[0] remaining=68000.00
-  snap  360 changed[0] remaining=67000.00
-  snap  390 changed[0] remaining=66000.00
-  snap  420 changed[0] remaining=65000.00
-  snap  450 changed[0] remaining=64000.00
-  snap  480 changed[0] remaining=63000.00
-  snap  510 changed[0] remaining=62000.00
-  snap  540 changed[0] remaining=61000.00
-  snap  570 changed[0] remaining=60000.00
-  snap  600 changed[0] remaining=59000.00
-  snap  630 changed[0] remaining=58000.00
-  snap  660 changed[0] remaining=57000.00
-end     0:2 1:3 2:0 3:1
+  snap  150 changed[0]
+  snap  180 changed[0]
+  snap  210 changed[0]
+  snap  240 changed[0] remaining=74033.33
+  snap  270 changed[0] remaining=73033.33
+end     0:3 1:1 2:0 3:2
 intro   r5 falling-floor "The floor is falling, so keep moving."
 start   falling-floor input=stick label=-
   snap  0 full[121] grid=11 tile=2
@@ -134,11 +127,11 @@ start   falling-floor input=stick label=-
   snap  60 changed[0]
   snap  90 changed[0]
   snap  120 changed[0]
-  snap  150 changed[0] remaining=74000.00
-  snap  180 changed[0] remaining=73000.00
-  snap  210 changed[0] remaining=72000.00
-  snap  240 changed[0] remaining=71000.00
-  snap  270 changed[0] remaining=70000.00
-end     0:1 1:3 2:2 3:0
-match   winner=1
+  snap  150 changed[0]
+  snap  180 changed[0]
+  snap  210 changed[0]
+  snap  240 changed[0] remaining=74033.33
+  snap  270 changed[0] remaining=73033.33
+end     0:3 1:1 2:0 3:2
+match   winner=0
 lobby

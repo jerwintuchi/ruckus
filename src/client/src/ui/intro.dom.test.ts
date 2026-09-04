@@ -92,7 +92,7 @@ describe("the client does not rebuild the card for a tally update (R1)", () => {
   });
 });
 
-describe("the card survives from intro to play (R1, R3)", () => {
+describe("the brief survives until the count begins (R1, R3)", () => {
   it("is not hidden by roundStart, which now arrives at the intro", () => {
     // The regression this pins: `roundStart` used to arrive AFTER the intro, so hiding
     // the banner there was right. It now arrives in the same breath as the rule card, so
@@ -102,17 +102,21 @@ describe("the card survives from intro to play (R1, R3)", () => {
     // A wiring fact, so a wiring guard: which handler clears the banner is not something
     // any single object can be asked. What the banner DOES is tested by running it.
     const src = readFileSync("src/client/src/main.ts", "utf8");
-    const roundStart = src.slice(src.indexOf('case "roundStart"'), src.indexOf('case "play"'));
+    const roundStart = src.slice(src.indexOf('case "roundStart"'), src.indexOf('case "count"'));
     expect(roundStart).not.toContain("ui.hideBanner()");
-    const play = src.slice(src.indexOf('case "play"'), src.indexOf('case "snap"'));
-    expect(play).toContain("ui.hideBanner()");
+    // `count` is what clears it: the brief ends, THEN the 3-2-1 runs over the arena with
+    // nothing in front of it (round-open R1, R3).
+    const count = src.slice(src.indexOf('case "count"'), src.indexOf('case "play"'));
+    expect(count).toContain("ui.hideBanner()");
   });
 
-  it("keeps the count element alive for the whole card", () => {
+  it("carries NO countdown on the brief — the count is its own beat", () => {
+    // The first build printed the count on the rule card, so the numbers pulled the eye
+    // while the sentence was still being read (round-open R1). The stopwatch is a
+    // separate element and stays hidden until `count` says so.
     const { ui, root } = mount();
     ui.showIntro("Sweepers", "Jump the sweepers.", 1, 5, 0, 4);
-    expect(root.querySelector("#count")).toBeTruthy();
-    ui.setCountdown(3);
-    expect(root.querySelector("#count")!.textContent).toContain("3");
+    expect(root.querySelector("#tick")!.classList.contains("on")).toBe(false);
+    expect(root.querySelector(".card #tick"), "not inside the card").toBeNull();
   });
 });

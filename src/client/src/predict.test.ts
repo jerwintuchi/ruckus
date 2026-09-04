@@ -12,6 +12,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   CORRECTION_MS,
+  BRIEF_MS,
+  COUNT_MS,
   INTRO_MS,
   JUMP_SPEED,
   MATCH_RESULT_MS,
@@ -776,12 +778,20 @@ describe("the world keeps breathing between rounds (RD-091)", () => {
 });
 
 describe("the gap between rounds is shorter than it was (RD-091)", () => {
-  it("keeps the intro intact and cuts only the result dwell", () => {
-    // INTRO_MS is 1s of plain card so the rule can be read, then a 3-2-1 count
-    // (round-brief R1, R4). Cutting it clips the first number or takes away the read.
-    expect(INTRO_MS).toBe(4000);
-    expect(RESULT_MS).toBeLessThan(INTRO_MS);
-    expect(INTRO_MS + RESULT_MS).toBeLessThan(8000);
+  it("keeps the READ intact and cuts only the result dwell", () => {
+    // What RD-091 protected was the time to read the rule, and that is BRIEF_MS — still
+    // four seconds, untouched. The opening as a whole is longer now because the 3-2-1 is
+    // its own beat rather than a countdown printed on the card (round-open R1), which is
+    // a deliberate addition and not a regression of this decision.
+    expect(BRIEF_MS).toBe(4000);
+    expect(RESULT_MS).toBeLessThan(BRIEF_MS);
+    expect(INTRO_MS).toBe(BRIEF_MS + COUNT_MS);
+  });
+
+  it("gives the count its own three seconds, the same for everyone", () => {
+    // Not skippable and not scaled: getting to a round faster must never mean arriving
+    // at it unprepared (round-open R2).
+    expect(COUNT_MS).toBe(3000);
   });
 
   it("still leaves the scores up long enough to read", () => {

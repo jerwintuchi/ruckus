@@ -46,6 +46,10 @@ export const PALETTE = {
   floorEdge: "#d9caa9",
   cracking: "#e08b3c",
   gone: "#b9a888",
+  /* The urgency ramp: plenty of time -> none. Four named stops, not a hue sweep. */
+  ok: "#3fae6d",
+  warn: "#ffd23f",
+  caution: "#e08b3c",
   hazard: "#e6484d",
   pickup: "#ffd23f",
   shadow: "#000000",
@@ -56,6 +60,28 @@ export const PALETTE = {
 } as const;
 
 export type PaletteKey = keyof typeof PALETTE;
+
+/**
+ * How much time is left, as a colour (round-countdown R3, round-status R1).
+ *
+ * A pure function of the FRACTION remaining, not of seconds, so a three-second count and
+ * a ninety-second round go red at the same *felt* point and one idea is expressed once.
+ *
+ * Stepped rather than interpolated on purpose: four named palette colours read as four
+ * states in peripheral vision, where a smooth sweep reads as one colour that is slowly
+ * wrong. It also keeps the palette closed — no colour is synthesised at a call site
+ * (kit-rules).
+ *
+ * Total by construction: anything outside [0,1], and anything that is not a number at
+ * all, clamps rather than returning undefined.
+ */
+export function statusColour(fraction: number): string {
+  const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0;
+  if (f > 0.5) return PALETTE.ok;
+  if (f > 0.25) return PALETTE.warn;
+  if (f > 0.1) return PALETTE.caution;
+  return PALETTE.hazard;
+}
 
 /** Parse "#rrggbb" to a 0xRRGGBB integer, which is what three.js actually wants. */
 export function hexToInt(hex: string): number {

@@ -5,10 +5,11 @@
  * one construction: flat fill, ink outline, hard offset shadow. `flow.ts` owns which
  * screen is showing; this only draws what it is handed.
  */
-import { MAX_PLAYERS, PLAYER_COLOURS, type PlayerView } from "@ruckus/shared";
+import { COUNT_MS, MAX_PLAYERS, PLAYER_COLOURS, type PlayerView } from "@ruckus/shared";
 import type { FlowEvent, FlowState } from "../flow.ts";
 import { createState, joinState, rosterChange, standings, startState, type Standing } from "../flow.ts";
 import { colourFor, escapeHtml } from "./kit.ts";
+import { statusColour } from "../kit/palette.ts";
 import { VOLUME_STEPS } from "../kit/sound.ts";
 import { renderHud, rollTo, roundLabel, type HudData } from "./hud.ts";
 
@@ -604,16 +605,51 @@ export class Ui {
    * per-second traffic: the whole feature is one subtraction. Only the text changes —
    * the card, and the rule on it, stay exactly as they were.
    */
+  /**
+   * Draw the count (round-countdown R2, R3, R6).
+   *
+   * Called from the render loop, so it does NOTHING on a frame where the digit has not
+   * changed — the first line is the whole of P3. The ring is a CSS transition rather
+   * than a value written per frame, so a second of sweep costs one style write.
+   */
   setCountdown(n: number): void {
-    const el = this.banner.querySelector("#count") as HTMLElement | null;
-    if (!el) return;
+    const tick = this.q("#tick") as HTMLElement;
+    const num = this.q("#tickNum") as HTMLElement;
     const text = n > 0 ? String(n) : "";
-    if (el.textContent === text) return; // no needless restart of the animation
-    el.textContent = text;
+    if (num.textContent === text) return;   // P1, P3: one writer, and only on a change
+
+    if (!text) {
+      // GO: release, and be gone before the arena is playable (R4).
+      if (tick.classList.contains("on")) {
+        tick.classList.add("go");
+        setTimeout(() => { tick.classList.remove("on", "go"); }, 240);
+      }
+      num.textContent = "";
+      return;
+    }
+
+    num.textContent = text;
+    tick.classList.remove("go");
+    tick.classList.add("on");
+
+    const ring = this.q("#tickRing") as unknown as SVGCircleElement;
+    const c = 2 * Math.PI * 45;
+    ring.style.strokeDasharray = String(c);
+    // Full at the top of each second, draining as it runs out.
+    ring.style.strokeDashoffset = "0";
+    // `(n-1)/(seconds-1)`, not `n/seconds`. With three seconds the naive form gives
+    // 1.0, 0.67, 0.33 — all inside the top two bands, so the ring barely changed across
+    // the whole count. This maps the LAST second to zero, which is what "out of time"
+    // means, and gives three visibly different states.
+    const seconds = COUNT_MS / 1000;
+    ring.style.stroke = statusColour(seconds > 1 ? (n - 1) / (seconds - 1) : 0);
+    // One frame later, so the transition has a start value to move from.
+    requestAnimationFrame(() => { ring.style.strokeDashoffset = String(c); });
+
     // Retrigger the landing animation for each new number.
-    el.classList.remove("pulse");
-    void el.offsetWidth;
-    if (text) el.classList.add("pulse");
+    num.classList.remove("land");
+    void num.offsetWidth;
+    num.classList.add("land");
   }
 
   /**
@@ -706,6 +742,17 @@ export class Ui {
 const TEMPLATE = `
 <div id="hud"></div>
 <div id="toast" class="toast"></div>
+
+<!--
+  The countdown, standing on its own over the arena (round-countdown R1). Outside the
+  banner on purpose: the rule card is GONE by the time this appears, and the count that
+  used to live inside it went with it.
+-->
+<div id="tick" class="tick">
+  <div class="disc"></div>
+  <svg viewBox="0 0 100 100" aria-hidden="true"><circle id="tickRing" cx="50" cy="50" r="45"></circle></svg>
+  <div id="tickNum" class="n"></div>
+</div>
 
 <div id="banner" class="overlay" style="display:none"></div>
 

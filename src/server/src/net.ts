@@ -9,7 +9,8 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import {
   CODE_COOLDOWN_MS,
-  INTRO_MS,
+  BRIEF_MS,
+  COUNT_MS,
   ROUNDS_PER_MATCH,
   MAX_CATCHUP_STEPS,
   TICK_MS,
@@ -188,7 +189,7 @@ export class GameServer {
           displayName: game.displayName,
           rule: game.rule,
           // A duration, from the constant, not a wall-clock instant and not a literal.
-          inMs: INTRO_MS,
+          inMs: BRIEF_MS,
           round,
           of: ROUNDS_PER_MATCH,
           skips,
@@ -196,6 +197,7 @@ export class GameServer {
         });
         this.broadcastRoom(room);
       },
+      onCount: () => this.broadcast(room, { t: "count", inMs: COUNT_MS }),
       onPlay: () => this.broadcast(room, { t: "play" }),
       onRoundStart: (
         game: { id: string; input: InputScheme; buttonLabel?: string; jumpSpeed?: number;

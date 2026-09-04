@@ -20,7 +20,7 @@ These are disagreements between what a spec says and what the tree contains.
 
 ### `specs/round-countdown/` — 🟡 dormant
 
-- **MISSING** — open tasks name 2 file(s) not in the tree: countdown.dom.test.ts, countdown.test.ts
+- **MISSING** — open tasks name 1 file(s) not in the tree: countdown.test.ts
 
 ### `specs/round-status/` — 🟡 dormant
 
@@ -33,7 +33,7 @@ These are disagreements between what a spec says and what the tree contains.
 |---|---|---:|---:|---:|---|---|
 | `main-menu` | 🟡 dormant | 1 | 4 | 0 | 2026-09-03 | LIKELY-SHIPPED |
 | `mutators` | 🟡 dormant | 0 | 12 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
-| `round-countdown` | 🟡 dormant | 0 | 8 | 0 | — | MISSING |
+| `round-countdown` | 🟡 dormant | 6 | 2 | 0 | 2026-09-04 | MISSING |
 | `round-status` | 🟡 dormant | 0 | 9 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
 | `action-button` | 🟡 dormant | 10 | 1 | 0 | 2026-09-01 | — |
 | `arena-framing` | 🟡 dormant | 6 | 1 | 0 | 2026-09-01 | — |

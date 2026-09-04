@@ -72,7 +72,10 @@ describe("shared constants are used, not retyped", () => {
     // weeks. A constant that call sites do not use is a comment.
     const net = readFileSync(join(SRC, "server", "src", "net.ts"), "utf8");
     expect(net).toContain("of: ROUNDS_PER_MATCH");
-    expect(net).toContain("inMs: INTRO_MS");
+    // BRIEF_MS now: `intro` carries the brief's duration and `count` carries the
+    // count's, each from its own constant (round-open R1). Still never a literal.
+    expect(net).toContain("inMs: BRIEF_MS");
+    expect(net).toContain("inMs: COUNT_MS");
     expect(net).not.toMatch(/\bof: \d+/);
   });
 });
