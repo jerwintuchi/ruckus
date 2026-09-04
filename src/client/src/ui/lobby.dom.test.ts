@@ -252,18 +252,39 @@ describe("the lobby shows no scores, because nobody has played (RD-114)", () => 
   });
 });
 
-describe("the lobby's actions are never below the fold (RD-114)", () => {
-  it("keeps READY and START outside the scrolling half", () => {
+describe("the lobby's actions are never below the fold (RD-114, RD-118)", () => {
+  it("scrolls the roster and nothing else", () => {
     // On a landscape phone the card is bounded and scrolls inside itself (RD-055). The
     // roster grows with the room; the actions must not move with it, or the primary
     // action is one a player has to discover by scrolling.
+    //
+    // RD-114 applied that to READY and START and left the colour row inside the
+    // scroller — and this test asserted it belonged there, which is how the half-fix
+    // survived. On a 402px-tall phone the scroller is 136px with 210px of content, so
+    // the row sat 34px BELOW its own container's bottom edge: `elementFromPoint` on the
+    // first swatch returned the card behind it. The row existed, was styled, was
+    // correct, and could not be touched (RD-118).
+    //
+    // The rule is the one RD-114 wrote and did not finish applying: the scroller holds
+    // REFERENCE (who is here), and every CONTROL is pinned outside it.
     const { ui, root } = mount();
     ui.render(lobby());
     const scroller = root.querySelector(".lobbyscroll")!;
-    expect(scroller.querySelector("#scoreboard"), "roster scrolls").toBeTruthy();
-    expect(scroller.querySelector("#colourRow"), "colour row scrolls").toBeTruthy();
-    expect(scroller.querySelector("#readyBtn"), "READY is pinned").toBeNull();
-    expect(scroller.querySelector("#startBtn"), "START is pinned").toBeNull();
+    expect(scroller.querySelector("#scoreboard"), "the roster scrolls").toBeTruthy();
+    for (const id of ["#colourRow", "#readyBtn", "#startBtn"]) {
+      expect(scroller.querySelector(id), `${id} is a control and must be pinned`).toBeNull();
+      expect(root.querySelector(id), `${id} still exists`).toBeTruthy();
+    }
+  });
+
+  it("keeps the colour label with the row it labels", () => {
+    // Leaving the label behind in the scroller would caption the roster instead.
+    const { ui, root } = mount();
+    ui.render(lobby());
+    const scroller = root.querySelector(".lobbyscroll")!;
+    expect(scroller.querySelector(".colourlabel")).toBeNull();
+    const label = root.querySelector(".colourlabel")!;
+    expect(label.nextElementSibling?.id, "label sits directly above its row").toBe("colourRow");
   });
 });
 

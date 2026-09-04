@@ -393,13 +393,27 @@ describe("the wordmark and the slot strip in CSS (ui-identity T1, T4)", () => {
     expect(UI_CSS).not.toContain("url(");
   });
 
-  it("draws eight slots and hides them where the rows need the room", () => {
-    // At 292 points the eight rows and the room code win; the strip is a second view
-    // of what the rows already say (P5, measured in RD-067).
+  it("draws eight slots and hides them on every short viewport (RD-067, RD-118)", () => {
+    // The strip is a second view of what the rows already say (P5, measured in RD-067),
+    // so at 292 points the rows and the room code won and the strip went.
+    //
+    // RD-118 pinned the colour row, which costs 56px of card height that used to belong
+    // to the roster — and the colour row is a THIRD view of the same eight slots, now
+    // showing which are taken with more detail than the strip ever did. So the strip
+    // goes at 430px, not 340px: it is the most redundant 24px on the card, and it buys
+    // back a third of what pinning the row cost (66px of roster to 90px, measured).
     expect(UI_CSS).toContain(".slot{width:14px;height:14px");
     expect(UI_CSS).toContain(".slots{grid-column:1/-1");
-    const i = UI_CSS.indexOf("@media (max-height:340px)");
+    const i = UI_CSS.indexOf("@media (max-height:430px)");
     expect(UI_CSS.slice(i, UI_CSS.indexOf("\n}", i))).toContain(".slots{display:none}");
+  });
+
+  it("keeps the colour swatch above the tap-target floor even when short (RD-067)", () => {
+    // The rule RD-067 set and this must not break: everything that is not a tap target
+    // gets tighter, and a control too small to hit is worse than a list too long to see.
+    // Buying roster height back out of the swatches would be the cheap wrong answer.
+    const short = UI_CSS.slice(UI_CSS.indexOf("@media (max-height:430px)"));
+    expect(short).not.toMatch(/\.swatch\{[^}]*width:(?:[0-9]|[12][0-9]|3[0-3])px/);
   });
 
   it("distinguishes eliminated from disconnected in more than one way (P6)", () => {

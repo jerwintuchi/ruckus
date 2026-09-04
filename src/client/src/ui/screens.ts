@@ -845,23 +845,27 @@ const TEMPLATE = `
       <div id="slots" class="slots"></div>
     </div>
     <!--
-      The roster and the colour row scroll; the ACTIONS below do not (RD-114).
+      ONLY the roster scrolls (RD-114, RD-118).
       On a landscape phone the card is bounded and scrolls inside itself, which put READY
       and START below the fold — a primary action you have to discover by scrolling is a
-      primary action most people never find.
+      primary action most people never find. The roster is the one thing here that grows
+      with the room, so it is the one thing allowed to move.
     -->
     <div class="lobbyscroll">
       <div id="scoreboard"></div>
-
-      <!--
-        The colour row sits BELOW the roster and above the actions (lobby-social R3): it
-        is a decision made once, and it must not compete with READY, which is the action
-        taken every match. Populated by renderColours; empty markup here so the row has
-        a home even before a roster arrives.
-      -->
-      <div class="colourlabel dim">your colour</div>
-      <div id="colourRow" class="colourrow"></div>
     </div>
+
+    <!--
+      The colour row is PINNED, below the roster and above the actions (lobby-social R3).
+      It is a decision made once, so it must not compete with READY — but RD-114 read
+      "not a primary action" as "may scroll", and at a five-player lobby on a 402px phone
+      the row landed 34px past the bottom of the scroller with nothing on screen hinting
+      it was there. A control nobody can reach is not a lower-priority control, it is an
+      absent one (RD-118). Populated by renderColours; empty markup here so the row has a
+      home even before a roster arrives.
+    -->
+    <div class="colourlabel dim">your colour</div>
+    <div id="colourRow" class="colourrow"></div>
 
     <button id="readyBtn">ready</button>
     <button id="startBtn">start</button>

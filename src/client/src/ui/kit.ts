@@ -481,6 +481,12 @@ button.danger:active:not(:disabled){background:color-mix(in srgb, var(--card) 84
   .card{padding:12px 18px;gap:7px;max-height:100%;min-height:0;overflow-y:auto}
   /* Eight rows is the design maximum, so buy back the height they need. */
   .row{padding:3px 2px}
+  /* The strip is the FIRST thing to go on any short viewport (RD-067, RD-118). It is a
+     second view of what the rows already say, and since the colour row was pinned it is
+     a third view of what that row says with less information — the row marks which
+     colours are taken, the strip only counts them. 24px, the most redundant on the card,
+     and the roster scroller goes from 66px to 90px for it (measured, not estimated). */
+  .slots{display:none}
   h1{font-size:26px}
   .code{font-size:34px}
   button{min-height:${UI.minTarget}px;padding:8px 20px;font-size:16px}
@@ -497,10 +503,7 @@ button.danger:active:not(:disabled){background:color-mix(in srgb, var(--card) 84
  * this buys back what it can and the rest still scrolls (RD-067).
  */
 @media (max-height:340px){
-  /* The strip is the first thing to go: at 292 points the eight rows and the room code
-     are what the round needs, and the strip is a second view of what the rows already
-     say (P5). Decided by measurement, not by preference — see RD-067. */
-  .slots{display:none}
+  /* The strip is already gone at the 430px tier (RD-118); everything else gets tighter. */
   .card{padding:6px 14px;gap:2px}
   .row{padding:1px 2px;font-size:13px;line-height:1.25}
   .dot{width:12px;height:12px;border-radius:4px}

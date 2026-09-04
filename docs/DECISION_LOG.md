@@ -4925,3 +4925,108 @@ without a phone. That is a system package on the user's machine, so it is their 
 not something to install unasked.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-117 — The driver exists now: Chrome for Testing under `~/.cache`, driven over CDP
+
+RD-116 ended by naming the one thing that would move the boundary: "a browser inside WSL
+— `chromium` from apt — after which the deleted driver becomes worth restoring". The user
+asked for exactly that. It took two corrections to get there, both worth recording because
+neither was guessable.
+
+**apt has no `chromium` on Ubuntu 24.04.** The package is a snap stub, and snap does not
+run under WSL2. So the browser is **Chrome for Testing 152.0.7977.82**, downloaded as a
+zip to `~/.cache/ruckus/chrome-linux64/` — deliberately **outside the repo**, because
+`tools/kit_check.py` rejects binaries in the tree and it is right to (RD-001). A 186 MB
+browser is not an asset of this game; it is a tool on this machine, and `RUCKUS_CHROME`
+overrides the path for anyone whose is elsewhere.
+
+**Two failures, in order:**
+
+1. Five missing shared libraries (`libnss3`, `libasound2t64`). `ldd | grep "not found"`
+   named them in one line. The user installed them.
+2. `FATAL ... posix_spawn chrome_crashpad_handler: Permission denied (13)`. The zip
+   extraction preserved the exec bit on `chrome` and lost it on every sibling binary.
+   `chmod +x chrome_crashpad_handler` and it launched. This one is worth writing down
+   because the error names a *crash handler* and the actual fault is a *file mode* — and
+   because the driver spawned Chrome with `stdio: "ignore"`, so it surfaced only as
+   "chrome never opened its debugging port". **A tool that hides its subprocess's stderr
+   converts a one-line fix into a hunt.**
+
+`tools/drive.mjs` speaks CDP over Node's built-in `WebSocket` — no dependency, no asset.
+It waits on **real** time, which is the whole difference from `tools/shoot.sh`: a
+WebSocket join is a round trip and `--virtual-time-budget` outruns it (RD-054). So this
+can join a live room, tap a control, scroll a container and read computed layout back.
+
+It uses the **Linux** Chrome, not the Windows one. The Windows binary's debugging port
+lives across the WSL boundary and the firewall refuses it — that is what killed the first
+attempt (RD-116) and it is not fixed, only routed around.
+
+**What it answers that nothing here could before:** does it FIT, does a panel open ABOVE
+another, and — the one that mattered within ten minutes of it working — **is a control
+actually touchable**, via `document.elementFromPoint`. See RD-118.
+
+**What it still cannot answer, unchanged:** 60 fps (`bench.html` on a phone, RD-028),
+whether it feels right, or whether a stranger would work it out. **A screenshot never
+ticks a manual box**, and every spec's final task still says "played on a phone".
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-118 — The colour row was a row, and was still untouchable
+
+The first thing the new driver did was find that RD-115 fixed half its bug.
+
+The playtest report was "can't select a colour when landscape". RD-115 found the row had
+shipped with **no CSS at all** — eight unstyled buttons inheriting `button{min-height:44px}`
+and stacking as blocks — styled it into a wrapping row, added mounted tests, and shipped.
+Those tests passed. The row was a row. It was still unusable, and no test could tell,
+because **jsdom has no box model**: it resolves the cascade and cannot lay anything out.
+
+What the driver measured, at 874x402 with five players:
+
+```
+.lobbyscroll   clientHeight 136   scrollHeight 210   scrollTop 0
+#colourRow     y 294 .. 334          (its scroller's bottom edge is 260)
+elementFromPoint(first swatch centre) -> .card
+```
+
+The row rendered **34px below the bottom of its own scrolling container**, clipped, with
+`scrollTop: 0` on load and nothing on screen suggesting there was more. Tapping where the
+row is hit the card behind it. Scrolling the container 74px made it reachable — so the
+control existed, was correct, was styled, and could not be touched.
+
+**Cause: RD-114 wrote the right rule and applied it to two of three controls.** It pulled
+READY and START out of the scroller with the reasoning "a primary action you have to
+discover by scrolling is a primary action most people never find", read the colour row as
+*not primary*, and left it in. `lobby.dom.test.ts` then asserted `"colour row scrolls"`,
+pinning the bug as intended behaviour. A control nobody can reach is not a
+lower-priority control; it is an absent one.
+
+**The fix:** the scroller holds **reference** (who is here — the one thing that grows with
+the room), and every **control** is pinned outside it. The colour row and its label move
+out, above READY.
+
+**What that cost, measured, not estimated.** Pinning takes 56px from the roster: the
+scroller goes 136px to 66px at 402px tall, which is 2.3 of 5 rows. Bought back by hiding
+`.slots` at the 430px tier rather than only at 340px (RD-067) — 24px, taking the scroller
+to 86px, 3.1 rows. That is defensible on RD-067's own grounds and more so now: the strip
+is a *third* view of the same eight slots, and the weakest, because the colour row marks
+which are **taken** while the strip only counts them.
+
+Verified at both tiers, including the worst case — eight players at Safari's 292 points
+(RD-064) — where the swatch is reachable, stays 40px, and READY and the wait note both sit
+inside the viewport, with only the roster scrolling. **Not** buying the height back out of
+the swatches: RD-067's rule stands that a control too small to hit is worse than a list too
+long to see, and there is now a test asserting no short-viewport rule shrinks a swatch
+below 34px.
+
+**The lesson is about the test, not the CSS.** RD-115 already recorded shipping a feature
+whose mounted tests all passed and whose CSS did not exist. This is the same shape one
+level up: the tests asserted everything jsdom can see, and the property that mattered —
+*can a thumb land on it* — is one jsdom cannot express. Where a fix is about fitting on a
+screen, the assertion has to come from something that lays out.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
