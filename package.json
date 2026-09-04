@@ -9,12 +9,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "pnpm -r exec tsc --noEmit",
-    "check": "python3 tools/context_budget.py --check && python3 tools/kit_check.py --check && python3 tools/spec_status.py --check && python3 tools/status_html.py --check",
-    "verify": "pnpm check && pnpm typecheck && pnpm test",
+    "check": "python3 tools/context_budget.py --check && python3 tools/kit_check.py --check && python3 tools/spec_status.py --check && python3 tools/status_html.py --check && python3 tools/resume.py --check && python3 tools/shots.py --check",
+    "verify": "pnpm check && pnpm selftest && pnpm typecheck && pnpm test",
     "playtest": "bash tools/playtest.sh",
     "status": "python3 tools/spec_status.py && python3 tools/status_html.py",
     "bots": "node tools/bots.mjs",
-    "playtest:solo": "bash tools/playtest.sh --bots 3"
+    "playtest:solo": "bash tools/playtest.sh --bots 3",
+    "selftest": "python3 tools/handoff.py --selftest && python3 tools/spec_status.py --selftest && python3 tools/resume.py --selftest && python3 tools/shots.py --selftest",
+    "resume": "python3 tools/resume.py",
+    "shots": "python3 tools/shots.py"
   },
   "devDependencies": {
     "jsdom": "^30.0.1",

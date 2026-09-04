@@ -19,6 +19,8 @@
  * Uses Node's built-in WebSocket, so there is nothing to install.
  */
 
+import { writeFileSync } from "node:fs";
+
 /** True only when run directly, so importing this for tests spawns nothing. */
 const IS_CLI = process.argv[1]?.endsWith("bots.mjs") ?? false;
 
@@ -35,6 +37,8 @@ const SERVER = arg("server", "ws://localhost:3001");
 const WARNED = new Set();
 const SKILL = Math.max(0, Math.min(1, Number(arg("skill", "0.85"))));
 const AUTOSTART = !flag("no-autostart");
+/** Where the created room's code is left for other tools. Gitignored, never committed. */
+const ROOM_FILE = ".ruckus-room";
 
 const CREATE = ROOM.length !== 4;   // no usable --room means bot-1 makes the room
 
@@ -237,6 +241,18 @@ class Bot {
           sharedRoom = m.code;
           // playtest.sh reads this line to build the URLs it prints.
           console.log(`  ROOM=${m.code}`);
+          // And a file, for the tools that are not watching stdout (RD-120). The room
+          // code is the one thing a resuming session cannot derive: /health reports
+          // occupancy but deliberately never a code, because a code is a join
+          // credential. This file is local and gitignored — the code goes no further
+          // than the machine that minted it.
+          try {
+            // No timestamp field: the file's mtime already carries one, and the RD-103
+            // guard rightly refuses `Date.now()` anywhere in this file. A wall clock that
+            // jumps five seconds under WSL has no business here even as metadata.
+            writeFileSync(ROOM_FILE,
+              JSON.stringify({ room: m.code, pid: process.pid }) + "\n");
+          } catch { /* a convenience, never a dependency */ }
         }
         console.log(`  ${this.name} joined room ${m.code} as slot ${m.slot}`);
         break;

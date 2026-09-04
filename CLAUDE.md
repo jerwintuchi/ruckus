@@ -32,19 +32,18 @@ it belongs in the DECISION_LOG and the registry will report it for free.
 
 Phase: **The flow, and the twist.**
 
-`lobby-social` and `round-open` are built (T11 / T9 are their phone playtests).
-Four specs remain unbuilt: `round-countdown` (the paper stopwatch — spec only),
-`round-status` (clock ramp, alive count, scoreboard), `mutators` (the twist —
-last place picks the next round's modifier, RD-108), and `main-menu`.
+Next: `specs/round-status/` (clock ramp, alive count, scoreboard).
+Then `specs/mutators/` (the twist — last place picks the next round's modifier,
+RD-108), with `specs/main-menu/` any time.
 
-Build order: **`round-countdown` → `round-status` → `mutators`**, with `main-menu`
-any time. `statusColour` is shared by the first two — whichever lands first owns it.
+Built: `lobby-social`, `round-open`, `round-countdown` (T11 / T9 / T4+T8 are
+their phone playtests). `statusColour` already exists in `kit/palette.ts`.
 
 Open bug: **a stutter in `scramble` on a phone**, cause unknown. The wire is
 exonerated (gapprobe: p50 33.2ms, zero unexplained gaps over Tailscale), so it is
 the wifi hop or the render loop. A `?debug=1` photo during it decides.
 
-16 manual phone boxes remain in the older specs, `input-prediction` T8 first.
+Manual phone boxes remain across the older specs, `input-prediction` T8 first.
 
 Run **`pnpm verify`** before ending a session — `pnpm check` alone does not compile.
 
@@ -99,7 +98,12 @@ A minigame that "needs" a new asset needs a different rule instead.
 
 Before ending a session, run `python3 tools/handoff.py` and fill in the four fields.
 It **overwrites** `docs/HANDOFF.md` — the file never grows, and a stale handoff is
-worse than none.
+worse than none. A pre-commit hook keeps the derived half current; only that command
+moves the `prose-at` stamp staleness is measured from (RD-120).
+
+A `SessionStart` hook runs `tools/resume.py`, so a new session starts knowing the
+branch, the stack, the next open task and its test. `pnpm shots -- --capture`
+re-shoots the fixed scene set.
 
 ## On-demand rules
 

@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CODE_ALPHABET, CODE_COOLDOWN_MS, EMPTY_ROOM_GRACE_MS, MAX_PLAYERS, MAX_SNAPSHOT_BACKLOG_B } from "@ruckus/shared";
 import { GameServer } from "./net.ts";
+import type { Room } from "./room.ts";
 
 /**
  * These exercise the room lifecycle directly. The transport is a real WebSocketServer
@@ -470,4 +471,76 @@ describe("a room outlives its host stepping away (RD-111)", () => {
     (g as unknown as { handle(c: unknown, m: unknown): void }).handle(c, { t: "join", code, name: "host" });
     return sent;
   }
+});
+
+describe("/health reports occupancy, and never a join code (RD-120)", () => {
+  // A new session's first question is "is a stack already up, and is it busy?" — asking
+  // it costs one curl, and answering it wrong costs a second server on the same port or
+  // a bot swarm joining a room somebody is already playing in.
+  const roomOf = (g: GameServer, code: string) =>
+    (rooms(g).get(code) as { room: Room }).room;
+
+  it("says nothing is running when nothing is", () => {
+    expect(mk().occupancy).toEqual({ rooms: 0, players: 0, playing: 0 });
+  });
+
+  it("counts rooms and connected players", () => {
+    const g = mk();
+    makeRoom(g, "AAAA");
+    makeRoom(g, "BBBB");
+    roomOf(g, "AAAA").join("ana");
+    roomOf(g, "AAAA").join("ben");
+    roomOf(g, "BBBB").join("cat");
+    expect(g.occupancy).toEqual({ rooms: 2, players: 3, playing: 0 });
+  });
+
+  it("does not count a player whose socket has gone mid-match", () => {
+    // The slot is reserved so a rejoin keeps its score (I8), but the person is not there,
+    // and "3 players" when one has walked off is the number that makes someone assume
+    // the room is busier than it is.
+    const g = mk();
+    makeRoom(g, "AAAA");
+    const r = roomOf(g, "AAAA");
+    r.join("ana");
+    r.join("ben");
+    r.state = "ROUND_PLAY";
+    r.leave(1);
+    expect(g.occupancy).toEqual({ rooms: 1, players: 1, playing: 1 });
+  });
+
+  it("distinguishes a lobby from a match in progress", () => {
+    const g = mk();
+    makeRoom(g, "AAAA");
+    makeRoom(g, "BBBB");
+    roomOf(g, "AAAA").join("ana");
+    roomOf(g, "BBBB").join("ben");
+    roomOf(g, "BBBB").state = "ROUND_PLAY";
+    expect(g.occupancy.rooms).toBe(2);
+    expect(g.occupancy.playing).toBe(1);
+  });
+
+  /**
+   * The one property here that is not a convenience.
+   *
+   * A room code IS the join credential — anyone holding it walks into the room. I2 gates
+   * the SHAPE of a message, not who was entitled to learn a code, and `/health` answers
+   * unauthenticated on whatever network the server is bound to, which is a cafe wifi as
+   * often as a living room. Occupancy is a number; a code is a key. This endpoint hands
+   * out neither keys nor names, and the shape is asserted exactly so a later field
+   * cannot quietly add one.
+   */
+  it("leaks neither the code nor who is in the room", () => {
+    const g = mk();
+    makeRoom(g, "AAAA");
+    roomOf(g, "AAAA").join("verysecretname");
+    const json = JSON.stringify(g.occupancy);
+    expect(json).not.toContain("AAAA");
+    expect(json).not.toContain("verysecretname");
+    expect(Object.keys(g.occupancy).sort()).toEqual(["players", "playing", "rooms"]);
+  });
+
+  it("is on the health endpoint, not merely available to be put there", () => {
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "main.ts"), "utf8");
+    expect(src).toContain("occupancy");
+  });
 });

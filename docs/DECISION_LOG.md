@@ -5093,3 +5093,113 @@ measurement, and sampling a 3-second event with steps that each cost 400ms is no
 sampling it. The per-frame recorder is the right shape: record inside the page, dump once.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+---
+
+## RD-120 — Resuming is a derived answer, and the screens are a fixed set
+
+Two headaches, one cause. The state of this project was already written down —
+`docs/HANDOFF.md`, the append-only decision log, the derived registry, the `T#` boxes —
+and none of it was wrong. **The problem was retrieval.** Reconstructing "where were we"
+meant opening five files and a `git log`, a large variable cost paid at the start of every
+session, which is exactly when context is worth most. And there was no way to see what a
+UI change actually did without a person holding a phone.
+
+### `tools/resume.py` — one bounded call, injected automatically
+
+A `SessionStart` hook runs it and its output lands in context before the first turn. Not a
+skill, deliberately: a skill that must be remembered is the failure being fixed.
+
+Everything in it is **derived** (RD-003): branch, HEAD, dirtiness, the running stack, the
+active spec's next open task *and the test that task names*, the registry's flags, the last
+three decisions, and the count of boxes that need a phone. The only hand-written input is
+the handoff's four fields.
+
+It is **capped at 2 KB and the cap is checked in `pnpm check`**, for the reason RD-002
+capped `CLAUDE.md`: a file loaded automatically is a file prose accretes in until it is the
+most expensive and least reliable thing in the context. Everything here is a pointer or a
+number. If a section wants a paragraph, the paragraph goes in this log.
+
+**Two things it found within a minute of working**, which is the argument for it:
+
+- `ACTIVE` came back empty. `CLAUDE.md`'s Active Work block had no machine-readable
+  pointer — *and* it was stale, still calling `round-countdown` "spec only" three commits
+  after it was built. Fixed both; the block now names `specs/round-status/` as next.
+- Its manual-box count said 21 where `CLAUDE.md` said 16. The regex was matching any task
+  that merely *mentioned* a playtest. Narrowed to phrases meaning the task itself cannot
+  be closed from this machine, and the two counts now agree — which is a cross-check,
+  since they are computed from different things by different people.
+
+### `prose-at`, and why the freshness stamp had to split in two
+
+`HANDOFF.md` is refreshed on every commit by a **pre-commit** hook (`.githooks/pre-commit`,
+via `core.hooksPath`). Pre-commit rather than post-commit because a post-commit hook that
+rewrites a tracked file leaves the tree dirty after *every* commit, so `git status` reads
+"1 uncommitted file" permanently and real dirtiness hides in the noise. Refreshing before
+puts the file in the commit instead.
+
+That forced a distinction worth naming: the mechanical half's `HEAD` is now always current
+and therefore says **nothing** about whether the prose still describes the work. So the
+file carries a second stamp, `prose-at`, moved only by `handoff.py` itself when somebody
+answers the four questions. Staleness is measured from that. Conflating the two would have
+made the handoff look freshest exactly when it was most misleading.
+
+The hook never fails a commit, and if `core.hooksPath` is unset in some other clone the
+only loss is the refresh — `resume.py` still derives everything live.
+
+### `/health` gained occupancy — three numbers, and never a code
+
+A resuming session's first question is "is a stack already up, and is anyone in it?"
+before it starts a second server on the port or points bots at a room someone is playing
+in. `rooms`, `players`, `playing`.
+
+**Counts only.** A room code is the join credential — whoever holds it walks in — and
+`/health` answers unauthenticated on whatever network the server is bound to, which is a
+cafe wifi as often as a living room. I2 validates the shape of a message, not who was
+entitled to learn a code. There is a test asserting the payload contains neither the code
+nor any player's name, and asserting the exact key set so a later field cannot quietly add
+one. The code instead goes to `.ruckus-room`, written by `tools/bots.mjs` and gitignored:
+local to the machine that minted it.
+
+### `tools/shots.py` — a fixed set, because a scrapbook proves nothing
+
+Ad-hoc screenshots pile up and answer nothing: two pictures of different things at
+different sizes cannot tell you what a change broke. A **declared** list re-shot on demand
+can — the lobby at 402px is the same frame this week as last, so the difference between two
+runs *is* the change.
+
+The seven scenes are the frames this project has actually shipped broken: the landscape
+lobby (RD-115, RD-118), a panel over a panel (RD-115), the 292-point viewport (RD-064,
+RD-067), and the round opening, which nothing here could photograph until `--until`
+existed (RD-119).
+
+**The images are not in the repo, and that is not a workaround.** `tools/kit_check.py`
+rejects every image extension in the tree because the art pipeline is what stalled the
+previous project (RD-001). A screenshot is not a game asset — but a `docs/` directory
+full of PNGs is precisely the shape that guard exists to refuse, and carving an exception
+into a load-bearing rule to store pictures of the UI is a bad trade. So there are **two renderings of the
+same page**, and only one is committed: `--page` writes `docs/technical/shots.html` with
+captions, viewports and the commit each scene was taken at and **no image data at all**
+— text, guarded by `--check`, diffable; `--page --embed` writes a throwaway copy with the
+PNGs inlined as `data:` URIs, and that is the one that gets published.
+
+**The first plan was the artifact's asset store, and it does not exist on this account.**
+The capability list this session can declare is `artifact`, `db`, `downloads`, `mcp`,
+`room`, `sample`, `self` — no `assets` — so `upload_asset` would have failed. Worth
+recording rather than quietly re-planning: the tidier design was chosen and written up
+before its one hard dependency was checked, which is the same shape as assuming a browser
+was installable from apt (RD-117). Inlining is the honest fallback, the budget is
+comfortable (seven scenes ≈ 730 KB of base64 against a 16 MB page limit), and the property
+that mattered is untouched — the repo stays text.
+
+The first capture: <https://claude.ai/code/artifact/5a34f063-5a47-4ff8-a499-e03cc147f664>,
+7/7 scenes, recorded in `shots.py` so the next session republishes to the same URL instead
+of minting a second gallery nobody has the link to.
+
+### What none of this changes
+
+The page says so itself, and so does every spec's last task: it cannot tell you whether it
+holds 60 fps (RD-028), whether it feels right under a thumb, or whether a stranger would
+work it out. **A screenshot never ticks a manual box.**
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

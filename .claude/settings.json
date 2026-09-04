@@ -1,16 +1,48 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git *)", "Bash(pnpm *)", "Bash(npx *)", "Bash(node *)", "Bash(vitest *)",
-      "Bash(grep *)", "Bash(rg *)", "Bash(ls *)", "Bash(cat *)", "Bash(head *)",
-      "Bash(tail *)", "Bash(wc *)", "Bash(find *)", "Bash(sort *)", "Bash(uniq *)",
-      "Bash(diff *)", "Bash(stat *)", "Bash(file *)", "Bash(basename *)",
-      "Bash(dirname *)", "Bash(realpath *)", "Bash(echo *)", "Bash(pwd)",
-      "Bash(cd *)", "Bash(mkdir *)", "Bash(sed *)", "Bash(awk *)", "Bash(cut *)",
-      "Bash(tr *)", "Bash(jq *)", "Bash(column *)", "Bash(python3 *)",
-      "Bash(xargs *)", "Bash(cp *)", "Bash(mv *)", "Bash(touch *)",
-      "Bash(printf *)", "Bash(tee *)", "Bash(test *)", "Bash(true)",
-      "Bash(timeout *)", "Bash(curl -s localhost:*)"
+      "Bash(git *)",
+      "Bash(pnpm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(vitest *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(find *)",
+      "Bash(sort *)",
+      "Bash(uniq *)",
+      "Bash(diff *)",
+      "Bash(stat *)",
+      "Bash(file *)",
+      "Bash(basename *)",
+      "Bash(dirname *)",
+      "Bash(realpath *)",
+      "Bash(echo *)",
+      "Bash(pwd)",
+      "Bash(cd *)",
+      "Bash(mkdir *)",
+      "Bash(sed *)",
+      "Bash(awk *)",
+      "Bash(cut *)",
+      "Bash(tr *)",
+      "Bash(jq *)",
+      "Bash(column *)",
+      "Bash(python3 *)",
+      "Bash(xargs *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(touch *)",
+      "Bash(printf *)",
+      "Bash(tee *)",
+      "Bash(test *)",
+      "Bash(true)",
+      "Bash(timeout *)",
+      "Bash(curl -s localhost:*)"
     ],
     "deny": [
       "Bash(rm -rf /*)",
@@ -32,6 +64,18 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/kit_check.py\" --check",
             "statusMessage": "Checking the Kit is closed"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/resume.py\" --hook",
+            "timeout": 20,
+            "statusMessage": "Reading where we left off"
           }
         ]
       }

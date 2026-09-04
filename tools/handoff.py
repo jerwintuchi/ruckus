@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -60,7 +61,38 @@ def repo_context() -> dict[str, str]:
         "subject": sh("git", "log", "-1", "--pretty=%s") or "—",
         "dirty": "\n".join(f"- `{f}`" for f in files) or "- (clean tree)",
         "n_dirty": str(len(dirty.splitlines())) if dirty else "0",
+        "prose_at": "",
     }
+
+
+RE_SECTION = re.compile(r"^## (.+?)\n+(.*?)(?=\n## |\n---|\Z)", re.S | re.M)
+RE_PROSE_AT = re.compile(r"prose-at `([0-9a-f]{6,40})`")
+
+HEADINGS = {
+    "doing": "What I was doing",
+    "half_done": "What is half-finished",
+    "next": "The very next action",
+    "gotcha": "Gotchas",
+}
+
+
+def read_existing() -> tuple[dict[str, str], str]:
+    """The four prose answers and the commit they were WRITTEN at.
+
+    `prose-at` is deliberately not the same as `HEAD` (RD-120). The mechanical half of
+    this file is refreshed on every commit, so its HEAD is always current and says nothing
+    about whether the PROSE still describes the work. Staleness is measured from the commit
+    at which somebody last answered the four questions, which only `handoff.py` itself
+    moves. Conflating the two made the file look fresh precisely when it was not.
+    """
+    text = ""
+    if os.path.isfile(OUT):
+        with open(OUT, encoding="utf-8") as fh:
+            text = fh.read()
+    by_heading = {h.strip(): b.strip() for h, b in RE_SECTION.findall(text)}
+    vals = {k: by_heading.get(h, "—") for k, h in HEADINGS.items()}
+    m = RE_PROSE_AT.search(text)
+    return vals, m.group(1) if m else ""
 
 
 def render(vals: dict[str, str], ctx: dict[str, str]) -> str:
@@ -72,6 +104,8 @@ def render(vals: dict[str, str], ctx: dict[str, str]) -> str:
 
 *Written {datetime.now().strftime('%Y-%m-%d %H:%M')} · branch `{ctx['branch']}` ·
 HEAD `{ctx['head']}` — {ctx['subject']} · {ctx['n_dirty']} uncommitted file(s)*
+
+*prose-at `{ctx['prose_at']}`*
 
 ## What I was doing
 
@@ -102,7 +136,8 @@ hands were".*
 
 
 def selftest() -> int:
-    ctx = {"branch": "main", "head": "abc1234", "subject": "s", "dirty": "- (clean tree)", "n_dirty": "0"}
+    ctx = {"branch": "main", "head": "abc1234", "subject": "s", "dirty": "- (clean tree)",
+           "n_dirty": "0", "prose_at": "abc1234"}
     vals = {k: "x" for k, _ in FIELDS}
     out = render(vals, ctx)
     assert "Overwritten every session" in out
@@ -110,6 +145,39 @@ def selftest() -> int:
     assert len(out.encode()) < CAP_BYTES
     big = render({k: "y" * 4000 for k, _ in FIELDS}, ctx)
     assert len(big.encode()) > CAP_BYTES, "cap must be reachable"
+
+    # The refresh round-trip, on a real rendered file rather than a hand-made string —
+    # the prose must come back byte-identical and the stamp must not move (RD-120).
+    global OUT
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        keep, OUT = OUT, os.path.join(d, "HANDOFF.md")
+        try:
+            prose = {"doing": "built a thing", "half_done": "nothing",
+                     "next": "the next thing\n\nwith a second paragraph",
+                     "gotcha": "a `code span` and a --flag"}
+            with open(OUT, "w", encoding="utf-8") as fh:
+                fh.write(render(prose, {**ctx, "prose_at": "deadbee"}))
+            back, at = read_existing()
+            assert at == "deadbee", f"prose-at lost: {at!r}"
+            for k, v in prose.items():
+                assert back[k] == v, f"{k} round-tripped as {back[k]!r}, wanted {v!r}"
+            # A refresh must not move the stamp even though HEAD has.
+            again = render(back, {**ctx, "head": "ffff999", "prose_at": at})
+            assert "prose-at `deadbee`" in again
+            assert "HEAD `ffff999`" in again
+        finally:
+            OUT = keep
+
+    # An empty file must degrade to placeholders, not crash a commit.
+    with tempfile.TemporaryDirectory() as d:
+        keep, OUT = OUT, os.path.join(d, "nope.md")
+        try:
+            vals2, at2 = read_existing()
+            assert at2 == "" and set(vals2.values()) == {"—"}
+        finally:
+            OUT = keep
+
     print("handoff selftest: OK")
     return 0
 
@@ -120,10 +188,27 @@ def main() -> int:
         ap.add_argument(f"--{name.replace('_', '-')}", dest=name, default=None)
     ap.add_argument("--show", action="store_true")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--refresh", action="store_true",
+                    help="re-derive the mechanical half, keeping the prose and prose-at")
     args = ap.parse_args()
 
     if args.selftest:
         return selftest()
+
+    if args.refresh:
+        # Run from the pre-commit hook, so the file lands IN the commit rather than
+        # leaving a dirty tree behind every one. Silent and non-fatal by design: a
+        # commit must never fail because a docs file could not be rewritten.
+        if not os.path.isfile(OUT):
+            return 0
+        vals, prose_at = read_existing()
+        ctx = repo_context()
+        ctx["prose_at"] = prose_at or ctx["head"]
+        text = render(vals, ctx)
+        if len(text.encode()) <= CAP_BYTES:
+            with open(OUT, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        return 0
     if args.show:
         if not os.path.isfile(OUT):
             print("no handoff written yet", file=sys.stderr)
@@ -142,7 +227,10 @@ def main() -> int:
         else:
             vals[name] = "—"
 
-    text = render(vals, repo_context())
+    ctx = repo_context()
+    # Writing the prose IS the thing that resets staleness, so the stamp moves here only.
+    ctx["prose_at"] = ctx["head"]
+    text = render(vals, ctx)
     if len(text.encode()) > CAP_BYTES:
         print(
             f"HANDOFF TOO LONG: {len(text.encode())} B — cap {CAP_BYTES} B.\n"

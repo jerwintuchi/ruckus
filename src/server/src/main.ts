@@ -28,6 +28,12 @@ const http = createServer((req, res) => {
         // (RD-086). A stalling client should leave a trace here too, not only on the
         // phone that suffered it.
         skippedSnapshots: game.skippedSnapshots,
+        // How busy this server is, in three numbers (RD-120). A session resuming cold
+        // asks "is a stack already up, and is anyone using it?" before starting a second
+        // one on this port or pointing bots at a room somebody is playing in.
+        // Counts ONLY — never a room code, which is the join credential, and never a
+        // name. This endpoint answers unauthenticated to whoever can reach the port.
+        ...game.occupancy,
         // The longest gap between two inputs from any client, in ms (RD-095). Measures
         // the real clients' upstream path, which no probe on this host can reach.
         worstInputGapMs: game.worstInputGap,

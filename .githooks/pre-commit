@@ -1,0 +1,13 @@
+#!/bin/sh
+# Keep the derived half of docs/HANDOFF.md current (RD-120).
+#
+# PRE-commit, not post-commit, and deliberately: a post-commit hook that rewrites a
+# tracked file leaves the tree dirty after every single commit, so `git status` reads
+# "1 uncommitted file" permanently and real dirtiness hides behind the noise. Refreshing
+# here puts the file IN the commit instead.
+#
+# It never fails the commit. The prose and its `prose-at` stamp are untouched — only
+# `handoff.py` itself moves those, because writing the prose is what resets staleness.
+python3 tools/handoff.py --refresh 2>/dev/null || exit 0
+git add docs/HANDOFF.md 2>/dev/null || true
+exit 0

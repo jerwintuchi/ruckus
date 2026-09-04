@@ -85,6 +85,30 @@ export class GameServer {
   get skippedSnapshots(): number {
     return this.snapshotsSkipped;
   }
+
+  /**
+   * How busy this server is, in three numbers (RD-120).
+   *
+   * A session resuming cold asks "is a stack already up, and is anyone using it?" before
+   * it starts a second one on the same port or points a bot swarm at a room somebody is
+   * playing in. That question costs one `curl /health`, and the answer belongs here
+   * rather than in a log a tool has to scrape.
+   *
+   * **Counts only — never a code and never a name.** A room code is the join credential:
+   * anyone holding it walks in, and `/health` answers unauthenticated to whatever
+   * network the server is bound to, which is a cafe wifi as often as a living room. I2
+   * validates the shape of a message, not who was entitled to learn a code, so the only
+   * safe thing to publish here is a number. There is a test asserting exactly that.
+   */
+  get occupancy(): { rooms: number; players: number; playing: number } {
+    let players = 0;
+    let playing = 0;
+    for (const { room } of this.rooms.values()) {
+      players += room.connected.length;
+      if (room.state !== "LOBBY") playing++;
+    }
+    return { rooms: this.rooms.size, players, playing };
+  }
   /** code -> the time it was retired, so it is not reissued straight away (P1). */
   private readonly retired = new Map<string, number>();
   private readonly loop = new FixedLoop();

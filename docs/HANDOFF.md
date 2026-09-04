@@ -1,11 +1,13 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `1456067`, work has happened since this was written: distrust it and read
+> `213a70e`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-09-04 22:36 · branch `main` ·
-HEAD `1456067` — feat(tools): the driver waits for a state, not a clock — RD-119 · 0 uncommitted file(s)*
+*Written 2026-09-04 23:01 · branch `main` ·
+HEAD `213a70e` — docs: hand off with the driver working and the colour row reachable · 17 uncommitted file(s)*
+
+*prose-at `213a70e`*
 
 ## What I was doing
 
@@ -25,7 +27,18 @@ A live stack is running: server+client, bots on room NL5W (autostart ON, bot-1 h
 
 ## Uncommitted when this was written
 
-- (clean tree)
+- `.claude/settings.json`
+- `.githooks/pre-commit`
+- `.gitignore`
+- `CLAUDE.md`
+- `docs/DECISION_LOG.md`
+- `docs/technical/shots.html`
+- `docs/technical/shots.json`
+- `docs/technical/spec-status.md`
+- `docs/technical/status.html`
+- `package.json`
+- `src/server/src/main.ts`
+- `src/server/src/net.test.ts`
 
 ---
 

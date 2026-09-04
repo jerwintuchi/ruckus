@@ -6,3 +6,6 @@ __pycache__/
 .env
 .env.local
 .playtest/
+
+# The live room code, written by tools/bots.mjs. Local only — a code is a join key.
+.ruckus-room

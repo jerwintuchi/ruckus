@@ -9,6 +9,11 @@
 
 These are disagreements between what a spec says and what the tree contains.
 
+### `specs/round-status/` — 🟢 active
+
+- **MISSING** — open tasks name 2 file(s) not in the tree: hud.dom.test.ts, scoreboard.dom.test.ts
+- **LIKELY-SHIPPED** — 2 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T1, T2
+
 ### `specs/main-menu/` — 🟡 dormant
 
 - **LIKELY-SHIPPED** — 3 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T2, T3, T4
@@ -22,19 +27,14 @@ These are disagreements between what a spec says and what the tree contains.
 
 - **MISSING** — open tasks name 1 file(s) not in the tree: countdown.test.ts
 
-### `specs/round-status/` — 🟡 dormant
-
-- **MISSING** — open tasks name 2 file(s) not in the tree: hud.dom.test.ts, scoreboard.dom.test.ts
-- **LIKELY-SHIPPED** — 2 open task(s) name only files that already exist — check whether the work shipped and the box was never ticked: T1, T2
-
 ## All specs
 
 | spec | status | done | open | superseded | last touched | flags |
 |---|---|---:|---:|---:|---|---|
+| `round-status` | 🟢 active | 0 | 9 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
 | `main-menu` | 🟡 dormant | 1 | 4 | 0 | 2026-09-03 | LIKELY-SHIPPED |
 | `mutators` | 🟡 dormant | 0 | 12 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
 | `round-countdown` | 🟡 dormant | 6 | 2 | 0 | 2026-09-04 | MISSING |
-| `round-status` | 🟡 dormant | 0 | 9 | 0 | 2026-09-03 | MISSING, LIKELY-SHIPPED |
 | `action-button` | 🟡 dormant | 10 | 1 | 0 | 2026-09-01 | — |
 | `arena-framing` | 🟡 dormant | 6 | 1 | 0 | 2026-09-01 | — |
 | `audio` | 🟡 dormant | 3 | 2 | 0 | 2026-09-01 | — |

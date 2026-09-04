@@ -1,0 +1,53 @@
+{
+  "scenes": {
+    "count-1": {
+      "bytes": 70951,
+      "caption": "\u2026and closes green. One second each, verified frame by frame (RD-119).",
+      "commit": "213a70e",
+      "local": "/tmp/ruckus-shots/count-1.png",
+      "size": "874x402"
+    },
+    "count-3": {
+      "bytes": 101410,
+      "caption": "The count opens red over the arena \u2014 no disc, no shadow (RD-113).",
+      "commit": "213a70e",
+      "local": "/tmp/ruckus-shots/count-3.png",
+      "size": "874x402"
+    },
+    "lobby-landscape": {
+      "bytes": 62061,
+      "caption": "The lobby on a 402px landscape phone \u2014 the roster, the pinned colour row, READY.",
+      "commit": "213a70e",
+      "local": "/tmp/ruckus-shots/lobby-landscape.png",
+      "size": "874x402"
+    },
+    "lobby-settings": {
+      "bytes": 67606,
+      "caption": "Settings opened over the lobby card. Shipped underneath it once (RD-115).",
+      "commit": "213a70e",
+      "local": "/tmp/ruckus-shots/lobby-settings.png",
+      "size": "874x402"
+    },
+    "lobby-very-short": {
+      "bytes": 51963,
+      "caption": "Safari landscape at 292 points (RD-064) \u2014 the tightest viewport the game gets.",
+      "commit": "213a70e",
+      "local": "/tmp/ruckus-shots/lobby-very-short.png",
+      "size": "736x292"
+    },
+    "playing": {
+      "bytes": 91695,
+      "caption": "A round in progress: fixed camera, whole arena, one thumb.",
+      "commit": "213a70e",
+      "local": "/tmp/ruckus-shots/playing.png",
+      "size": "874x402"
+    },
+    "round-brief": {
+      "bytes": 111025,
+      "caption": "The round card: what this minigame is, and the skip vote.",
+      "commit": "213a70e",
+      "local": "/tmp/ruckus-shots/round-brief.png",
+      "size": "874x402"
+    }
+  }
+}
