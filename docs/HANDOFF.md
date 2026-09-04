@@ -1,11 +1,11 @@
 # Handoff
 
 > **Overwritten every session — never appended.** If `git log -1` is not
-> `271bca3`, work has happened since this was written: distrust it and read
+> `c781d6a`, work has happened since this was written: distrust it and read
 > `docs/technical/spec-status.md` (derived) instead.
 
-*Written 2026-09-04 23:01 · branch `main` ·
-HEAD `271bca3` — feat(tools): resume in one call, and a fixed set of screens — RD-120 · 1 uncommitted file(s)*
+*Written 2026-09-04 23:02 · branch `main` ·
+HEAD `c781d6a` — docs: hand off with the resume harness in place · 2 uncommitted file(s)*
 
 *prose-at `271bca3`*
 
@@ -27,7 +27,8 @@ The SessionStart hook only fires on a NEW session, so its first real run is the 
 
 ## Uncommitted when this was written
 
-- `docs/HANDOFF.md`
+- `docs/DECISION_LOG.md`
+- `tools/resume.py`
 
 ---
 

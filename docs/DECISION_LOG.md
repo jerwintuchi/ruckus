@@ -5147,6 +5147,14 @@ made the handoff look freshest exactly when it was most misleading.
 The hook never fails a commit, and if `core.hooksPath` is unset in some other clone the
 only loss is the refresh — `resume.py` still derives everything live.
 
+**And an off-by-one the first real run exposed.** Writing the prose stamps `prose-at` at
+the CURRENT head; the commit that then carries the file moves HEAD past it. So a handoff
+written and committed correctly announced itself "1 commit behind" the instant it was
+created — guaranteed by construction, and the fastest possible way to teach a reader to
+ignore that line. Commits touching nothing but `docs/HANDOFF.md` are now excluded from the
+drift count, which is just the honest reading: a commit that only carries the handoff is
+not work that happened since the handoff.
+
 ### `/health` gained occupancy — three numbers, and never a code
 
 A resuming session's first question is "is a stack already up, and is anyone in it?"

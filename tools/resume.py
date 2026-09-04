@@ -125,8 +125,26 @@ def since_handoff() -> list[str]:
     m = re.search(r"prose-at `([0-9a-f]{6,40})`", text) or re.search(r"HEAD `([0-9a-f]{6,40})`", text)
     if not m:
         return []
-    out = sh("git", "log", "--oneline", "%s..HEAD" % m.group(1))
-    return out.splitlines() if out else []
+    rng = "%s..HEAD" % m.group(1)
+    out = sh("git", "log", "--format=%h %s", rng)
+    if not out:
+        return []
+
+    # Drop commits that changed ONLY the handoff itself.
+    #
+    # Writing the prose stamps `prose-at` at the CURRENT head; the commit that then
+    # carries the file moves HEAD past it. So a handoff written and committed correctly
+    # reported itself "1 commit behind" the moment it was created — an off-by-one
+    # guaranteed by construction, and the fastest way to teach a reader to ignore this
+    # line. A commit that touches nothing but this file is not work happening since.
+    kept = []
+    for line in out.splitlines():
+        sha = line.split(" ", 1)[0]
+        files = sh("git", "show", "--pretty=", "--name-only", sha).splitlines()
+        if files and all(f.strip() == "docs/HANDOFF.md" for f in files if f.strip()):
+            continue
+        kept.append(line)
+    return kept
 
 
 # ---------------------------------------------------------------------------- the specs
@@ -307,6 +325,15 @@ def selftest() -> int:
     tricky = 'a "quote" and a `tick` and a \\ backslash'
     if json.loads(hook_envelope(tricky))["hookSpecificOutput"]["additionalContext"] != tricky:
         fails.append("hook envelope mangles quoting")
+
+    # The off-by-one above, pinned: a handoff-only commit must not read as work.
+    head = sh("git", "rev-parse", "--short", "HEAD")
+    if head:
+        touched = sh("git", "show", "--pretty=", "--name-only", head).splitlines()
+        only_handoff = bool(touched) and all(
+            f.strip() == "docs/HANDOFF.md" for f in touched if f.strip())
+        if only_handoff and since_handoff():
+            fails.append("a handoff-only commit still counts as drift")
 
     # A down server must read as unknown, not as a claim about the world.
     keep_url = globals()["HEALTH_URL"]
